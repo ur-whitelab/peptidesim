@@ -1,0 +1,19 @@
+#python compiled
+*.pyc
+*ipynb
+#emacs stuff
+*~
+#*#
+.#*
+*.pdb
+#random stuff
+*.log
+*.gro
+*.itp
+*.top
+*.dat
+*.edr
+*.tpr
+*.trr
+*.mdp
+*.cpt
