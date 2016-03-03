@@ -1,12 +1,19 @@
+#python package
+/dist/
+/*.egg-info
+/*.egg
+
 #python compiled
 *.pyc
 *ipynb
+
 #emacs stuff
 *~
 #*#
 .#*
 *.pdb
-#random stuff
+
+#gromacs stuff
 *.log
 *.gro
 *.itp

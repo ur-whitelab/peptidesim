@@ -7,7 +7,7 @@ import PeptideBuilder
 import Bio.PDB
 PDB2GMX='gmx pdb2gmx'
 GMXSOLVATE='gmx solvate'
-class Simulation:
+class PeptideSim:
     def __init__(self, dir_name, *args):
         '''This is an initiator and takes the arguments from the command line and creates the class simulation.
            Args: 
