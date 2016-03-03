@@ -13,6 +13,7 @@ setup(name = 'peptidesim',
       url = 'http://thewhitelab.org/Software',
       license = 'GPL3',
       packages = ['peptidesim'],
-      install_requires=['https://github.com/mtien/PeptideBuilder/master#egg=package-1.0.1', 'GromacsWrapper'],
+      install_requires=['PeptideBuilder==1.0.1', 'GromacsWrapper'],
+      dependency_links=['https://github.com/mtien/PeptideBuilder/archive/master.zip#egg=package-1.0.1'],
       zip_safe=True
 )
