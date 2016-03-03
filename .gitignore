@@ -24,3 +24,6 @@
 *.trr
 *.mdp
 *.cpt
+
+#Sphinx build
+doc/_build
