@@ -6,7 +6,7 @@
 
 #python compiled
 *.pyc
-*ipynb
+*.ipynb
 
 #emacs stuff
 *~

@@ -2,7 +2,6 @@ from gromacs.setup import *
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
 import gromacs.tools as tools
-import Geometry
 import PeptideBuilder 
 import Bio.PDB
 PDB2GMX='gmx pdb2gmx'
@@ -100,7 +99,7 @@ class PeptideSim:
                 logging.error(err)
                 raise OSError('{} failed with {}. stderr follow'.format(string, retcode))
         except OSError as e:
-            print >>sys.stderr, 'Execution of {} failed:'.format(string), e
+            raise OSError('Execution of {} failed:'.format(string), e)
 
     def _setup_directory(self, *to_copy):
         '''builds directory, starts log

@@ -15,5 +15,6 @@ setup(name = 'peptidesim',
       packages = ['peptidesim'],
       install_requires=['PeptideBuilder==1.0.1', 'GromacsWrapper'],
       dependency_links=['https://github.com/mtien/PeptideBuilder/archive/master.zip#egg=package-1.0.1'],
+      test_suite="tests",
       zip_safe=True
 )
