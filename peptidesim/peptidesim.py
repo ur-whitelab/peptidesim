@@ -7,11 +7,11 @@ import Bio.PDB
 PDB2GMX='gmx pdb2gmx'
 GMXSOLVATE='gmx solvate'
 class PeptideSim:
-    def __init__(self, dir_name, *args):
+    def __init__(self, dir_name, *seqs):
         '''This is an initiator and takes the arguments from the command line and creates the class simulation.
-           Args: 
+           Arguments: 
                dir_name: name of the directory where your simulation should be saved, and 
-               *args: a list of Amino Acid sequences
+               *seqs: a list of Amino Acid sequences
            returns: 
                nothing
         '''
@@ -24,7 +24,7 @@ class PeptideSim:
         self.name=dir_name #name of the directory where this simulation will be saved
         self.files_tocopy=[]
         self.pdbfiles=[]
-        for sequence in args:
+        for sequence in seqs:
             self.pdbfile=self._pdb_file_generator(sequence)#sequence will be converted to a pdb file
             self.pdbfiles.append(self.pdbfile)#copies the pdbfiles
             self.files_tocopy.append(self.pdbfile)#copies the files needed to start the simulation

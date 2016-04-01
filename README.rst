@@ -11,5 +11,7 @@ Gromacs:'http://www.gromacs.org/Documentation/Installation_Instructions_5.0'
 
 
 TODO:
-1. Create inital tests
-2. Update README file   
+  1. Replace parameters with ConfigParser
+  2. Write a few tests
+3. Write more consistent imports/names
+   4. Swtich docstrings to rst format
