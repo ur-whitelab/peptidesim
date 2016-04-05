@@ -1,0 +1,5 @@
+testing:
+  image: jupyter:scipy-notebook
+  commands:
+    - pip install . -r requirements.txt
+    - python setup.py test

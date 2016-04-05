@@ -28,3 +28,5 @@
 
 #Sphinx build
 doc/_build
+
+.dox/*
