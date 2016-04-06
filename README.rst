@@ -11,7 +11,7 @@ Gromacs:'http://www.gromacs.org/Documentation/Installation_Instructions_5.0'
 
 
 TODO:
-  1. Replace parameters with ConfigParser
+  1. Replace parameters with ConfigParser. No use traitlests.application/config
   2. Write a few tests
-3. Write more consistent imports/names
-   4. Swtich docstrings to rst format
+  3. Write more consistent imports/names
+  4. Swtich docstrings to rst format
