@@ -1,0 +1,23 @@
+FROM jupyter/scipy-notebook
+
+MAINTAINER Andrew White
+
+USER root
+
+#make it easy to execuate as root
+RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/00nopass && chmod 0440 /etc/sudoers.d/00nopass
+RUN adduser jovyan sudo
+RUN passwd jovyan -d
+
+#set default shell to bash
+RUN echo "dash dash/sh boolean false" | debconf-set-selections
+RUN dpkg-reconfigure -f noninteractive dash
+
+#install gromacs
+
+#enable contributed packages
+RUN sed -i 's/main/main contrib/g' /etc/apt/sources.list
+RUN apt-get update
+RUN apt-get install -y gromacs gromacs-data
+
+USER jovyan

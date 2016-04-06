@@ -3,6 +3,7 @@
 /build/
 /*.egg-info
 /*.egg
+.egg*
 
 #python compiled
 *.pyc

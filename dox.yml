@@ -1,5 +1,12 @@
 testing:
-  image: jupyter:scipy-notebook
+  images:
+     - peptidesim/testing
+  add:
+     - requirements.txt
+  prep:
+    - source activate python2
+    - pip install -r requirements.txt
   commands:
-    - pip install . -r requirements.txt
+    - source activate python2
     - python setup.py test
+
