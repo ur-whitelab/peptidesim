@@ -20,4 +20,10 @@ RUN sed -i 's/main/main contrib/g' /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get install -y gromacs gromacs-data
 
+#configure the GromacsWrapper
+RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
+
+ADD gromacs.cfg /root/.gromacswrapper.cfg
+
 USER jovyan
+
