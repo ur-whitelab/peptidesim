@@ -1,30 +1,95 @@
-from gromacs.setup import *
+'''Simulate a peptide with a defined sequence and conditions.
+
+    PeptideSim
+    ==========
+    
+    INITIALIZING:
+    -------------
+    This is an initiator that takes the arguments from the command line and creates the class simulation.
+
+    Example:
+    ^^^^^^^^
+    
+    Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
+
+        p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
+
+    Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
+
+        p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
+
+    Arguments:
+    ^^^^^^^^^^
+
+    dir_name: name of the directory where your simulation should be saved, and 
+
+    seqs: a list of Amino Acid sequences
+
+    counts: a list of the number of occurrences of each amino acid, in order
+
+    CONFIGURATION FILE:
+    -------------------
+
+    config_name: The name of the config file to look at for the sim parameters to use
+    
+    See the template directory for predefined config files. Run ::
+
+        $ peptidesim config <config_name> 
+
+    to generate a config file in the current directory based on the config templates provided, or use
+    ``default`` to generate the default configuration.
+
+    '''
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
 import gromacs.tools as tools
 import PeptideBuilder 
 import Bio.PDB
+
+from traitlets.config.configurable import Configurable
+from traitlets import Int, Float, Unicode, Bool, List
+
 PDB2GMX='gmx pdb2gmx'
 GMXSOLVATE='gmx solvate'
-class PeptideSim:
-    def __init__(self, dir_name, *seqs):
-        '''This is an initiator and takes the arguments from the command line and creates the class simulation.
-           Arguments: 
-               dir_name: name of the directory where your simulation should be saved, and 
-               *seqs: a list of Amino Acid sequences
-           returns: 
-               nothing
-        '''
-        self.topol='topology.top'#name of the topology file
-        self.gro='protein.gro'#name of the gro file
-        self.pressure=1#pressure in bar
-        self.equil_time=0.0001 #equilibration time (ps)
-        #names and generates pdb file of the sequence 1
-        self.prod_time=0.0001  #production time (ps)
-        self.name=dir_name #name of the directory where this simulation will be saved
-        self.files_tocopy=[]
-        self.pdbfiles=[]
+
+class PeptideSim(Configurable):
+    
+
+    name = Unicode(u'peptidesim',
+                   help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)'
+                   ).tag(config=True)
+                   
+    topol = Unicode(u'topology.top',
+                    help='Gromacs topology file'
+                    ).tag(config=True)
+    gro = Unicode(u'protein.gro',
+                  help='The Gromcas structure file'
+                  ).tag(config=True)
+    pressure = Float(0,
+                     help='Barostat pressure. Ignored if not doing NPT'
+                     ).tag(config=True)
+    file_list = List(help = 'Files to carry over for each simulation'
+                     ).tag(config=True)
+    pdbfiles = List(help = 'Initial PDB files for peptides'
+                     ).tag(config=True)
+
+    dry_packed_file = Unicode(u'dry_mix.pdb',
+                              help = 'The name of the combined peptides without water'
+                              ).tag(config=True)
+
+    peptide_density = Float(0.2,
+                          help='The density of the peptides in milligrams / milliliter'
+                          ).tag(config=True)
+    
+                     
+    def __init__(self,job_name,seqs,counts=None):        
+        self.job_name = job_name
+
+        #generate pdbs from sequences and store their extents
+        self.structure_extents = []
+        self.peptide_mass = []
         for sequence in seqs:
+<<<<<<< HEAD
             self.pdbfile=self._pdb_file_generator(sequence)#sequence will be converted to a pdb file
             self.pdbfiles.append(self.pdbfile)#copies the pdbfiles
             self.files_tocopy.append(self.pdbfile)#copies the files needed to start the simulation
@@ -64,6 +129,25 @@ class PeptideSim:
         Parameters
         -------------
         dirname: the name of directory that has output files of the equiliberation simulation
+=======
+            structure, minmax, mass = self._pdb_file_generator(sequence)
+            self.pdbfiles.append(structure)
+            self.structure_extents.append(minmax)
+            self.peptide_mass.append(mass)
+            
+        #we'll carry around the pdb files
+        self.file_list.append(self.pdbfiles)        
+        self._setup_directory(*self.file_list)# sets up a directory with given name and files
+
+        #store the copies we'd like to have of each sequence
+        if counts is None:
+            counts = [1 for s in seqs]
+        self.counts=counts
+
+        #pack initial structure
+        
+       
+>>>>>>> 6add3844966b37560aefa36cdff1544d083239bc
         
         .....                                                                                                                              
         Returns                                                                                                                            
@@ -88,7 +172,7 @@ class PeptideSim:
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
                     #bring files
-                for f in self._files_to_take():
+                for f in self.file_list:
                     if(f is not None and os.path.exists(f)):
                         shutil.copyfile(f, os.path.join(dirname, os.path.basename(f)))            
                 #go there
@@ -99,7 +183,7 @@ class PeptideSim:
                     #make sure we leave
                     os.chdir( self.dir)
                     #bring back files
-                    for f in self._files_to_take():
+                    for f in self.file_list:
                         if(f is not None and os.path.exists(os.path.join(dirname, f))):
                             shutil.copyfile(os.path.join(dirname, f),f)
             return mod_f
@@ -161,62 +245,89 @@ class PeptideSim:
            args:none
            returns: an array of files to be copied
         '''
-        return self.files_tocopy#takes the files that are needed for the simulation
-    def _pdb_file_generator(self, sequence):
+        return self.file_list#takes the files that are needed for the simulation
+    def _pdb_file_generator(self, sequence):        
         '''This function generates a pdbfile using peptide builder from a string of Amino Acids.
            Args:
                sequence-a string of amino acids
            returns: a pdbfile   
         '''
-        pdbfile1=sequence+'.pdb'# sets the pdbfilename after the sequence
+
+        from Bio.PDB import PDBIO
+        from Bio.SeqUtils.ProtParam import ProteinAnalysis
+        
+        pdbfile=sequence+'.pdb'# sets the pdbfilename after the sequence
         structure = PeptideBuilder.initialize_res(sequence[0])
-        for i in range(len(sequence)):
-            if(i==0):
-                continue
-            feo=sequence[i]
-            structure = PeptideBuilder.add_residue(structure, feo)
-        out = Bio.PDB.PDBIO()
+        for s in sequence[1:]:
+            structure = PeptideBuilder.add_residue(structure, s)
+        
+        #extract minmax
+        smax = [-10**10, -10**10, -10**10]
+        smin = [10**10, 10**10, 10**10]
+        for a in structure.get_atoms():
+            for i in range(3):
+                smax[i] =  a.coords[i] if a.coords[i] >  smax[i] else smax[i]
+                smin[i] =  a.coords[i] if a.coords[i] <  smin[i] else smin[i]
+                
+        out = PDBIO()
         out.set_structure(structure)
-        out.save( pdbfile1 ) #adds aminoacids one at a time and generates a pdbfile
-        return pdbfile1
+        out.save( pdbfile ) #adds aminoacids one at a time and generates a pdbfile
+
+        #get molecular weight
+        p = ProteinAnalysis(sequence)        
+        
+        return pdbfile, [smin, smax], p.molecular_weight()
         
         
     @_putInDir('init_setup')
     def packmol(self):
-        '''This function takes multiple pdbfiles and combines them into one and adds the final pdbfile into a list of files that need to be present to initiate a simulation. 
+        '''This function takes multiple pdbfiles and combines them into one pdbfile
         '''
-        self._files_to_take()
+
+        #compute the box size we'll need
+        #sum volumes and get longest dimension
+        vol = 0
+        long = 0
+        for e in self.structure_extents:
+            diff = [max - min for max,min in e]
+            long = max(max(diff), long)
+            vol += reduce(lambda x,y: x * y, diff)
+
+
+        vol *= self.volume_margin
+        proposed_box_dim = vol**(1/3.)
+        proposed_box_dim = max(long, proposed_box_dim)
+        
+        
         #build input file
-        self.pdbfile='final.pdb'
-        self.number_sequences=len(self.pdbfiles)
-        input_file = 'input1.inp'
-        self.copies1=1#number of copies of sequences to be packed
+        input_file = 'input.inp'
         with open(input_file, 'w') as f:
             f.write(textwrap.dedent(
                 '''
                 tolerance 1.0
                 filetype pdb 
                 output {}
-                '''.format(self.pdbfile)))
-            for i in self.pdbfiles:#iterates through the number of amino acids in a list
+                '''.format(self.dry_packed_file)))
+            for i in self.pdbfiles:#iterate through peptide pdb structures
                 f.write(textwrap.dedent(
                     '''
                     structure {} 
                       number {}
                       inside box 0 0 0. {}. {}. {}. 
                     end structure
-                    '''.format(i, self.copies1, self.x_dim_box, self.y_dim_box, self.z_dim_box))) 
+                    '''.format(i, self.counts, self.x_dim_box, self.y_dim_box, self.z_dim_box))) 
         PACKMOL1='packmol < {}'.format(input_file) #packmol command that runs the input file and generates a pdbfile with multiple amino acid sequences.
         self._exec_log(PACKMOL1)#executes the packmol command
-        self.files_tocopy.append(self.pdbfile)
-        self.files_tocopy.append(input_file)
+        self.file_list.append(self.pdbfile)
+        self.file_list.append(input_file)
+        
     @_putInDir('initial_housekeeping')        
     def initial_setup(self):
         '''Prepares the components before the simulation is run.This is where the type of water and type of force fields are chosen. Generates a box with the amino acid sequence. It generates gro file with amino acids in a box and itp files. 
         Args: none
         Returns:none
         '''
-        self._files_to_take()
+        self.file_list
         self.gro='initial.gro' #gro file that contains the amino acid.
         self.water_model=['spc', 'spce', 'tip3p', 'tip4p', 'tip5p']#types of water models available
         self.water_model_number=1#index of the water model to be used
@@ -230,8 +341,8 @@ class PeptideSim:
         box_protein=tools.Editconf(f=self.gro, c=[], o=self.box_protein, box=[self.x_dim_box/10, self.y_dim_box/10, self.z_dim_box/10])#runs an editconf command from gromacs_wrapper
         box_protein.run()#runs the editconf command
       
-        self.files_tocopy.append(self.topol)
-        self.files_tocopy.append(self.box_protein)
+        self.file_list.append(self.topol)
+        self.file_list.append(self.box_protein)
         self._itp()#finds and takes itp files
     @_putInDir('energy_min_solvate')    
     def solvate_enem(self):
@@ -239,7 +350,7 @@ class PeptideSim:
         Args: none
         returns: none
         '''
-        self._files_to_take()
+        self.file_list
         self.solvated_gro="solvated.gro" #gro file that will contain solvated box of amino acid sequences
         topol_em_tpr='topol_em.tpr'# name of the tpr file generated by initial energy minimization
        
@@ -261,8 +372,8 @@ class PeptideSim:
         energy_min2.run()#second energy minimization after adding ions is running
         energy_mdrun=tools.Mdrun(s=topol_em_tpr2, c=self.conf_ion_gro, o=energy_mdrun_trr)#arguments needed to run mdrun command
         energy_mdrun.run()#runs the mdrun command
-        self.files_tocopy.append(self.conf_ion_gro)#takes the output of the last command
-        self.files_tocopy.append(self.topol)
+        self.file_list.append(self.conf_ion_gro)#takes the output of the last command
+        self.file_list.append(self.topol)
 
     @_putInDir('equilibration')
     def equilibrate(self):
@@ -270,7 +381,7 @@ class PeptideSim:
         Args: none
         returns: none
         '''
-        self._files_to_take()#copies files needed to run this equilibration simulation
+        self.file_list#copies files needed to run this equilibration simulation
         self.equilib_tpr='equilib.tpr'#tpr file generated after running the equilibration
         self.equil_top='equil.top'#name of the topology file after equilibration step
         self.equilib_mdrun_trr='equilib.trr'#trr file generated after running equilibration
@@ -279,15 +390,15 @@ class PeptideSim:
         equilibrate_grommp.run()#reads the equilibration file and runs the grommp command
         equilibrate_mdrun=tools.Mdrun(s=self.equilib_tpr, c=self.equil_gro, o=self.equilib_mdrun_trr )
         equilibrate_mdrun.run()#run the equilibration mdrun
-        self.files_tocopy.append(self.equil_gro)
-        self.files_tocopy.append(self.equil_top)
+        self.file_list.append(self.equil_gro)
+        self.file_list.append(self.equil_top)
     @_putInDir('nvt')
     def nvt_grompp_mdrun(self):
         '''Runs the simulation in nvt ensemble
         Args:
         Returns: 
         '''
-        self._files_to_take()
+        self.file_list
         self.nvt_tpr='nvt.tpr'#tpr file generated by grompp command
         self.nvt_top='nvt.top'#top file
         self.nvt_trr='nvt.trr'#trr file
@@ -296,15 +407,15 @@ class PeptideSim:
         nvt_grompp.run()#runs grompp
         nvt_mdrun=tools.Mdrun(s=self.nvt_tpr, c=self.nvt_gro, o=self.nvt_trr)
         nvt_mdrun.run()#runs mdrun
-        self.files_tocopy.append(self.nvt_gro)
-        self.files_tocopy.append(self.nvt_trr)
+        self.file_list.append(self.nvt_gro)
+        self.file_list.append(self.nvt_trr)
     def _equilib_file(self):
         '''mdp file needed for equilibration
         Args: none
         returns: 
           input_file-an mdp input file for running equilbration 
         '''
-        self._files_to_take()
+        self.file_list
         input_file='equilib.mdp'
         
         with open(input_file, 'w') as f:
@@ -373,7 +484,7 @@ class PeptideSim:
                     if(os.path.exists(os.path.join(dir, file))):
                         self.itp_files.append(file)
                         #print self.itp_files
-                        self.files_tocopy.append(file)
+                        self.file_list.append(file)
 
                         
     def _energy(self):
@@ -429,7 +540,6 @@ class PeptideSim:
         Args: none
         returns: input_ file(an mdp file needed to run the nvt ensemble simulation)
         '''
-        self._files_to_take()
         input_file = 'prod.mdp'
         with open(input_file, 'w') as f:
             f.write(textwrap.dedent('''
@@ -475,6 +585,20 @@ class PeptideSim:
             '''.format(pressure=self.pressure * 1.01325, 
                        time=self.prod_time * 10**6 / 2.)))
             return input_file
-    
+
+        def analysis(self):
+            """This function analyzes the output of the simulation. 
+
+            It reads md.log file specified in configuration. It extracts the total
+            energy and temperature at each timestep and creates respective
+            histograms. The function creates a folder called Images and saves the
+            historams as TotalEnergyHist.png and TemperatureHist.png.
+                            
+            Returns
+            -------
+            list
+                The relative path to the *.png images.
+
+            """
             
-    
+            pass
