@@ -14,14 +14,14 @@ class PeptideSim(Configurable):
     '''Simulate a peptide with a defined sequence and conditions.
 
     PeptideSim
-    ====
+    ==========
     
     INITIALIZING:
-    ----
+    -------------
     This is an initiator that takes the arguments from the command line and creates the class simulation.
 
     Example:
-    ^^^^
+    ^^^^^^^^
     
     Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
 
@@ -32,7 +32,7 @@ class PeptideSim(Configurable):
         p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 
     Arguments:
-    ^^^^
+    ^^^^^^^^^^
 
     dir_name: name of the directory where your simulation should be saved, and 
 
@@ -41,7 +41,7 @@ class PeptideSim(Configurable):
     counts: a list of the number of occurrences of each amino acid, in order
 
     CONFIGURATION FILE:
-    ----
+    -------------------
 
     config_name: The name of the config file to look at for the sim parameters to use
     
