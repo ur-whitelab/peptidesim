@@ -31,10 +31,49 @@ class PeptideSim:
         self._files_to_take()#this actually copies and carries the files around
         self._setup_directory(*self._files_to_take())# sets up a directory with given name and files
         self.copies1=1#number of copies of pdb file 
-        self.x_dim_box,self.y_dim_box,self.z_dim_box=40,40,40#box legth in Angstroms
+        self.x_dim_box,self.y_m_box,self.z_dim_box=40,40,40#box legth in Angstroms
         self.copies2=1#number of copies of pdb file 
-       
+    
+
+    def change_density(self, new_density):
+        '''This will change the density of the simulation.
+
+        Density is given by the equation:
+            rho = m / v
+        where m is mass and v is volume. This function
+        will...
+
+
+        Parameters
+        -----------
+        new_density : float
+            The density at which the simulation should be do'''
+    def equiliberation(self,dirname):
+        '''This is the method of equiliberation which contains five steps.
+
+        First step: Adding water into the system and the output goes to file named peptide_addwater_gro.
         
+        Second step: Adding ions into the system and the output goes to file named peptide_addwater_addions_gro. 
+
+        Third step: Getting energy minimization  
+        
+        Fourth step: Annealing for simulated annealing 
+
+        Fifth step: Equil run
+
+        Parameters
+        -------------
+        dirname: the name of directory that has output files of the equiliberation simulation
+        
+        .....                                                                                                                              
+        Returns                                                                                                                            
+        ------                                                                                                                             
+        res : res is the path to md.log file
+
+        '''
+        pass
+
+        '''
 
     def _putInDir(dirname):
         ''' This is a decorator that will wrap a function so that it is executed inside of a particular directory.
