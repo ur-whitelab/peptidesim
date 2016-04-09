@@ -447,3 +447,4 @@ class PeptideSim:
             The function returns the relative path to the *.png images.
             """
             
+            pass
