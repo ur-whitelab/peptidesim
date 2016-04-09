@@ -17,7 +17,6 @@ peptidesim is an automated peptide simulator for gromacs.
 .. automodule:: peptidesim
    :members:
 
-
 Indices and tables
 ==================
 
