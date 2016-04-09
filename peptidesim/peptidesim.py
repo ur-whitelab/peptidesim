@@ -95,9 +95,27 @@ line and creates the class simulation.
         self.copies1=1#number of copies of pdb file 
         self.x_dim_box,self.y_m_box,self.z_dim_box=40,40,40#box legth in Angstroms
         self.copies2=1#number of copies of pdb file 
-    
 
-    def equiliberation(self,dirname):
+
+    def analysis(self):
+            """This function analyzes the output of the simulation. 
+
+            It reads md.log file specified in configuration. It extracts the total
+            energy and temperature at each timestep and creates respective
+            histograms. The function creates a folder called Images and saves the
+            historams as TotalEnergyHist.png and TemperatureHist.png.
+                            
+            Returns
+            -------
+            list
+                The relative path to the *.png images.
+
+            """
+            
+            pass
+        
+
+    def equilibration(self,dirname):
         '''This is the method of equiliberation which contains five steps.
 
         First step: Adding water into the system and the output goes to file named peptide_addwater_gro.
@@ -546,19 +564,3 @@ line and creates the class simulation.
                        time=self.prod_time * 10**6 / 2.)))
             return input_file
 
-        def analysis(self):
-            """This function analyzes the output of the simulation. 
-
-            It reads md.log file specified in configuration. It extracts the total
-            energy and temperature at each timestep and creates respective
-            histograms. The function creates a folder called Images and saves the
-            historams as TotalEnergyHist.png and TemperatureHist.png.
-                            
-            Returns
-            -------
-            list
-                The relative path to the *.png images.
-
-            """
-            
-            pass
