@@ -1,17 +1,4 @@
-import numpy as np 
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
-import gromacs.tools as tools
-import PeptideBuilder 
-import Bio.PDB
-
-from traitlets.config.configurable import Configurable
-from traitlets import Int, Float, Unicode, Bool, List
-
-PDB2GMX='gmx pdb2gmx'
-GMXSOLVATE='gmx solvate'
-
-class PeptideSim(Configurable):
-    '''Simulate a peptide with a defined sequence and conditions.
+'''Simulate a peptide with a defined sequence and conditions.
 
     PeptideSim
     ==========
@@ -53,6 +40,20 @@ class PeptideSim(Configurable):
     ``default`` to generate the default configuration.
 
     '''
+import numpy as np 
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
+import gromacs.tools as tools
+import PeptideBuilder 
+import Bio.PDB
+
+from traitlets.config.configurable import Configurable
+from traitlets import Int, Float, Unicode, Bool, List
+
+PDB2GMX='gmx pdb2gmx'
+GMXSOLVATE='gmx solvate'
+
+class PeptideSim(Configurable):
+    
 
     name = Unicode(u'peptidesim',
                    help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)'
