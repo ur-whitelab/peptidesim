@@ -87,7 +87,6 @@ line and creates the class simulation.
         self.structure_extents = []
         self.peptide_mass = []
         for sequence in seqs:
-<<<<<<< HEAD
             self.pdbfile=self._pdb_file_generator(sequence)#sequence will be converted to a pdb file
             self.pdbfiles.append(self.pdbfile)#copies the pdbfiles
             self.files_tocopy.append(self.pdbfile)#copies the files needed to start the simulation
@@ -98,19 +97,6 @@ line and creates the class simulation.
         self.copies2=1#number of copies of pdb file 
     
 
-    def change_density(self, new_density):
-        '''This will change the density of the simulation.
-
-        Density is given by the equation:
-            rho = m / v
-        where m is mass and v is volume. This function
-        will...
-
-
-        Parameters
-        -----------
-        new_density : float
-            The density at which the simulation should be do'''
     def equiliberation(self,dirname):
         '''This is the method of equiliberation which contains five steps.
 
@@ -126,36 +112,12 @@ line and creates the class simulation.
 
         Parameters
         -------------
-        dirname: the name of directory that has output files of the equiliberation simulation
-=======
-            structure, minmax, mass = self._pdb_file_generator(sequence)
-            self.pdbfiles.append(structure)
-            self.structure_extents.append(minmax)
-            self.peptide_mass.append(mass)
-            
-        #we'll carry around the pdb files
-        self.file_list.append(self.pdbfiles)        
-        self._setup_directory(*self.file_list)# sets up a directory with given name and files
+        dirname : str 
+            the name of directory that has output files of the equiliberation simulation
 
-        #store the copies we'd like to have of each sequence
-        if counts is None:
-            counts = [1 for s in seqs]
-        self.counts=counts
-
-        #pack initial structure
-        
-       
->>>>>>> 6add3844966b37560aefa36cdff1544d083239bc
-        
-        .....                                                                                                                              
-        Returns                                                                                                                            
-        ------                                                                                                                             
-        res : res is the path to md.log file
-
+        Returns                                                                                                                         ------                                                                                                                             
         '''
         pass
-
-        '''
 
     def _putInDir(dirname):
         ''' This is a decorator that will wrap a function so that it is executed inside of a particular directory.
