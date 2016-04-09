@@ -7,7 +7,7 @@
     
     See the template directory for predefined config files. Run ::
 
-        $ peptidesim config <config_name> 
+        $ peptidesim --config <config_name> 
 
     to generate a config file in the current directory based on the config templates provided, or use
     ``default`` to generate the default configuration.
@@ -20,12 +20,14 @@ import logging, os, shutil, datetime, subprocess, re, textwrap, sys
 import gromacs.tools as tools
 import PeptideBuilder 
 import Bio.PDB
+from .version import __version__
 
-from traitlets.config.configurable import Configurable
-from traitlets import Int, Float, Unicode, Bool, List
+from traitlets.config import Configurable, Application, PyFileConfigLoader
+from traitlets import Int, Float, Unicode, Bool, List, Instance
 
 PDB2GMX='gmx pdb2gmx'
 GMXSOLVATE='gmx solvate'
+    
 
 class PeptideSim(Configurable):
     '''PeptideSim    
@@ -40,11 +42,18 @@ class PeptideSim(Configurable):
     Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
 
         p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
-'''
 
-    name = Unicode(u'peptidesim',
-                   help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)'
-                   ).tag(config=True)
+    '''
+
+    sim_name = Unicode(u'peptidesim',
+                       help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)',
+                       ).tag(config=True)
+
+    config_file = Unicode('peptidesim_config.py',
+        help="The config file to load",
+    ).tag(config=True)
+
+
                    
     topol = Unicode(u'topology.top',
                     help='Gromacs topology file'
@@ -69,7 +78,7 @@ class PeptideSim(Configurable):
                           ).tag(config=True)
     
                      
-    def __init__(self,job_name,seqs,counts=None):        
+    def __init__(self,job_name,seqs,counts=None,config_file=None):        
         '''This is an initiator that takes the arguments from the command
 line and creates the class simulation.
 
@@ -82,6 +91,12 @@ line and creates the class simulation.
         counts : List[int]
             A list of the number of occurrences of each amino acid, in order.
         '''
+
+        #Note: use load_pyconfig_files to merge them. Useful in future
+        #load in configuration file
+        loader = PyFileConfigLoader(config_file)
+        super(Configurable, self).__init__(config=loader.load_config())
+
         self.job_name = job_name
         #generate pdbs from sequences and store their extents
         self.structure_extents = []
@@ -94,8 +109,7 @@ line and creates the class simulation.
         self._setup_directory(*self._files_to_take())# sets up a directory with given name and files
         self.copies1=1#number of copies of pdb file 
         self.x_dim_box,self.y_m_box,self.z_dim_box=40,40,40#box legth in Angstroms
-        self.copies2=1#number of copies of pdb file 
-
+        self.copies2=1#number of copies of pdb file
 
     def analysis(self):
             """This function analyzes the output of the simulation. 
@@ -564,3 +578,64 @@ line and creates the class simulation.
                        time=self.prod_time * 10**6 / 2.)))
             return input_file
 
+class PeptideSimConfigurator(Application):
+    #information for running peptidesim from command line
+    name = 'peptidesim'
+    version = __version__
+    classes = [PeptideSim]
+    description = '''The peptidesim application.
+
+    Currently, this application only generates a configuration
+    '''
+    
+
+    #command line flags
+    aliases = {'f': 'PeptideSim.config_file',
+               'config': 'PeptideSim.generate_config'}
+    
+    config_file = Unicode('peptidesim_config.py',
+        help="The config file to load",
+    ).tag(config=True)
+                   
+    generate_config = Bool(True,
+        help="Generate default config file",
+    ).tag(config=True)
+
+
+    def write_config_file(self):
+        """Write our default config to a .py config file"""
+        if os.path.exists(self.config_file):
+            answer = ''
+            def ask():
+                prompt = "Overwrite {} with default config? [y/N]".format(self.config_file)
+                try:
+                    return raw_input(prompt).lower() or 'n'
+                except KeyboardInterrupt:
+                    print('') # empty line
+                    return 'n'
+            answer = ask()
+            while not answer.startswith(('y', 'n')):
+                print("Please answer 'yes' or 'no'")
+                answer = ask()
+            if answer.startswith('n'):
+                return
+
+        config_text = self.generate_config_file()
+        if isinstance(config_text, bytes):
+            config_text = config_text.decode('utf8')
+        print("Writing default config to: %s" % self.config_file)
+        with open(self.config_file, mode='w') as f:
+            f.write(config_text)
+            
+
+
+
+
+
+
+def main():
+    p = PeptideSimConfigurator.instance()
+    p.write_config_file()
+    
+if __name__ == "__main__":
+    main()
