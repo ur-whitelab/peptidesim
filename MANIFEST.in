@@ -1,0 +1,6 @@
+include README.md
+include setupegg.py
+include *requirements.txt
+
+graft jupyterhub
+graft scripts
