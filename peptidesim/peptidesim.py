@@ -22,7 +22,7 @@ import PeptideBuilder
 import Bio.PDB
 from .version import __version__
 
-from traitlets.config import Configurable, Application
+from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance
 
 PDB2GMX='gmx pdb2gmx'
@@ -92,8 +92,10 @@ line and creates the class simulation.
             A list of the number of occurrences of each amino acid, in order.
         '''
 
+        #Note: use load_pyconfig_files to merge them. Useful in future
         #load in configuration file
-        super(Configurable, self).__init__(config=config_file)
+        loader = PyFileConfigLoader(config_file)
+        super(Configurable, self).__init__(config=loader.load_config())
 
         self.job_name = job_name
         #generate pdbs from sequences and store their extents
