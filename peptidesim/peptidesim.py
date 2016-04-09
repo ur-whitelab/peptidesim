@@ -1,33 +1,6 @@
 '''Simulate a peptide with a defined sequence and conditions.
 
-    PeptideSim
-    ==========
-    
-    INITIALIZING:
-    -------------
-    This is an initiator that takes the arguments from the command line and creates the class simulation.
-
-    Example:
-    ^^^^^^^^
-    
-    Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
-
-        p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
-
-    Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
-
-        p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
-
-    Arguments:
-    ^^^^^^^^^^
-
-    dir_name: name of the directory where your simulation should be saved, and 
-
-    seqs: a list of Amino Acid sequences
-
-    counts: a list of the number of occurrences of each amino acid, in order
-
-    CONFIGURATION FILE:
+    Configuration File:
     -------------------
 
     config_name: The name of the config file to look at for the sim parameters to use
@@ -39,6 +12,8 @@
     to generate a config file in the current directory based on the config templates provided, or use
     ``default`` to generate the default configuration.
 
+    Module Documentation
+    --------------------
     '''
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
@@ -53,7 +28,19 @@ PDB2GMX='gmx pdb2gmx'
 GMXSOLVATE='gmx solvate'
 
 class PeptideSim(Configurable):
+    '''PeptideSim    
+
+    Example
+    -------
     
+    Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
+
+        p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
+
+    Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
+
+        p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
+'''
 
     name = Unicode(u'peptidesim',
                    help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)'
@@ -83,8 +70,19 @@ class PeptideSim(Configurable):
     
                      
     def __init__(self,job_name,seqs,counts=None):        
-        self.job_name = job_name
+        '''This is an initiator that takes the arguments from the command
+line and creates the class simulation.
 
+        Parameters
+        ----------
+        job_name : str
+            name of the directory where your simulation should be saved, and 
+        seqs : List[str]
+            A list of amino acid sequences.
+        counts : List[int]
+            A list of the number of occurrences of each amino acid, in order.
+        '''
+        self.job_name = job_name
         #generate pdbs from sequences and store their extents
         self.structure_extents = []
         self.peptide_mass = []
