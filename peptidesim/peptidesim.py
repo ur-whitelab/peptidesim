@@ -437,16 +437,13 @@ class PeptideSim:
                        time=self.prod_time * 10**6 / 2.)))
             return input_file
 
-        def analysis(md_log):
-            """ This function analyzes the output of the simulation. It creates histograms for temperature and total energy and saves them as png images.
-
-            Arguments
-            ----------
-            md_log: It is the log file obtained at the end of the production step. 
-        
+        def analysis(self):
+            """ This function analyzes the output of the simulation. It reads md.log file specified in configuration. It extracts the total energy and temperature at each timestep and creates respective histograms. The function creates a folder called Images and saves the  historams as TotalEnergyHist.png and TemperatureHist.png.
+            
+            
     
             Return
             ------
-            None
+            The function returns the relative path to the *.png images.
             """
             
