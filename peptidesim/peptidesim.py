@@ -1,4 +1,3 @@
-from gromacs.setup import *
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
 import gromacs.tools as tools
@@ -10,7 +9,50 @@ from traitlets import Int, Float, Unicode, Bool, List
 
 PDB2GMX='gmx pdb2gmx'
 GMXSOLVATE='gmx solvate'
+
 class PeptideSim(Configurable):
+    '''Simulate a peptide with a defined sequence and conditions.
+
+    PeptideSim
+    ====
+    
+    INITIALIZING:
+    ----
+    This is an initiator that takes the arguments from the command line and creates the class simulation.
+
+    Example:
+    ^^^^
+    
+    Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
+
+        p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
+
+    Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
+
+        p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
+
+    Arguments:
+    ^^^^
+
+    dir_name: name of the directory where your simulation should be saved, and 
+
+    seqs: a list of Amino Acid sequences
+
+    counts: a list of the number of occurrences of each amino acid, in order
+
+    CONFIGURATION FILE:
+    ----
+
+    config_name: The name of the config file to look at for the sim parameters to use
+    
+    See the template directory for predefined config files. Run ::
+
+        $ peptidesim config <config_name> 
+
+    to generate a config file in the current directory based on the config templates provided, or use
+    ``default`` to generate the default configuration.
+
+    '''
 
     name = Unicode(u'peptidesim',
                    help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)'
@@ -30,7 +72,7 @@ class PeptideSim(Configurable):
     pdbfiles = List(help = 'Initial PDB files for peptides'
                      ).tag(config=True)
 
-    dry_packed_file = Unicode(u'dry_mix.pdb'
+    dry_packed_file = Unicode(u'dry_mix.pdb',
                               help = 'The name of the combined peptides without water'
                               ).tag(config=True)
 
@@ -39,15 +81,7 @@ class PeptideSim(Configurable):
                           ).tag(config=True)
     
                      
-    def __init__(self,job_name,seqs,counts=None):
-        '''This is an initiator and takes the arguments from the command line and creates the class simulation.
-           Arguments: 
-               job_name: name of the job and directory to run the simulation. 
-               seqs: a list of amino acid sequences
-               counts: a list with how many of each sequence to include in the simulation. By default one of each sequence is added
-           returns: 
-               nothing
-        '''
+    def __init__(self,job_name,seqs,counts=None):        
         self.job_name = job_name
 
         #generate pdbs from sequences and store their extents
@@ -207,7 +241,7 @@ class PeptideSim(Configurable):
             long = max(max(diff), long)
             vol += reduce(lambda x,y: x * y, diff)
 
-          
+
         vol *= self.volume_margin
         proposed_box_dim = vol**(1/3.)
         proposed_box_dim = max(long, proposed_box_dim)
