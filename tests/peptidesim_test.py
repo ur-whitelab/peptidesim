@@ -6,80 +6,31 @@ import os.path, time
 from peptidesim import *
 import shutil, os, textwrap
 
-
-class TestPeptideSim(TestCase):
-    def test_sanity(self):
+class EasyPeptideSimTests(TestCase):
+    def test_tests_working(self):
         self.assertTrue(True)
 
-        
-    def test_analysis_returns_images(self):
-
-        prea_time = time.ctime()
-        ret = p.analysis()
-        
-        self.assertTrue(len(ret) > 0)
-        
-        #check if the images exist
-        oldest = time.ctime()
-        for path in ret:
-            self.assertTrue(os.path.exists(path))
-            #get oldest
-            oldest = min(oldest, time.ctime(os.path.getctime(path)))
-        #check that the oldest image was created after analysis call
-        self.assertTrue(prea_time < oldest)
-
-
-    def equil_top_sanity(self):
-        self.assertTrue(topol.exists())
-        try:
-            self.assertTrue(topol.read()>=0)
-        finally:
-            topol.close()
-    def equil_addwater(self):
-        self.assertTrue(peptide_addwater_gro.exists())
-        try:
-            self.assertTrue(peptide_addwater_gro.read()>=0)
-        finally:
-            topol.close()
-
-    def equil_add_ions(self):
-        self.assertTrue(peptide_addwater_addions_gro.exists())
-        try:
-            self.assertTrue(peptide_addwateraddions_gro.read()>=0)
-        finally:
-            peptide_addwateraddions_gro.close()
+    def test_init(self):
+        p = PeptideSim('example', ['A'], [2])
+        self.assertTrue(os.path.exists('example'))
+        shutil.rmtree('example')
 
 
 
-    def equil_added_ions(self):
-        try:
-            self.assertTrue(peptide_addwater_gro.read()!=peptide_addwater_addions_gro.read())
-        finally:
-            peptide_addwater_gro.close()
-            peptide_addwateraddions_gro.close()
+class TestPeptideSim(TestCase):
+    def setUp(self):
+        self.p = PeptideSim('psim_test', ['AA', 'RE'], [3, 1], job_name='testing')
+    def test_logging_started(self):
+        log_file = os.path.join(self.p.dir_name, self.p.log_file)
+        self.assertTrue(os.path.exists(log_file))
 
-    def equil_mdp(self):
-        self.assertTrue(mdp_equil.exists())
-        try:
-            self.assertTrue(mdp_equil.read()>=0)
-        finally:
-            mdp_equil.close()
-            
-    def equil_trr(self):
-        self.assertTrue(trr.exists())
-        try:
-            self.assertTrue(trr.read()>=0)
-        finally:
-            trr.close()
-    def eauil_tpr(self):
-        self.assertTrue(tpr.exists())
-        try:
-            self.assertTrue(tpr.read()>=0)
-        finally:
-            tpr.close()
-    def equil_success(self):
-        self.assertTrue(equil_success_value)
-   
+    def test_packmol_success(self):
+        output_file = p.pdb_file
+        self.assertIsNotNone(output_file)
+        self.assertTrue(os.path.exists(output_file))
+
+    def tearDown(self):
+        shutil.rmtree('psim_test')
 
 class TestConfig(TestCase):
     def test_config_setname(self):
