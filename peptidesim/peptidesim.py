@@ -74,7 +74,7 @@ class PeptideSim(Configurable):
 
 
     #Keep a chain of all files created
-    _topol = []
+    _top = []    
     _gro = []
     _pdb = []
     _tpr = []
@@ -82,7 +82,9 @@ class PeptideSim(Configurable):
 
     @property
     def file_list(self):
-        return self._file_list.append(self.pdb_file, self.gro_file, self.top_file, self.tpr_file)
+        result = self._file_list[:]
+        result.extend([self.pdb_file, self.gro_file, self.top_file, self.tpr_file])
+        return result
 
     @property
     def pdb_file(self):
@@ -174,7 +176,7 @@ line and creates the class simulation.
         self.peptide_mass = []
         self.peptide_pdb_files = []
         for i, sequence in enumerate(seqs):
-            structure, minmax, mass = self._pdb_file_generator(sequence, self._convert_path('seq_' + str(i), dir='peptide_structures '))
+            structure, minmax, mass = self._pdb_file_generator(sequence,'seq_' + str(i))
             self.peptide_pdb_files.append(structure)
             self.structure_extents.append(minmax)
             self.peptide_mass.append(mass)
@@ -202,8 +204,8 @@ line and creates the class simulation.
             A new wrapped function (usually used as annotation)
         '''
         def wrap(fxn):
-            def mod_f(self, *args):
-                dirname = self._convert(dirname)
+            def mod_f(self, *args):                
+                dirname = self._convert_path(dirname)
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
                 #bring files
@@ -216,7 +218,7 @@ line and creates the class simulation.
                         fxn(self, *args)
                     finally:
                         #make sure we leave
-                        os.chdir( self.dir)
+                        os.chdir( self.dir_name)
                         #bring back files
                         for f in self.file_list:
                             if(f is not None and os.path.exists(os.path.join(dirname, f))):
@@ -265,6 +267,7 @@ line and creates the class simulation.
         '''
         pass
 
+    @_put_in_dir('peptide_structures')
     def _pdb_file_generator(self, sequence, name):
         '''Generates PDB file from  sequence using BioPython + PeptideBuilder
 
@@ -293,8 +296,8 @@ line and creates the class simulation.
         smin = [10**10, 10**10, 10**10]
         for a in structure.get_atoms():
             for i in range(3):
-                smax[i] =  a.coords[i] if a.coords[i] >  smax[i] else smax[i]
-                smin[i] =  a.coords[i] if a.coords[i] <  smin[i] else smin[i]
+                smax[i] =  a.coord[i] if a.coord[i] >  smax[i] else smax[i]
+                smin[i] =  a.coord[i] if a.coord[i] <  smin[i] else smin[i]
                 
         out = PDBIO()
         out.set_structure(structure)
