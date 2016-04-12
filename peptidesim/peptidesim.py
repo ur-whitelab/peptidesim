@@ -176,6 +176,7 @@ line and creates the class simulation.
         self.peptide_mass = []
         self.peptide_pdb_files = []
         for i, sequence in enumerate(seqs):
+            print(i, sequence)
             structure, minmax, mass = self._pdb_file_generator(sequence,'seq_' + str(i))
             self.peptide_pdb_files.append(structure)
             self.structure_extents.append(minmax)
@@ -203,26 +204,27 @@ line and creates the class simulation.
         fxn
             A new wrapped function (usually used as annotation)
         '''
+        
         def wrap(fxn):
-            def mod_f(self, *args):                
-                dirname = self._convert_path(dirname)
-                if not os.path.exists(dirname):
-                    os.mkdir(dirname)
+            def mod_f(self, *args, **kwargs):
+                d = self._convert_path(dirname)
+                if not os.path.exists(d):
+                    os.mkdir(d)
                 #bring files
                 for f in self.file_list:
                     if(f is not None and os.path.exists(f)):
-                        shutil.copyfile(f, os.path.join(dirname, os.path.basename(f)))           
+                        shutil.copyfile(f, os.path.join(d, os.path.basename(f)))           
                     #go there
-                    os.chdir(dirname)
+                    os.chdir(d)
                     try:
-                        fxn(self, *args)
+                        return fxn(self, *args, **kwargs)
                     finally:
                         #make sure we leave
                         os.chdir( self.dir_name)
                         #bring back files
                         for f in self.file_list:
-                            if(f is not None and os.path.exists(os.path.join(dirname, f))):
-                                shutil.copyfile(os.path.join(dirname, f),f)
+                            if(f is not None and os.path.exists(os.path.join(d, f))):
+                                shutil.copyfile(os.path.join(d, f),f)
             return mod_f
         return wrap
 
@@ -306,7 +308,7 @@ line and creates the class simulation.
         #get molecular weight
         p = ProteinAnalysis(sequence)        
         
-        return pdbfile, [smin, smax], p.molecular_weight()
+        return (pdbfile, [smin, smax], p.molecular_weight())
         
     @_put_in_dir('packing')
     def _packmol(self, output_file='dry_packed.pdb'):

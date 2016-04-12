@@ -25,7 +25,7 @@ class TestPeptideSim(TestCase):
         self.assertTrue(os.path.exists(log_file))
 
     def test_packmol_success(self):
-        output_file = p.pdb_file
+        output_file = self.p.pdb_file
         self.assertIsNotNone(output_file)
         self.assertTrue(os.path.exists(output_file))
 
