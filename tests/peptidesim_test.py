@@ -13,7 +13,7 @@ class EasyPeptideSimTests(TestCase):
     def test_init(self):
         p = PeptideSim('example', ['A'], [2])
         self.assertTrue(os.path.exists('example'))
-        shutil.rmtree('example')
+        #shutil.rmtree('example')
 
 
 
@@ -24,14 +24,18 @@ class TestPeptideSim(TestCase):
         log_file = self.p.log_file
         print(log_file)
         self.assertTrue(os.path.exists(log_file))
+        self.assertTrue(os.stat(log_file).st_size > 0)
 
     def test_packmol_success(self):
         output_file = self.p.pdb_file
+        print('pdb_fille', output_file)
+        print('pdb_fille', self.p._pdb)
         self.assertIsNotNone(output_file)
         self.assertTrue(os.path.exists(output_file))
 
     def tearDown(self):
-        shutil.rmtree('psim_test')
+        pass
+        #shutil.rmtree('psim_test')
 
 class TestConfig(TestCase):
     def test_config_setname(self):

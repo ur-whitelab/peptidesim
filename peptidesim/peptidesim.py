@@ -18,10 +18,15 @@
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
 import gromacs.tools as tools
+import gromacs
+
+gromacs.environment.flags['capture_output'] = True
+
 import PeptideBuilder 
 import Bio.PDB
 from .version import __version__
 from math import *
+from .utilities import *
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance
@@ -67,9 +72,12 @@ class PeptideSim(Configurable):
                                  If relative path, it will be in \
                                  simulation directory.',
                                 ).tag(config=True)
+    packmol_exe       = Unicode(u'packmol',
+                                help='The command to run the packmol program.'
+                                ).tag(config=True)    
 
 
-    #Keep a chain of all files created
+    #Keep a chain of all files created. Hide behind properties
     _top = []    
     _gro = []
     _pdb = []
@@ -78,14 +86,17 @@ class PeptideSim(Configurable):
 
     @property
     def file_list(self):
-        result = self._file_list[:]
-        result.extend([self.pdb_file, self.gro_file, self.top_file, self.tpr_file])
+        result = []
+        result.extend(self._file_list)
+        #for now, we'll keep these as absolute paths. So we won't have local copies everywhere
+        #result.extend([self.pdb_file, self.gro_file, self.top_file, self.tpr_file])
         return result
 
     @property
     def pdb_file(self):
         if(len(self._pdb) == 0):
             return None
+        return self._pdb[-1]
 
 
     @pdb_file.setter
@@ -96,6 +107,7 @@ class PeptideSim(Configurable):
     def gro_file(self):
         if(len(self._gro) == 0):
             return None
+        return self._gro[-1]
 
 
     @gro_file.setter
@@ -106,6 +118,7 @@ class PeptideSim(Configurable):
     def top_file(self):
         if(len(self._top) == 0):
             return None
+        return self._top[-1]
 
 
     @top_file.setter
@@ -120,7 +133,7 @@ class PeptideSim(Configurable):
 
     @tpr_file.setter
     def tpr_file(self, f):
-        self._tpr.append(os.path.abspath(f))
+        self._tpr.append(os.path.abspath(f))        
         
     
                      
@@ -168,7 +181,8 @@ line and creates the class simulation.
         self.log.addHandler(file_handler)
         
         self.log_handler = file_handler
-        self.log.info('Started logging for PeptideSim...{}')
+        self.log.setLevel(logging.DEBUG)
+        self.log.info('Started logging for PeptideSim...')
 
         
         #Note: use load_pyconfig_files to merge them. Useful in future
@@ -183,7 +197,6 @@ line and creates the class simulation.
         self.peptide_mass = []
         self.peptide_pdb_files = []
         for i, sequence in enumerate(seqs):
-            print(i, sequence)
             structure, minmax, mass = self._pdb_file_generator(sequence,'seq_' + str(i))
             self.peptide_pdb_files.append(structure)
             self.structure_extents.append(minmax)
@@ -194,9 +207,13 @@ line and creates the class simulation.
             counts = [1 for s in seqs]
         self.counts=counts
 
+        #pack the peptides together into an initial structure
+        self._packmol()
+
     def __del__(self):
         #gracefully stop logging
-        self.log.removeHandler(self.log)
+        self.log_handler.close()
+        self.log.removeHandler(self.log_handler)
 
 
     def _convert_path(self, p, dir='.'):
@@ -226,18 +243,18 @@ line and creates the class simulation.
                 for f in self.file_list:
                     if(f is not None and os.path.exists(f)):
                         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))           
-                    #go there
-                    curdir = os.getcwd()
-                    os.chdir(d)
-                    try:
-                        return fxn(self, *args, **kwargs)
-                    finally:
-                        #make sure we leave
-                        os.chdir(curdir)
-                        #bring back files
-                        for f in self.file_list:
-                            if(f is not None and os.path.exists(os.path.join(d, f))):
-                                shutil.copyfile(os.path.join(d, f),f)
+                #go there
+                curdir = os.getcwd()
+                os.chdir(d)
+                try:
+                    return fxn(self, *args, **kwargs)
+                finally:
+                    #make sure we leave
+                    os.chdir(curdir)
+                    #bring back files
+                    for f in self.file_list:
+                        if(f is not None and os.path.exists(os.path.join(d, f))):
+                            shutil.copyfile(os.path.join(d, f),f)
             return mod_f
         return wrap
 
@@ -278,7 +295,8 @@ line and creates the class simulation.
         dirname : str 
             the name of directory that has output files of the equiliberation simulation
 
-        Returns                                                                                                                         ------                                                                                                                             
+        Returns                                                                                                          
+        -------
         '''
         pass
 
@@ -320,8 +338,8 @@ line and creates the class simulation.
 
         #get molecular weight
         p = ProteinAnalysis(sequence)        
-        
-        return (pdbfile, [smin, smax], p.molecular_weight())
+
+        return (os.path.abspath(pdbfile), [smin, smax], p.molecular_weight())
         
     @_put_in_dir('packing')
     def _packmol(self, output_file='dry_packed.pdb'):
@@ -334,36 +352,53 @@ line and creates the class simulation.
         vol = mass / self.peptide_density
         
         #sum volumes and get longest dimension
-        long = 0
+        long_dim = 0
         for e in self.structure_extents:
-            diff = [max - min for max,min in e]
-            long = max(max(diff), long)
+            diff = [smax - smin for smax,smin in zip(e[0], e[1])]
+            long_dim = max(max(diff), long_dim)
 
         proposed_box_dim = vol**(1/3.)
-        proposed_box_dim = max(long, proposed_box_dim)
+        proposed_box_dim = max(long_dim, proposed_box_dim)
         box_size = [proposed_box_dim, sqrt(vol / proposed_box_dim), sqrt(vol / proposed_box_dim)]
         
         
-        #build input file
-        input_file = 'input.inp'
-        with open(input_file, 'w') as f:
-            f.write(textwrap.dedent(
+        #build input text
+        input_string = textwrap.dedent(
                 '''
                 tolerance 2.0
                 filetype pdb 
                 output {}
-                '''.format(self.dry_packed_file)))
-            for fname in self.peptide_pdb_files:#iterate through peptide pdb structures
-                f.write(textwrap.dedent(
+                '''.format(output_file))
+        for f, c in zip(self.peptide_pdb_files, self.counts):
+            input_string += textwrap.dedent(
                     '''
                     structure {} 
                       number {}
-                      inside box 0 0 0. {}. {}. {}. 
+                      inside box 0 0 0 {} {} {}
                     end structure
-                    '''.format(fname, self.counts, *box_size))) 
+                    '''.format(f, c, *box_size))
         self.pdb_file = output_file
+        
 
-        #pack up packmol into a gromacs command 
+        #pack up packmol into a gromacs command
+        class Packmol(gromacs.core.Command):
+            command_name = self.packmol_exe            
+        cmd = Packmol()
+        
+        @timeout(5)
+        def wrapper():
+            return cmd(input=input_string)
+
+        try:
+            result = wrapper()
+        except TimeoutError:
+            self.log.error('Packmol took too long. Probably your density is too high')
+        if result[0] != 0:
+            self.log.error('Packmol failed with retcode {}. Out: {} Err: {}'.format(*result))
+        else:
+            self.log.info('Packmol succeeded with retcode {}. Out: {}'.format(*result))
+
+        assert os.path.exists(output_file), 'Packmol claimed to succeed but no output file found'
         
 
 class PeptideSimConfigurator(Application):

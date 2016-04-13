@@ -21,9 +21,14 @@ RUN apt-get update
 RUN apt-get install -y gromacs gromacs-data
 
 #configure the GromacsWrapper
-RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@my-develop && echo "import gromacs;  gromacs.config.setup(); " | python
+RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
 
 ADD gromacs.cfg /root/.gromacswrapper.cfg
+
+#Install packmol
+RUN apt-get install -y gfortran
+ADD packmol.tar.gz /usr/share
+RUN cd /usr/share/packmol && ./configure && make && ln -s /usr/share/packmol/packmol  /sbin/packmol
 
 USER jovyan
 
