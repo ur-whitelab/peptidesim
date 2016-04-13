@@ -21,7 +21,8 @@ class TestPeptideSim(TestCase):
     def setUp(self):
         self.p = PeptideSim('psim_test', ['AA', 'RE'], [3, 1], job_name='testing')
     def test_logging_started(self):
-        log_file = os.path.join(self.p.dir_name, self.p.log_file)
+        log_file = self.p.log_file
+        print(log_file)
         self.assertTrue(os.path.exists(log_file))
 
     def test_packmol_success(self):

@@ -26,10 +26,6 @@ from math import *
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance
 
-PDB2GMX='gmx pdb2gmx'
-GMXSOLVATE='gmx solvate'
-    
-
 class PeptideSim(Configurable):
     '''PeptideSim    
 
@@ -158,10 +154,21 @@ line and creates the class simulation.
 
 
         #check if logger is relative
-        if(len(os.path.split(dir_name)) > 1):
+        #split path and see if folder is empty
+        if(len(os.path.split(dir_name)[0]) == 0):
             self.log_file = self._convert_path(self.log_file)
-        logging.basicConfig(filename=self.log_file,level=logging.DEBUG)
-        logging.info('Beginning simulation {}'.format(datetime.datetime.now().strftime('%b-%d-%I%M%p-%G')))
+
+        #don't know how we got here, so we'll just add our logger
+        file_handler = logging.FileHandler(self.log_file)
+        file_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)%s)")
+        file_handler.setFormatter(formatter)
+        
+        self.log = logging.getLogger()
+        self.log.addHandler(file_handler)
+        
+        self.log_handler = file_handler
+        self.log.info('Started logging for PeptideSim...{}')
 
         
         #Note: use load_pyconfig_files to merge them. Useful in future
@@ -186,6 +193,11 @@ line and creates the class simulation.
         if counts is None:
             counts = [1 for s in seqs]
         self.counts=counts
+
+    def __del__(self):
+        #gracefully stop logging
+        self.log.removeHandler(self.log)
+
 
     def _convert_path(self, p, dir='.'):
         '''Converts path and optional subdirectory to be local to our working directory'''
@@ -215,12 +227,13 @@ line and creates the class simulation.
                     if(f is not None and os.path.exists(f)):
                         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))           
                     #go there
+                    curdir = os.getcwd()
                     os.chdir(d)
                     try:
                         return fxn(self, *args, **kwargs)
                     finally:
                         #make sure we leave
-                        os.chdir( self.dir_name)
+                        os.chdir(curdir)
                         #bring back files
                         for f in self.file_list:
                             if(f is not None and os.path.exists(os.path.join(d, f))):
@@ -349,6 +362,8 @@ line and creates the class simulation.
                     end structure
                     '''.format(fname, self.counts, *box_size))) 
         self.pdb_file = output_file
+
+        #pack up packmol into a gromacs command 
         
 
 class PeptideSimConfigurator(Application):
