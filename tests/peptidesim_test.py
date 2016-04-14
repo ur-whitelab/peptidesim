@@ -6,37 +6,36 @@ import os.path, time
 from peptidesim import *
 import shutil, os, textwrap
 
-class EasyPeptideSimTests(TestCase):
-    def test_tests_working(self):
-        self.assertTrue(True)
-
-    def test_init(self):
-        p = PeptideSim('example', ['A'], [2])
-        self.assertTrue(os.path.exists('example'))
-        shutil.rmtree('example')
-
-
-
 class TestPeptideSimInit(TestCase):
     def setUp(self):
         self.p = PeptideSim('psim_test', ['AA', 'RE'], [3, 1], job_name='testing')
-        self.p.initialize()
+        
+    def test_init(self):
+        self.assertTrue(os.path.exists('psim_test'))
+
+    def test_filechain(self):
+        self.p.gro_file = 'a'
+        self.p.gro_file = 'b'
+        self.assertEqual(len(self.p._gro), 2)
+        
     def test_logging_started(self):
         log_file = self.p.log_file
-        print(log_file)
         self.assertTrue(os.path.exists(log_file))
         self.assertTrue(os.stat(log_file).st_size > 0)
 
     def test_packmol_success(self):
+        self.p.initialize()    
         output_file = self.p.pdb_file
         self.assertIsNotNone(output_file)
         self.assertTrue(os.path.exists(output_file))
 
     def test_pdb2gmx_success(self):
+        self.p.initialize()    
         self.assertTrue(os.path.exists(self.p.top_file))
         self.assertTrue(os.path.exists(self.p.gro_file))
         self.assertTrue(os.stat(self.p.gro_file).st_size > 0)
 
+        
     def tearDown(self):
         shutil.rmtree('psim_test')
 
