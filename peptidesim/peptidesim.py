@@ -17,7 +17,6 @@
     '''
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
-import gromacs.tools as tools
 import gromacs
 
 gromacs.environment.flags['capture_output'] = True
@@ -29,7 +28,7 @@ from math import *
 from .utilities import *
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
-from traitlets import Int, Float, Unicode, Bool, List, Instance
+from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
 class PeptideSim(Configurable):
     '''PeptideSim    
@@ -74,8 +73,19 @@ class PeptideSim(Configurable):
                                 ).tag(config=True)
     packmol_exe       = Unicode(u'packmol',
                                 help='The command to run the packmol program.'
-                                ).tag(config=True)    
+                                ).tag(config=True)
 
+    forcefield        = Unicode(u'amber99sb-ildn',
+                                help='The gromacs syntax forcefield',
+                                ).tag(config=True)
+    water             = Unicode(u'tip3p',
+                               help='The water model to use',
+                               ).tag(config=True)
+
+    pdb2gmx_args      = Dict(dict(ignh=None),
+                             help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
+                             ).tag(config=True)
+                                  
 
     #Keep a chain of all files created. Hide behind properties
     _top = []    
@@ -189,26 +199,51 @@ line and creates the class simulation.
         #load in configuration file
         config = config_file
         if config_file is not None:
+            self.log.info('Loading config file {}'.format(config_file))
             config = PyFileConfigLoader(config_file).load_config()
+        else:
+            self.log.info('Using default configuration'.format(config_file))
+            
+        self.log.debug('Loaded {}:'.format(str(config)))            
         super(PeptideSim, self).__init__(config=config)
 
-        #generate pdbs from sequences and store their extents
-        self.structure_extents = []
-        self.peptide_mass = []
-        self.peptide_pdb_files = []
-        for i, sequence in enumerate(seqs):
-            structure, minmax, mass = self._pdb_file_generator(sequence,'seq_' + str(i))
-            self.peptide_pdb_files.append(structure)
-            self.structure_extents.append(minmax)
-            self.peptide_mass.append(mass)
-
+        #store passed parameters
+        self.sequences = seqs
         #store the copies we'd like to have of each sequence
         if counts is None:
             counts = [1 for s in seqs]
         self.counts=counts
+        self.log.info('Have {} many of these sequences {}:'.format(counts, seqs))
+
+    def initialize(self):
+        '''Build PDB files, pack them, convert to gmx, add water and ions
+
+        This method accomplishes the following steps:
+          1. Use Bio Python to convert sequences into PDB files
+          2. Combine the PDB files using packmol
+          3. Convert them into gmx files using the pdb2gmx command and configuration parameters
+          4. Add water using the editconf/genbox
+          5. Compile our energy-minimization tpr file for purposes of adding ions
+          6. Add ions
+
+        '''
+        #generate pdbs from sequences and store their extents
+        self.structure_extents = []
+        self.peptide_mass = []
+        self.peptide_pdb_files = []
+        for i, s in enumerate(self.sequences):
+            structure, minmax, mass = self._pdb_file_generator(s,'seq_' + str(i))
+            self.peptide_pdb_files.append(structure)
+            self.structure_extents.append(minmax)
+            self.peptide_mass.append(mass)
+
 
         #pack the peptides together into an initial structure
         self._packmol()
+
+        #now get gromcas files
+        self._pdb2gmx()
+    
 
     def __del__(self):
         #gracefully stop logging
@@ -402,7 +437,12 @@ line and creates the class simulation.
 
     @_put_in_dir('prep')
     def _pdb2gmx(self):
-        
+        output = 'dry_mixed.gro'
+        topology = 'dry_topology.top'
+        self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
+        gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+        self.gro_file = output
+        self.top_file = topology
         
 
 class PeptideSimConfigurator(Application):
