@@ -399,6 +399,10 @@ line and creates the class simulation.
             self.log.info('Packmol succeeded with retcode {}. Out: {}'.format(*result))
 
         assert os.path.exists(output_file), 'Packmol claimed to succeed but no output file found'
+
+    @_put_in_dir('prep')
+    def _pdb2gmx(self):
+        
         
 
 class PeptideSimConfigurator(Application):
