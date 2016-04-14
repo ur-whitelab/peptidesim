@@ -53,7 +53,8 @@ class TestConfig(TestCase):
         finally:
             os.remove(name)
             try:
-                shutil.rmtree('testconfig')
+                pass
+                #shutil.rmtree('testconfig')
             except OSError as e:
                 pass
 

@@ -1,29 +1,22 @@
 '''Simulate a peptide with a defined sequence and conditions.
 
-    Configuration File:
-    -------------------
+Example
+-------
 
-    config_name: The name of the config file to look at for the sim parameters to use
-    
-    See the template directory for predefined config files. Run ::
+Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
 
-        $ peptidesim --config <config_name> 
+    p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
 
-    to generate a config file in the current directory based on the config templates provided, or use
-    ``default`` to generate the default configuration.
+Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
 
-    Module Documentation
-    --------------------
-    '''
+    p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
+'''
 import numpy as np 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
-import gromacs
 
-gromacs.environment.flags['capture_output'] = True
 
 import PeptideBuilder 
 import Bio.PDB
-from .version import __version__
 from math import *
 from .utilities import *
 
@@ -31,18 +24,7 @@ from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
 class PeptideSim(Configurable):
-    '''PeptideSim    
-
-    Example
-    -------
-    
-    Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
-
-        p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
-
-    Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
-
-        p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
+    '''PeptideSim class. Class to use for conducting simulations.
 
     '''
 
@@ -67,9 +49,7 @@ class PeptideSim(Configurable):
                              ).tag(config=True)
 
     log_file          = Unicode(u'simulation.log',
-                                 help='The location of the log file. \
-                                 If relative path, it will be in \
-                                 simulation directory.',
+                                 help='The location of the log file. If relative path, it will be in simulation directory.',
                                 ).tag(config=True)
     packmol_exe       = Unicode(u'packmol',
                                 help='The command to run the packmol program.'
@@ -161,6 +141,10 @@ line and creates the class simulation.
             A list of the number of occurrences of each amino acid, in order.
         '''
 
+        #go ahead and import gromacs now, since we'll be messing with log handlers
+        self.gromacs = __import__('gromacs')
+        self.gromacs.environment.flags['capture_output'] = True
+
         #Set-up directory to begin with
         self.job_name = job_name
         if job_name is None:
@@ -187,7 +171,7 @@ line and creates the class simulation.
         formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)%s)")
         file_handler.setFormatter(formatter)
         
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('peptidesim:{}'.format(self.job_name))
         self.log.addHandler(file_handler)
         
         self.log_handler = file_handler
@@ -205,7 +189,7 @@ line and creates the class simulation.
             self.log.info('Using default configuration'.format(config_file))
             
         self.log.debug('Loaded {}:'.format(str(config)))            
-        super(PeptideSim, self).__init__(config=config)
+        super(PeptideSim, self).__init__(config=config, parent=None)
 
         #store passed parameters
         self.sequences = seqs
@@ -416,7 +400,7 @@ line and creates the class simulation.
         
 
         #pack up packmol into a gromacs command
-        class Packmol(gromacs.core.Command):
+        class Packmol(self.gromacs.core.Command):
             command_name = self.packmol_exe            
         cmd = Packmol()
         
@@ -440,69 +424,6 @@ line and creates the class simulation.
         output = 'dry_mixed.gro'
         topology = 'dry_topology.top'
         self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
-        gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+        self.gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
         self.gro_file = output
-        self.top_file = topology
-        
-
-class PeptideSimConfigurator(Application):
-    #information for running peptidesim from command line
-    name = 'peptidesim'
-    version = __version__
-    classes = [PeptideSim]
-    description = '''The peptidesim application.
-
-    Currently, this application only generates a configuration
-    '''
-    
-
-    #command line flags
-    aliases = {'f': 'PeptideSim.config_file',
-               'config': 'PeptideSim.generate_config'}
-    
-    config_file = Unicode('peptidesim_config.py',
-        help="The config file to load",
-    ).tag(config=True)
-                   
-    generate_config = Bool(True,
-        help="Generate default config file",
-    ).tag(config=True)
-
-
-    def write_config_file(self):
-        '''Write our default config to a .py config file'''
-        if os.path.exists(self.config_file):
-            answer = ''
-            def ask():
-                prompt = "Overwrite {} with default config? [y/N]".format(self.config_file)
-                try:
-                    return raw_input(prompt).lower() or 'n'
-                except KeyboardInterrupt:
-                    print('') # empty line
-                    return 'n'
-            answer = ask()
-            while not answer.startswith(('y', 'n')):
-                print("Please answer 'yes' or 'no'")
-                answer = ask()
-            if answer.startswith('n'):
-                return
-
-        config_text = self.generate_config_file()
-        if isinstance(config_text, bytes):
-            config_text = config_text.decode('utf8')
-        print("Writing default config to: %s" % self.config_file)
-        with open(self.config_file, mode='w') as f:
-            f.write(config_text)
-            
-
-
-
-
-
-
-def main():
-    p = PeptideSimConfigurator.instance()
-    p.write_config_file()
-    
-if __name__ == "__main__":
-    main()
+        self.top_file = topology    
