@@ -270,7 +270,15 @@ line and creates the class simulation.
 
         #add ions
         self._add_ions()
-    
+
+
+        self.log.info('Completed Initialization')
+
+    def energy_minimize(self, steps=1000):
+        '''Energy minimize the system. Can be called anytime after initialize.'''
+
+        
+        self._emin(steps)
 
     def __del__(self):
         #gracefully stop logging
@@ -544,3 +552,20 @@ line and creates the class simulation.
         self.gro_file = ion_gro
         self.tpr_file = ion_tpr
         self.top_file = output
+        self._file_list.append(ndx_file)
+
+    @_put_in_dir('emin')
+    def _emin(self, steps):
+        #Preparing emin tpr file
+        self.log.info('Compiling emin TPR file')
+        ion_tpr = 'ion.tpr'
+        ion_mdp = 'ion.mdp'
+        ion_gro = 'prepared.gro'
+        
+        
+        mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+        self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp,nsteps=steps **mdp_base)
+        
+        self.gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
+        self.tpr_file = ion_tpr
+
