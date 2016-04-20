@@ -22,6 +22,7 @@ RUN apt-get install -y gromacs gromacs-data
 
 #configure the GromacsWrapper
 RUN source activate python2 && pip install git+git://github.com/Becksteinlab/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
+#RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@portable_top && echo "import gromacs;  gromacs.config.setup(); " | python
 ADD gromacs.cfg /root/.gromacswrapper.cfg
 
 #Install packmol

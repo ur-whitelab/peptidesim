@@ -31,7 +31,7 @@ class TestPeptideSimSimple(TestCase):
 class TestPeptideSimInitialize(TestCase):
 
     def setUp(self):
-        self.p = PeptideSim('pinit_test', ['AA', 'RE'], [3, 1], job_name='testing')
+        self.p = PeptideSim('pinit_test', ['AA', 'REE'], [3, 1], job_name='testing')
         self.p.initialize()
     
     def test_packmol_success(self):
@@ -48,8 +48,13 @@ class TestPeptideSimInitialize(TestCase):
         if '#include' in open(self.p.top_file).read():
             self.fail('There are unresolved #include directives in the topology file')
 
+    def test_neutral(self):
+        pass
+        
+
     def tearDown(self):
-        shutil.rmtree('pinit_test')
+        pass
+        #shutil.rmtree('pinit_test')
 
 class TestConfig(TestCase):
     def test_config_setname(self):

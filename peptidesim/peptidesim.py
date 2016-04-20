@@ -12,7 +12,7 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 import numpy as np 
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys   
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources
 
 
 import PeptideBuilder 
@@ -48,6 +48,10 @@ class PeptideSim(Configurable):
                               help='The density of the peptides in milligrams / milliliter',
                              ).tag(config=True)
 
+    ion_concentration = Float(0.002,
+                              help='The concentration of sodium chloride to add in moles / liter'
+                              ).tag(config=True)
+
     log_file          = Unicode(u'simulation.log',
                                  help='The location of the log file. If relative path, it will be in simulation directory.',
                                 ).tag(config=True)
@@ -65,6 +69,16 @@ class PeptideSim(Configurable):
     pdb2gmx_args      = Dict(dict(ignh=None),
                              help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
                              ).tag(config=True)
+
+    mdp_directory = Unicode(u'.',
+                            help='The directory to find gromacs MDP files'
+                            ).tag(config=True)
+    mdp_base = Unicode(u'peptidesim_base.mdp',
+                       help='The MDP file containing basic forcefield parameters'
+                       ).tag(config=True) 
+    mdp_emin = Unicode(u'peptidesim_emin.mdp',
+                       help='The emenergy miniziation MDP file. Built from mdp_base'
+                       ).tag(config=True)
                                   
 
     #Keep a chain of all files created. Hide behind properties
@@ -253,7 +267,9 @@ line and creates the class simulation.
 
         #Add solvent
         self._solvate()
-        
+
+        #add ions
+        self._add_ions()
     
 
     def __del__(self):
@@ -303,6 +319,30 @@ line and creates the class simulation.
                             shutil.copyfile(os.path.join(d, f),f)
             return mod_f
         return wrap
+
+    def get_mdpfile(self, f):
+        #check if mdp file exist in current directory, which note may be our parrent due to putindir        
+        if(os.path.exists(f)):
+            return f
+        if(os.path.exists(os.path.join('..', f))):
+            return os.path.join('..', f)
+
+        #now check if it's in our mdp file path
+        if(os.path.exists(os.path.join(self.mdp_directory, f))):
+            return os.path.join(self.mdp_directory, f)
+        
+
+        #now check if it's in our package resource
+        if(pkg_resources.resource_exists(__name__, 'templates/' + f)):
+            #if so, copy it to here
+            self.log.info('Could not located MDP file {} locally, so using it from package resource.'.format(f))
+            with open(f, 'wb') as newf:
+                newf.write(pkg_resources.resource_string(__name__, 'templates/' + f))
+            return f
+
+        raise IOError('Could not find MDP file called {}'.format(f))
+        
+        
 
         
     def analysis(self):
@@ -463,7 +503,44 @@ line and creates the class simulation.
 
     @_put_in_dir('prep')        
     def _add_ions(self):
+
+        #need a TPR file to add ions
+        self.log.info('Building first TPR file for adding ions')
+        ion_tpr = 'ion.tpr'
+        ion_mdp = 'ion.mdp'
+        ion_gro = 'prepared.gro'
+        
+        
+        mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+        self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp, **mdp_base)
+        
+        self.gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
+        self.tpr_file = ion_tpr
+
+
+        self.log.info('Preparing NDX file')
+        ndx_file = 'index.ndx'
+        _,out,_  = self.gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
+        groups = self.gromacs.cbook.parse_ndxlist(out)
+        
+        solvent_index = -1
+        for g in groups:
+            if g['name'] == 'SOL':
+                solvent_index = g['nr']
+                break
+        assert solvent_index >= 0, 'Problem with making index file and finding solvent'
+        self.log.info('Identified {} as the solvent group'.format(solvent_index))
+        
+
+        self.log.info('Adding Ions...')
+        self.gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True, o=ion_gro, p=self.top_file, input=('', solvent_index))
+        self.log.info('...OK')
+        
         #now we need to remove all the include stuff so we can actually pass the file around if needed
         self.log.info('Resovling include statements via GromacsWrapper...')
-        self.top_file = self.gromacs.cbook.create_portable_topology(self.top_file, output)
+        output = self.top_file = self.gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
         self.log.info('...OK')
+
+        self.gro_file = ion_gro
+        self.tpr_file = ion_tpr
+        self.top_file = output

@@ -24,7 +24,6 @@
 *.edr
 *.tpr
 *.trr
-*.mdp
 *.cpt
 
 #Sphinx build
