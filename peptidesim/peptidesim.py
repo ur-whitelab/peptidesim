@@ -32,7 +32,7 @@ class PeptideSim(Configurable):
                                  help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)',
                                 ).tag(config=True)
 
-    config_file       = Unicode('peptidesim_config.py',
+    config_file       = Unicode(u'peptidesim_config.py',
                                 help="The config file to load",
                                ).tag(config=True)
 
@@ -166,6 +166,7 @@ line and creates the class simulation.
         #go ahead and import gromacs now, since we'll be messing with log handlers
         self.gromacs = __import__('gromacs')
         self.gromacs.environment.flags['capture_output'] = True
+        
 
         #Set-up directory to begin with
         self.job_name = job_name
@@ -391,6 +392,7 @@ line and creates the class simulation.
         '''This function takes multiple pdbfiles and combines them into one pdbfile
         '''
 
+        import subprocess
 
         #compute volume based on density
         mass = sum([c * m for c,m in zip(self.counts, self.peptide_mass)])
@@ -429,19 +431,12 @@ line and creates the class simulation.
         class Packmol(self.gromacs.core.Command):
             command_name = self.packmol_exe            
         cmd = Packmol()
+        result = cmd(input=input_string)
         
-        @timeout(5)
-        def wrapper():
-            return cmd(input=input_string)
-
-        try:
-            result = wrapper()
-        except TimeoutError:
-            self.log.error('Packmol took too long. Probably your density is too high')
         if result[0] != 0:
             self.log.error('Packmol failed with retcode {}. Out: {} Err: {}'.format(*result))
         else:
-            self.log.info('Packmol succeeded with retcode {}. Out: {}'.format(*result))
+            self.log.info('Packmol succeeded with retcode {}'.format(*result))
 
         assert os.path.exists(output_file), 'Packmol claimed to succeed but no output file found'
 
