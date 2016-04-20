@@ -44,7 +44,7 @@ class PeptideSim(Configurable):
                               help='Barostat pressure. Ignored if not doing NPT'
                              ).tag(config=True)
     
-    peptide_density   = Float(0.2,
+    peptide_density   = Float(0.02,
                               help='The density of the peptides in milligrams / milliliter',
                              ).tag(config=True)
 
@@ -73,6 +73,28 @@ class PeptideSim(Configurable):
     _pdb = []
     _tpr = []
     _file_list = []
+
+    #other variables
+    _box_size = [0,0,0] #box size in angstroms
+
+    @property
+    def box_size_angstrom(self):
+        return self._box_size
+
+    @box_size_angstrom.setter
+    def box_size_angstrom(self, v):
+        assert(len(v) == 3)
+        self._box_size[:] = v[:]        
+
+    @property
+    def box_size_nm(self):        
+        return [x / 10 for x in self._box_size]
+
+    @box_size_nm.setter
+    def box_size_nm(self, v):
+        assert(len(v) == 3)
+        self._box_size = [x * 10 for x in v]
+    
 
     @property
     def file_list(self):
@@ -227,6 +249,10 @@ line and creates the class simulation.
 
         #now get gromcas files
         self._pdb2gmx()
+
+        #Add solvent
+        self._solvate()
+        
     
 
     def __del__(self):
@@ -378,7 +404,7 @@ line and creates the class simulation.
 
         proposed_box_dim = vol**(1/3.)
         proposed_box_dim = max(long_dim, proposed_box_dim)
-        box_size = [proposed_box_dim, sqrt(vol / proposed_box_dim), sqrt(vol / proposed_box_dim)]
+        self.box_size_angstrom = [proposed_box_dim, sqrt(vol / proposed_box_dim), sqrt(vol / proposed_box_dim)]
         
         
         #build input text
@@ -395,7 +421,7 @@ line and creates the class simulation.
                       number {}
                       inside box 0 0 0 {} {} {}
                     end structure
-                    '''.format(f, c, *box_size))
+                    '''.format(f, c, *self.box_size_angstrom))
         self.pdb_file = output_file
         
 
@@ -426,4 +452,23 @@ line and creates the class simulation.
         self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
         self.gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
         self.gro_file = output
-        self.top_file = topology    
+        self.top_file = topology        
+
+    @_put_in_dir('prep')
+    def _solvate(self):
+        output = 'wet_mixed.gro'
+        water = self.water + '.gro'
+
+        if self.water == 'tip3p':
+            #swtich to spc
+            water = 'spc216.gro'
+        self.gromacs.solvate(cp=self.gro_file, cs=water, o=output, p=self.top_file, box=self.box_size_nm)
+        self.gro_file = output
+
+
+    @_put_in_dir('prep')        
+    def _add_ions(self):
+        #now we need to remove all the include stuff so we can actually pass the file around if needed
+        self.log.info('Resovling include statements via GromacsWrapper...')
+        self.top_file = self.gromacs.cbook.create_portable_topology(self.top_file, output)
+        self.log.info('...OK')
