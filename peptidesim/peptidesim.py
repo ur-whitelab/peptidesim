@@ -12,7 +12,7 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 import numpy as np 
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid
 
 
 import PeptideBuilder 
@@ -22,6 +22,34 @@ from .utilities import *
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
+
+
+class SimulationInfo(object):
+    '''A class that stores information about a simulation. Only for keeping history of simulation runs
+    '''
+
+    run_fxn = None
+    run_kwargs = None
+    name = ''
+    restart_count = 0
+
+    def __init__(self,name):
+        self.name = name
+
+    def run(self,run_fxn=None, run_kwargs=None):
+        if(self.restart_count > 0):            
+            if (run_fxn is not None and run_fxn != self.run_fxn) or (run_kwargs is not None and run_kwargs != self.run_kwargs):
+                raise ValueError('Name collision in simulation. You tried to repeat a non-identical simulation')
+        else:
+            self.run_fxn = run_fxn
+            self.run_kwargs = run_kwargs
+            
+        self.restart_count += 1
+        self.run_fxn(**self.run_kwargs)
+        
+
+    
+
 
 class PeptideSim(Configurable):
     '''PeptideSim class. Class to use for conducting simulations.
@@ -87,6 +115,9 @@ class PeptideSim(Configurable):
     _pdb = []
     _tpr = []
     _file_list = []
+
+    #keep track of simulations in case of restart needs
+    _sims = dict()
 
     #other variables
     _box_size = [0,0,0] #box size in angstroms
@@ -274,11 +305,14 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def energy_minimize(self, steps=1000):
-        '''Energy minimize the system. Can be called anytime after initialize.'''
+    def energy_minimize(self, tag, steps=1000):
+        '''Energy minimize the system. Can be called anytime after initialize.        
+        '''
 
-        
-        self._emin(steps)
+        with self._simulation_context('energy-minimization-' + tag) as ec:
+            self.log.info('Running energy minimization with name {}'.format(ec.name))
+            self._emin(steps, ec)
+            
 
     def __del__(self):
         #gracefully stop logging
@@ -289,55 +323,76 @@ line and creates the class simulation.
     def _convert_path(self, p, dir='.'):
         '''Converts path and optional subdirectory to be local to our working directory'''
         return os.path.join(self.dir_name, dir, os.path.basename(p))
+
+
+    @contextlib.contextmanager
+    def _simulation_context(self, name):
+        '''This context will handle restart and keeping a history of simulations performed.
+
+        TODO: Maybe have this context submit a simulation job?
+        '''
+
+        #construct name
+        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file + self.pdb_file)
+        simname = name + '-' + str(file_hash)
+
+        if simname in self._sims:
+            si = self._sims[simname]
+        else:
+            si = SimulationInfo(simname)
+
+        self._sims[simname] = si            
+        yield  si    
+
+        
+            
+
     
-    def _put_in_dir(dirname):
-        ''' This is a decorator that will wrap a function so that it is executed inside of a particular directory.
+    @contextlib.contextmanager
+    def _put_in_dir(self, dirname):
+        ''' This is a context that will wrap a block of code so that it is executed inside of a particular directory.
 	
         Parameters
         ----------
         dirname : str
             The name of the directory which the function should be exectued within. This is relative
             to the dir_name of the PeptideSim object.
-        Returns
-        -------
-        fxn
-            A new wrapped function (usually used as annotation)
         '''
-        
-        def wrap(fxn):
-            def mod_f(self, *args, **kwargs):
-                d = self._convert_path(dirname)
-                if not os.path.exists(d):
-                    os.mkdir(d)
-                #bring files
-                for f in self.file_list:
-                    if(f is not None and os.path.exists(f)):
-                        shutil.copyfile(f, os.path.join(d, os.path.basename(f)))           
-                #go there
-                curdir = os.getcwd()
-                os.chdir(d)
-                try:
-                    return fxn(self, *args, **kwargs)
-                finally:
-                    #make sure we leave
-                    os.chdir(curdir)
-                    #bring back files
-                    for f in self.file_list:
-                        if(f is not None and os.path.exists(os.path.join(d, f))):
-                            shutil.copyfile(os.path.join(d, f),f)
-            return mod_f
-        return wrap
+        d = self._convert_path(dirname)
+        if not os.path.exists(d):
+            os.mkdir(d)
+        #bring files
+        for f in self.file_list:
+            if(f is not None and os.path.exists(f)):
+                shutil.copyfile(f, os.path.join(d, os.path.basename(f)))           
+        #go there
+        curdir = os.getcwd()
+        os.chdir(d)
+
+
+        try:
+            yield
+
+        finally:
+            os.chdir(curdir)
+            #bring back files
+            for f in self.file_list:
+                if(f is not None and os.path.exists(os.path.join(d, f))):
+                    shutil.copyfile(os.path.join(d, f),f)
 
     def get_mdpfile(self, f):
+
+        mdpfile = None
+        
         #check if mdp file exist in current directory, which note may be our parrent due to putindir        
         if(os.path.exists(f)):
-            return f
+            mdpfile = f        
         if(os.path.exists(os.path.join('..', f))):
-            return os.path.join('..', f)
+            mdpfile =  os.path.join('..', f)
 
         #now check if it's in our mdp file path
         if(os.path.exists(os.path.join(self.mdp_directory, f))):
-            return os.path.join(self.mdp_directory, f)
+            mdpfile =  os.path.join(self.mdp_directory, f)
         
 
         #now check if it's in our package resource
@@ -346,13 +401,13 @@ line and creates the class simulation.
             self.log.info('Could not located MDP file {} locally, so using it from package resource.'.format(f))
             with open(f, 'wb') as newf:
                 newf.write(pkg_resources.resource_string(__name__, 'templates/' + f))
-            return f
+            mdpfile = f
 
-        raise IOError('Could not find MDP file called {}'.format(f))
-        
-        
+        if mdpfile is None:
+            raise IOError('Could not find MDP file called {}'.format(f))
 
-        
+        return mdpfile
+                
     def analysis(self):
             """This function analyzes the output of the simulation. 
 
@@ -394,7 +449,6 @@ line and creates the class simulation.
         '''
         pass
 
-    @_put_in_dir('peptide_structures')
     def _pdb_file_generator(self, sequence, name):
         '''Generates PDB file from  sequence using BioPython + PeptideBuilder
 
@@ -425,17 +479,17 @@ line and creates the class simulation.
             for i in range(3):
                 smax[i] =  a.coord[i] if a.coord[i] >  smax[i] else smax[i]
                 smin[i] =  a.coord[i] if a.coord[i] <  smin[i] else smin[i]
-                
-        out = PDBIO()
-        out.set_structure(structure)
-        out.save( pdbfile ) #adds aminoacids one at a time and generates a pdbfile
 
-        #get molecular weight
-        p = ProteinAnalysis(sequence)        
+        with self._put_in_dir('peptide_structures'):
+            out = PDBIO()
+            out.set_structure(structure)
+            out.save( pdbfile ) #adds aminoacids one at a time and generates a pdbfile
 
-        return (os.path.abspath(pdbfile), [smin, smax], p.molecular_weight())
+            #get molecular weight
+            p = ProteinAnalysis(sequence)        
+
+            return (os.path.abspath(pdbfile), [smin, smax], p.molecular_weight())
         
-    @_put_in_dir('packing')
     def _packmol(self, output_file='dry_packed.pdb'):
         '''This function takes multiple pdbfiles and combines them into one pdbfile
         '''
@@ -472,100 +526,126 @@ line and creates the class simulation.
                       inside box 0 0 0 {} {} {}
                     end structure
                     '''.format(f, c, *self.box_size_angstrom))
-        self.pdb_file = output_file
+
+
+        with self._put_in_dir('packing'):
+            self.pdb_file = output_file
         
 
-        #pack up packmol into a gromacs command
-        class Packmol(self.gromacs.core.Command):
-            command_name = self.packmol_exe            
-        cmd = Packmol()
-        result = cmd(input=input_string)
+            #pack up packmol into a gromacs command
+            class Packmol(self.gromacs.core.Command):
+                command_name = self.packmol_exe            
+            cmd = Packmol()
+            result = cmd(input=input_string)
         
-        if result[0] != 0:
-            self.log.error('Packmol failed with retcode {}. Out: {} Err: {}'.format(*result))
-        else:
-            self.log.info('Packmol succeeded with retcode {}'.format(*result))
+            if result[0] != 0:
+                self.log.error('Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(*result, input=input_string))
+            else:
+                self.log.info('Packmol succeeded with retcode {}'.format(*result))
 
-        assert os.path.exists(output_file), 'Packmol claimed to succeed but no output file found'
+            assert os.path.exists(output_file), 'Packmol claimed to succeed but no output file found'
 
-    @_put_in_dir('prep')
     def _pdb2gmx(self):
-        output = 'dry_mixed.gro'
-        topology = 'dry_topology.top'
-        self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
-        self.gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
-        self.gro_file = output
-        self.top_file = topology        
 
-    @_put_in_dir('prep')
+        with self._put_in_dir('prep'):
+        
+            output = 'dry_mixed.gro'
+            topology = 'dry_topology.top'
+            self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
+            self.gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            self.gro_file = output
+            self.top_file = topology        
+
     def _solvate(self):
-        output = 'wet_mixed.gro'
-        water = self.water + '.gro'
+        
+        with self._put_in_dir('prep'):
+            output = 'wet_mixed.gro'
+            water = self.water + '.gro'
 
-        if self.water == 'tip3p':
-            #swtich to spc
-            water = 'spc216.gro'
-        self.gromacs.solvate(cp=self.gro_file, cs=water, o=output, p=self.top_file, box=self.box_size_nm)
-        self.gro_file = output
+            if self.water == 'tip3p':
+                #swtich to spc
+                water = 'spc216.gro'
+            self.gromacs.solvate(cp=self.gro_file, cs=water, o=output, p=self.top_file, box=self.box_size_nm)
+            self.gro_file = output
 
 
-    @_put_in_dir('prep')        
     def _add_ions(self):
 
-        #need a TPR file to add ions
-        self.log.info('Building first TPR file for adding ions')
-        ion_tpr = 'ion.tpr'
-        ion_mdp = 'ion.mdp'
-        ion_gro = 'prepared.gro'
+        with self._put_in_dir('prep'):
         
+            #need a TPR file to add ions
+            self.log.info('Building first TPR file for adding ions')
+            ion_tpr = 'ion.tpr'
+            ion_mdp = 'ion.mdp'
+            ion_gro = 'prepared.gro'
+            
+            
+            mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+            self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp, **mdp_base)
+            
+            self.gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
+            self.tpr_file = ion_tpr
+            
+            
+            self.log.info('Preparing NDX file')
+            ndx_file = 'index.ndx'
+            _,out,_  = self.gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
+            groups = self.gromacs.cbook.parse_ndxlist(out)
+            
+            solvent_index = -1
+            for g in groups:
+                if g['name'] == 'SOL':
+                    solvent_index = g['nr']
+                    break
+            assert solvent_index >= 0, 'Problem with making index file and finding solvent'
+            self.log.info('Identified {} as the solvent group'.format(solvent_index))
         
-        mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
-        self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp, **mdp_base)
-        
-        self.gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
-        self.tpr_file = ion_tpr
 
+            self.log.info('Adding Ions...')
+            self.gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True, o=ion_gro, p=self.top_file, input=('', solvent_index))
+            self.log.info('...OK')
+            
+            #now we need to remove all the include stuff so we can actually pass the file around if needed
+            self.log.info('Resovling include statements via GromacsWrapper...')
+            output = self.top_file = self.gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
+            self.log.info('...OK')
+            
+            self.gro_file = ion_gro
+            self.tpr_file = ion_tpr
+            self.top_file = output
+            self._file_list.append(ndx_file)
 
-        self.log.info('Preparing NDX file')
-        ndx_file = 'index.ndx'
-        _,out,_  = self.gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
-        groups = self.gromacs.cbook.parse_ndxlist(out)
-        
-        solvent_index = -1
-        for g in groups:
-            if g['name'] == 'SOL':
-                solvent_index = g['nr']
-                break
-        assert solvent_index >= 0, 'Problem with making index file and finding solvent'
-        self.log.info('Identified {} as the solvent group'.format(solvent_index))
-        
+    def _emin(self, steps, sinfo):
 
-        self.log.info('Adding Ions...')
-        self.gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True, o=ion_gro, p=self.top_file, input=('', solvent_index))
-        self.log.info('...OK')
-        
-        #now we need to remove all the include stuff so we can actually pass the file around if needed
-        self.log.info('Resovling include statements via GromacsWrapper...')
-        output = self.top_file = self.gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
-        self.log.info('...OK')
+        with self._put_in_dir(sinfo.name):
 
-        self.gro_file = ion_gro
-        self.tpr_file = ion_tpr
-        self.top_file = output
-        self._file_list.append(ndx_file)
+            #check if it's a restart
+            if(sinfo.restart_count > 0):
+                self.log.info('Found existing information about this simulation. Using restart')
+                #yup, no prep needed
+                sinfo.run()
+            else:
+                #need to prepare for simulation                
+                #Preparing emin tpr file        
+                self.log.info('Compiling emin TPR file for simulation {}'.format(sinfo.name))
+                emin_mdp = 'emin.mdp'
+                emin_tpr = 'emin.tpr'
+                emin_gro = 'emin.gro'
+                
+                mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+                self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=emin_mdp, nsteps=steps, **mdp_base)
 
-    @_put_in_dir('emin')
-    def _emin(self, steps):
-        #Preparing emin tpr file
-        self.log.info('Compiling emin TPR file')
-        ion_tpr = 'ion.tpr'
-        ion_mdp = 'ion.mdp'
-        ion_gro = 'prepared.gro'
-        
-        
-        mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
-        self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp,nsteps=steps **mdp_base)
-        
-        self.gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
-        self.tpr_file = ion_tpr
+                self.gromacs.grompp(f=emin_mdp, c=self.gro_file, p=self.top_file, o=emin_tpr)
+                self.tpr_file = emin_tpr
+
+                self.log.info('Starting simulation...'.format(sinfo.name))
+                sinfo.run(self.gromacs.mdrun, dict(s=emin_tpr, c=emin_gro))
+                self.log.info('...done'.format(sinfo.name))
+
+            
+            #finished, store any info needed
+            self.gro_file = emin_gro
+            
+            
+
 

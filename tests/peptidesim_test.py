@@ -6,6 +6,30 @@ import os.path, time
 from peptidesim import *
 import shutil, os, textwrap
 
+
+import signal
+import functools
+
+class TimeoutError(Exception): pass
+
+def timeout(seconds, error_message = 'Function call timed out'):
+    def decorated(func):
+        def _handle_timeout(signum, frame):
+            raise TimeoutError(error_message)
+
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, _handle_timeout)
+            signal.alarm(seconds)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+
+        return functools.wraps(func)(wrapper)
+
+    return decorated
+
 class TestPeptideSimSimple(TestCase):
     def setUp(self):
         self.p = PeptideSim('psim_test', ['AA', 'RE'], [3, 1], job_name='testing')
@@ -53,8 +77,46 @@ class TestPeptideSimInitialize(TestCase):
         
 
     def tearDown(self):
-        pass
-        #shutil.rmtree('pinit_test')
+        shutil.rmtree('pinit_test')
+
+class TestPeptideEmin(TestCase):
+    def setUp(self):
+        self.p = PeptideSim('pemin_test', ['RE', 'DC'], [1, 1], job_name='testing-emin')
+        self.p.initialize()
+
+    def test_short_emin(self):
+        start_gro = self.p.gro_file
+        self.p.energy_minimize('test', 10)
+        self.assertTrue(start_gro != self.p.gro_file)
+
+    def test_restart_emin(self):
+        
+        start_gro = self.p.gro_file
+
+        #call and interrupt the function
+        @timeout(3,'')
+        def wrap(this=self):
+            this.p.energy_minimize('timeout', 10**10)
+
+        try:
+            wrap()
+        except TimeoutError:
+            pass
+
+        #attempt restart
+        try:
+            wrap()
+        except TimeoutError:
+            pass
+
+        for k,v in self.p._sims.iteritems():
+            if(k.startswith('energy-minimization-timeout')):
+                self.assertTrue(v.restart_count == 2)
+
+    def tearDown(self):
+        shutil.rmtree('pemin_test')
+
+
 
 class TestConfig(TestCase):
     def test_config_setname(self):
