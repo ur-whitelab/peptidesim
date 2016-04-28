@@ -145,7 +145,7 @@ class PeptideSim(Configurable):
     def file_list(self):
         result = []
         result.extend(self._file_list)
-        #for now, we'll keep these as absolute paths. So we won't have local copies everywhere
+        #for now, we'll keep these as paths relative to basedirectory. So we won't have local copies everywhere
         #result.extend([self.pdb_file, self.gro_file, self.top_file, self.tpr_file])
         return result
 
@@ -153,44 +153,44 @@ class PeptideSim(Configurable):
     def pdb_file(self):
         if(len(self._pdb) == 0):
             return None
-        return self._pdb[-1]
+        return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
 
 
     @pdb_file.setter
     def pdb_file(self, f):
-        self._pdb.append(os.path.abspath(f))
+        self._pdb.append(self._convert_path(f))
 
     @property
     def gro_file(self):
         if(len(self._gro) == 0):
             return None
-        return self._gro[-1]
+        return os.path.normpath(os.path.join(self.rel_dir_name, self._gro[-1]))
 
 
     @gro_file.setter
     def gro_file(self, f):
-        self._gro.append(os.path.abspath(f))
+        self._gro.append(self._convert_path(f))
 
     @property
     def top_file(self):
         if(len(self._top) == 0):
             return None
-        return self._top[-1]
+        return os.path.normpath(os.path.join(self.rel_dir_name, self._top[-1]))
 
 
     @top_file.setter
     def top_file(self, f):
-        self._top.append(os.path.abspath(f))
+        self._top.append(self._convert_path(f))
 
     @property
     def tpr_file(self):
         if(len(self._tpr) == 0):
             return None
-        return self._tpr[-1]
+        return os.path.normpath(os.path.join(self.rel_dir_name, self._tpr[-1]))
 
     @tpr_file.setter
     def tpr_file(self, f):
-        self._tpr.append(os.path.abspath(f))        
+        self._tpr.append(self._convert_path(f))        
         
     
                      
@@ -219,10 +219,11 @@ line and creates the class simulation.
             self.job_name = os.path.split(dir_name)[-1]
 
         self.dir_name = dir_name
+        self.rel_dir_name = '.'
         
         if not os.path.exists(self.dir_name):
             os.mkdir(self.dir_name)
-        self.dir_name = os.path.abspath(self.dir_name)
+
         for f in self.req_files:
             shutil.copyfile(f, self._convert_path(f))
             self._file_list.append(os.path.basename(f))
@@ -320,9 +321,13 @@ line and creates the class simulation.
         self.log.removeHandler(self.log_handler)
 
 
-    def _convert_path(self, p, dir='.'):
-        '''Converts path and optional subdirectory to be local to our working directory'''
-        return os.path.join(self.dir_name, dir, os.path.basename(p))
+    def _convert_path(self, p):
+        '''Converts path to be local to our working directory'''
+        if(os.path.exists(p)):
+            return os.path.relpath(os.path.abspath(p), os.path.abspath(self.rel_dir_name))
+        else:
+            #join(where you are relative to root, filename)
+            return os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), os.path.abspath(self.rel_dir_name)), p))
 
 
     @contextlib.contextmanager
@@ -358,15 +363,18 @@ line and creates the class simulation.
             The name of the directory which the function should be exectued within. This is relative
             to the dir_name of the PeptideSim object.
         '''
-        d = self._convert_path(dirname)
+        d = self._convert_path(os.path.join(self.dir_name, dirname))
         if not os.path.exists(d):
             os.mkdir(d)
         #bring files
         for f in self.file_list:
             if(f is not None and os.path.exists(f)):
-                shutil.copyfile(f, os.path.join(d, os.path.basename(f)))           
+                shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
+                
         #go there
         curdir = os.getcwd()
+        #keep path to original directory
+        self.rel_dir_name = os.path.relpath(curdir, d)
         os.chdir(d)
 
 
@@ -375,6 +383,10 @@ line and creates the class simulation.
 
         finally:
             os.chdir(curdir)
+
+            #update path to original directory
+            self.rel_dir_name  = '.'
+            
             #bring back files
             for f in self.file_list:
                 if(f is not None and os.path.exists(os.path.join(d, f))):
@@ -384,11 +396,10 @@ line and creates the class simulation.
 
         mdpfile = None
         
-        #check if mdp file exist in current directory, which note may be our parrent due to putindir        
-        if(os.path.exists(f)):
-            mdpfile = f        
-        if(os.path.exists(os.path.join('..', f))):
-            mdpfile =  os.path.join('..', f)
+        #check if mdp file exist in current directory, on the file list or in dir_name, or in parent of dir_name
+        for d in ['.', self.dir_name, os.path.join('..', self.dir_name)]:
+            if(os.path.exists(os.path.join(d, f))):
+                mdpfile =  os.path.join(d, f)
 
         #now check if it's in our mdp file path
         if(os.path.exists(os.path.join(self.mdp_directory, f))):
@@ -488,7 +499,7 @@ line and creates the class simulation.
             #get molecular weight
             p = ProteinAnalysis(sequence)        
 
-            return (os.path.abspath(pdbfile), [smin, smax], p.molecular_weight())
+            return (pdbfile, [smin, smax], p.molecular_weight())
         
     def _packmol(self, output_file='dry_packed.pdb'):
         '''This function takes multiple pdbfiles and combines them into one pdbfile
@@ -528,7 +539,8 @@ line and creates the class simulation.
                     '''.format(f, c, *self.box_size_angstrom))
 
 
-        with self._put_in_dir('packing'):
+        with self._put_in_dir('peptide_structures'):
+
             self.pdb_file = output_file
         
 
@@ -548,7 +560,7 @@ line and creates the class simulation.
     def _pdb2gmx(self):
 
         with self._put_in_dir('prep'):
-        
+
             output = 'dry_mixed.gro'
             topology = 'dry_topology.top'
             self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
