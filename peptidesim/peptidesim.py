@@ -24,6 +24,10 @@ from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
 
+import gromacs
+gromacs.environment.flags['capture_output'] = True
+
+
 class SimulationInfo(object):
     '''A class that stores information about a simulation. Only for keeping history of simulation runs
     '''
@@ -34,9 +38,9 @@ class SimulationInfo(object):
     location = ''
     short_name = ''
     restart_count = 0
-    metadata = None
+    metadata = dict()
 
-    def __init__(self,name, short_name, metadata=dict()):
+    def __init__(self,name, short_name):
         self.name = name
         self.short_name = short_name
 
@@ -213,12 +217,7 @@ line and creates the class simulation.
             A list of amino acid sequences.
         counts : List[int]
             A list of the number of occurrences of each amino acid, in order.
-        '''
-
-        #go ahead and import gromacs now, since we'll be messing with log handlers
-        self.gromacs = __import__('gromacs')
-        self.gromacs.environment.flags['capture_output'] = True
-        
+        '''        
 
         #Set-up directory to begin with
         self.job_name = job_name
@@ -235,24 +234,7 @@ line and creates the class simulation.
             shutil.copyfile(f, self._convert_path(f))
             self._file_list.append(os.path.basename(f))
 
-
-        #check if logger is relative
-        #split path and see if folder is empty
-        if(len(os.path.split(dir_name)[0]) == 0):
-            self.log_file = self._convert_path(self.log_file)
-
-        #don't know how we got here, so we'll just add our logger
-        file_handler = logging.FileHandler(self.log_file)
-        file_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)%s)")
-        file_handler.setFormatter(formatter)
-        
-        self.log = logging.getLogger('peptidesim:{}'.format(self.job_name))
-        self.log.addHandler(file_handler)
-        
-        self.log_handler = file_handler
-        self.log.setLevel(logging.DEBUG)
-        self.log.info('Started logging for PeptideSim...')
+        self._start_logging()
 
         
         #Note: use load_pyconfig_files to merge them. Useful in future
@@ -274,6 +256,25 @@ line and creates the class simulation.
             counts = [1 for s in seqs]
         self.counts=counts
         self.log.info('Have {} many of these sequences {}:'.format(counts, seqs))
+
+    def _start_logging(self):
+        #check if logger is relative
+        #split path and see if folder is empty
+        self.log_file = self._convert_path(self.log_file)
+
+        #don't know how we got here, so we'll just add our logger
+        file_handler = logging.FileHandler(self.log_file)
+        file_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)%s)")
+        file_handler.setFormatter(formatter)
+        
+        self.log = logging.getLogger('peptidesim:{}'.format(self.job_name))
+        self.log.addHandler(file_handler)
+        
+        self.log_handler = file_handler
+        self.log.setLevel(logging.DEBUG)
+        self.log.info('Started logging for PeptideSim...')
+
 
     def initialize(self):
         '''Build PDB files, pack them, convert to gmx, add water and ions
@@ -350,7 +351,17 @@ line and creates the class simulation.
         self.log_handler.close()
         self.log.removeHandler(self.log_handler)
 
+    def __getstate__(self):
+        odict = self.__dict__.copy() # copy the dict since we change it
+        del odict['log_handler']              # remove filehandle entry
+        return odict
 
+    def __setstate__(self, dict):
+        self.__dict__.update(dict)
+        self._start_logging()
+        self.log.info('Restarting from pickled state')
+
+        
     def _convert_path(self, p):
         '''Converts path to be local to our working directory'''
         if(os.path.exists(p)):
@@ -575,7 +586,7 @@ line and creates the class simulation.
         
 
             #pack up packmol into a gromacs command
-            class Packmol(self.gromacs.core.Command):
+            class Packmol(gromacs.core.Command):
                 command_name = self.packmol_exe            
             cmd = Packmol()
             result = cmd(input=input_string)
@@ -594,7 +605,7 @@ line and creates the class simulation.
             output = 'dry_mixed.gro'
             topology = 'dry_topology.top'
             self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
-            self.gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.gro_file = output
             self.top_file = topology        
 
@@ -607,7 +618,7 @@ line and creates the class simulation.
             if self.water == 'tip3p':
                 #swtich to spc
                 water = 'spc216.gro'
-            self.gromacs.solvate(cp=self.gro_file, cs=water, o=output, p=self.top_file, box=self.box_size_nm)
+            gromacs.solvate(cp=self.gro_file, cs=water, o=output, p=self.top_file, box=self.box_size_nm)
             self.gro_file = output
 
 
@@ -622,17 +633,17 @@ line and creates the class simulation.
             ion_gro = 'prepared.gro'
             
             
-            mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
-            self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp, **mdp_base)
+            mdp_base = gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+            gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp, **mdp_base)
             
-            self.gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
+            gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
             self.tpr_file = ion_tpr
             
             
             self.log.info('Preparing NDX file')
             ndx_file = 'index.ndx'
-            _,out,_  = self.gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
-            groups = self.gromacs.cbook.parse_ndxlist(out)
+            _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
+            groups = gromacs.cbook.parse_ndxlist(out)
             
             solvent_index = -1
             for g in groups:
@@ -644,12 +655,12 @@ line and creates the class simulation.
         
 
             self.log.info('Adding Ions...')
-            self.gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True, o=ion_gro, p=self.top_file, input=('', solvent_index))
+            gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True, o=ion_gro, p=self.top_file, input=('', solvent_index))
             self.log.info('...OK')
             
             #now we need to remove all the include stuff so we can actually pass the file around if needed
             self.log.info('Resovling include statements via GromacsWrapper...')
-            output = self.top_file = self.gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
+            output = self.top_file = gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
             self.log.info('...OK')
             
             self.gro_file = ion_gro
@@ -659,7 +670,7 @@ line and creates the class simulation.
 
     def _run(self, mdpfile, sinfo, mdp_kwargs, run_kwargs):
 
-        ec.location = self._convert_path(sinfo.name)
+        sinfo.location = self._convert_path(sinfo.name)
 
         with self._put_in_dir(sinfo.name):
 
@@ -676,24 +687,24 @@ line and creates the class simulation.
                 tpr = sinfo.short_name + '.tpr'
                 gro = sinfo.short_name + '.gro'
                 
-                mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+                mdp_base = gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
                 mdp_base.update(mdp_kwargs)
-                mdp_final = self.gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=mdp, **mdp_base)
+                mdp_final = gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=mdp, **mdp_base)
 
                 #update metadata
-                ec.metadata['mdp-name'] = mdpfile
-                ec.metadata['mdp-data'] = mdp_final
+                sinfo.metadata['mdp-name'] = mdpfile
+                sinfo.metadata['mdp-data'] = mdp_final
 
-                self.gromacs.grompp(f=mdp, c=self.gro_file, p=self.top_file, o=tpr)
+                gromacs.grompp(f=mdp, c=self.gro_file, p=self.top_file, o=tpr)
                 self.tpr_file = tpr
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 run_kwargs.update(dict(s=tpr, c=gro))
 
-                ec.metadata['run-kwargs'] = run_kwargs
+                sinfo.metadata['run-kwargs'] = run_kwargs
 
                 
-                sinfo.run(self.gromacs.mdrun, run_kwargs)
+                sinfo.run(gromacs.mdrun, run_kwargs)
                 self.log.info('...done'.format(sinfo.name))
 
             

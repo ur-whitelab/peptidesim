@@ -72,6 +72,17 @@ class TestPeptideSimInitialize(TestCase):
         if '#include' in open(self.p.top_file).read():
             self.fail('There are unresolved #include directives in the topology file')
 
+    def test_pickle(self):
+        import dill as pickle
+        from cStringIO import StringIO
+        phash = self.p.top_file + self.p.gro_file +  self.p.pdb_file
+        string = pickle.dumps(self.p)
+        #need to delete old object so we don't get duplicate logging
+        del self.p
+        new_p = pickle.load(StringIO(string))        
+        self.assertEqual(phash, new_p.top_file + new_p.gro_file +  new_p.pdb_file)
+        
+
     def test_neutral(self):
         pass
         
