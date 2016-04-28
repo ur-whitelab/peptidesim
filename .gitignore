@@ -25,6 +25,7 @@
 *.tpr
 *.trr
 *.cpt
+*.ndx
 
 #Sphinx build
 doc/_build
