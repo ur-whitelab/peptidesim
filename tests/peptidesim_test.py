@@ -86,7 +86,7 @@ class TestPeptideEmin(TestCase):
 
     def test_short_emin(self):
         start_gro = self.p.gro_file
-        self.p.energy_minimize('test', 10)
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'steps':10})
         self.assertTrue(start_gro != self.p.gro_file)
 
     def test_restart_emin(self):
@@ -96,7 +96,7 @@ class TestPeptideEmin(TestCase):
         #call and interrupt the function
         @timeout(3,'')
         def wrap(this=self):
-            this.p.energy_minimize('timeout', 10**10)
+            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'steps':10**10})
 
         try:
             wrap()
@@ -110,7 +110,7 @@ class TestPeptideEmin(TestCase):
             pass
 
         for k,v in self.p._sims.iteritems():
-            if(k.startswith('energy-minimization-timeout')):
+            if(k.startswith('emin-timeout')):
                 self.assertTrue(v.restart_count == 2)
 
     def tearDown(self):

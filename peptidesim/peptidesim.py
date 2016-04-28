@@ -31,10 +31,12 @@ class SimulationInfo(object):
     run_fxn = None
     run_kwargs = None
     name = ''
+    short_name = ''
     restart_count = 0
 
-    def __init__(self,name):
+    def __init__(self,name, short_name):
         self.name = name
+        self.short_name = short_name
 
     def run(self,run_fxn=None, run_kwargs=None):
         if(self.restart_count > 0):            
@@ -103,9 +105,10 @@ class PeptideSim(Configurable):
                             ).tag(config=True)
     mdp_base = Unicode(u'peptidesim_base.mdp',
                        help='The MDP file containing basic forcefield parameters'
-                       ).tag(config=True) 
+                       ).tag(config=True)
+    
     mdp_emin = Unicode(u'peptidesim_emin.mdp',
-                       help='The emenergy miniziation MDP file. Built from mdp_base'
+                       help='The emenergy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                        ).tag(config=True)
                                   
 
@@ -306,13 +309,35 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
+    def run(self, mdpfile, tag='', mdp_kwargs=dict(), run_kwargs=dict()):
+        '''Run a simulation with the given mdpfile
+
+        The name of the simulation will be the name of the mpdfile
+        plus the tag name plus a hash of the current gro/top file. If
+        the tag/mdp file are the same then the simulation will be restarted
+
+        Parameters
+        ----------
+        mdpfile : str
+            name of the mdp file
+        tag : str
+            A tag to add onto the simulation. 
+           Probably good idea if you're adding additional arguments.
+        mdp_kwargs : dict
+            Additional arguments that will be added to the mdp file. 
+        run_kwargs : dict
+            Additional arguments that will be convreted to mdrun flags
+        '''
+        with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag) as ec:
+            self.log.info('Running simulation with name {}'.format(ec.name))
+            self._run(mdpfile, ec, mdp_kwargs, run_kwargs)
+
+        
+
     def energy_minimize(self, tag, steps=1000):
         '''Energy minimize the system. Can be called anytime after initialize.        
         '''
 
-        with self._simulation_context('energy-minimization-' + tag) as ec:
-            self.log.info('Running energy minimization with name {}'.format(ec.name))
-            self._emin(steps, ec)
             
 
     def __del__(self):
@@ -344,7 +369,7 @@ line and creates the class simulation.
         if simname in self._sims:
             si = self._sims[simname]
         else:
-            si = SimulationInfo(simname)
+            si = SimulationInfo(simname, name)
 
         self._sims[simname] = si            
         yield  si    
@@ -627,7 +652,7 @@ line and creates the class simulation.
             self.top_file = output
             self._file_list.append(ndx_file)
 
-    def _emin(self, steps, sinfo):
+    def _run(self, mdpfile, sinfo, mdp_kwargs, run_kwargs):
 
         with self._put_in_dir(sinfo.name):
 
@@ -639,24 +664,26 @@ line and creates the class simulation.
             else:
                 #need to prepare for simulation                
                 #Preparing emin tpr file        
-                self.log.info('Compiling emin TPR file for simulation {}'.format(sinfo.name))
-                emin_mdp = 'emin.mdp'
-                emin_tpr = 'emin.tpr'
-                emin_gro = 'emin.gro'
+                self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
+                mdp = sinfo.short_name + '.mdp'
+                tpr = sinfo.short_name + '.tpr'
+                gro = sinfo.short_name + '.gro'
                 
                 mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
-                self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=emin_mdp, nsteps=steps, **mdp_base)
+                mdp_base.update(mdp_kwargs)
+                self.gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=mdp, **mdp_base)
 
-                self.gromacs.grompp(f=emin_mdp, c=self.gro_file, p=self.top_file, o=emin_tpr)
-                self.tpr_file = emin_tpr
+                self.gromacs.grompp(f=mdp, c=self.gro_file, p=self.top_file, o=tpr)
+                self.tpr_file = tpr
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
-                sinfo.run(self.gromacs.mdrun, dict(s=emin_tpr, c=emin_gro))
+                run_kwargs.update(dict(s=tpr, c=gro))
+                sinfo.run(self.gromacs.mdrun, run_kwargs)
                 self.log.info('...done'.format(sinfo.name))
 
             
             #finished, store any info needed
-            self.gro_file = emin_gro
+            self.gro_file = gro
             
             
 
