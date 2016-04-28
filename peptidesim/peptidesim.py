@@ -31,10 +31,12 @@ class SimulationInfo(object):
     run_fxn = None
     run_kwargs = None
     name = ''
+    location = ''
     short_name = ''
     restart_count = 0
+    metadata = None
 
-    def __init__(self,name, short_name):
+    def __init__(self,name, short_name, metadata=dict()):
         self.name = name
         self.short_name = short_name
 
@@ -47,6 +49,7 @@ class SimulationInfo(object):
             self.run_kwargs = run_kwargs
             
         self.restart_count += 1
+        
         self.run_fxn(**self.run_kwargs)
         
 
@@ -120,6 +123,7 @@ class PeptideSim(Configurable):
     _file_list = []
 
     #keep track of simulations in case of restart needs
+
     _sims = dict()
 
     #other variables
@@ -309,7 +313,7 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def run(self, mdpfile, tag='', mdp_kwargs=dict(), run_kwargs=dict()):
+    def run(self, mdpfile, tag='', mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict()):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -330,7 +334,8 @@ line and creates the class simulation.
         '''
         with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
-            self._run(mdpfile, ec, mdp_kwargs, run_kwargs)
+            ec.metadata.update(metadata)
+            self._run(mdpfile, ec, mdp_kwargs, run_kwargs)            
 
         
 
@@ -654,6 +659,8 @@ line and creates the class simulation.
 
     def _run(self, mdpfile, sinfo, mdp_kwargs, run_kwargs):
 
+        ec.location = self._convert_path(sinfo.name)
+
         with self._put_in_dir(sinfo.name):
 
             #check if it's a restart
@@ -671,13 +678,21 @@ line and creates the class simulation.
                 
                 mdp_base = self.gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
                 mdp_base.update(mdp_kwargs)
-                self.gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=mdp, **mdp_base)
+                mdp_final = self.gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=mdp, **mdp_base)
+
+                #update metadata
+                ec.metadata['mdp-name'] = mdpfile
+                ec.metadata['mdp-data'] = mdp_final
 
                 self.gromacs.grompp(f=mdp, c=self.gro_file, p=self.top_file, o=tpr)
                 self.tpr_file = tpr
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 run_kwargs.update(dict(s=tpr, c=gro))
+
+                ec.metadata['run-kwargs'] = run_kwargs
+
+                
                 sinfo.run(self.gromacs.mdrun, run_kwargs)
                 self.log.info('...done'.format(sinfo.name))
 
