@@ -1,0 +1,17 @@
+integrator   = sd
+nsteps       = 1
+dt           = 0.0005
+nstxout      = 1000
+nstvout      = 0
+nstfout      = 0
+nstlog       = 1000
+nstenergy    = 0
+tcoupl       = v-rescale
+tau_t        = 2
+ref_t        = 300
+tc-grps      = System
+pcoupl       = berendsen
+tau_p        = 250
+compressibility          = 4.5e-5
+ref_p        = 0
+
