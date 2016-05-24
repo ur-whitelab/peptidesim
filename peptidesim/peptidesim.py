@@ -314,7 +314,7 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def run(self, mdpfile, tag='', mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict()):
+    def run(self, mdpfile, tag='', mpi_np=1, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict()):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -336,7 +336,7 @@ line and creates the class simulation.
         with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
-            self._run(mdpfile, ec, mdp_kwargs, run_kwargs)            
+            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)            
 
         
 
@@ -668,7 +668,7 @@ line and creates the class simulation.
             self.top_file = output
             self._file_list.append(ndx_file)
 
-    def _run(self, mdpfile, sinfo, mdp_kwargs, run_kwargs):
+    def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
 
         sinfo.location = self._convert_path(sinfo.name)
 
@@ -699,10 +699,12 @@ line and creates the class simulation.
                 self.tpr_file = tpr
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
-                run_kwargs.update(dict(s=tpr, c=gro))
+                run_kwargs.update(dict(s=tpr, c=gro, dds=0.5))
 
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
+                #add mpiexec to command                
+                gromacs.mdrun.driver = 'mpiexec -np {} gmx_mpi'.format(mpi_np)
                 
                 sinfo.run(gromacs.mdrun, run_kwargs)
                 self.log.info('...done'.format(sinfo.name))
