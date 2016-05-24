@@ -17,13 +17,18 @@ RUN dpkg-reconfigure -f noninteractive dash
 
 #enable contributed packages
 RUN sed -i 's/main/main contrib/g' /etc/apt/sources.list
+RUN echo "deb http://ftp.be.debian.org/debian/ wheezy main contrib" >> /etc/apt/sources.list
+RUN echo "deb http://ftp.be.debian.org/debian/ wheezy-updates main contrib" >> /etc/apt/sources.list
 RUN apt-get update
-RUN apt-get install -y gromacs gromacs-data
+RUN apt-get install -y fftw3
+#RUN apt-get install -y gromacs gromacs-data
+RUN apt-get install -y -f -t wheezy gromacs=4.5.5-2 gromacs-data=4.5.5-2
 
 #configure the GromacsWrapper
-RUN source activate python2 && pip install git+git://github.com/Becksteinlab/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
-#RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@portable_top && echo "import gromacs;  gromacs.config.setup(); " | python
-ADD gromacs.cfg /root/.gromacswrapper.cfg
+RUN echo "bust"
+RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
+#ADD gromacs.cfg /root/.gromacswrapper.cfg
+ADD gromacs4.cfg /root/.gromacswrapper.cfg
 
 #Install packmol
 RUN apt-get install -y gfortran
