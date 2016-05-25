@@ -705,6 +705,8 @@ line and creates the class simulation.
 
                 #add mpiexec to command                
                 gromacs.mdrun.driver = 'mpiexec -np {} gmx_mpi'.format(mpi_np)
+                #make it run in shell
+                gromacs.mdrun._use_shell = True
                 
                 sinfo.run(gromacs.mdrun, run_kwargs)
                 self.log.info('...done'.format(sinfo.name))
