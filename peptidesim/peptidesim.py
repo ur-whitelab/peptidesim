@@ -54,7 +54,7 @@ class SimulationInfo(object):
             
         self.restart_count += 1
         
-        self.run_fxn(**self.run_kwargs)
+        return self.run_fxn(**self.run_kwargs)
         
 
     
@@ -575,6 +575,7 @@ line and creates the class simulation.
                     '''
                     structure {} 
                       number {}
+                      changechains
                       inside box 0 0 0 {} {} {}
                     end structure
                     '''.format(f, c, *self.box_size_angstrom))
@@ -699,16 +700,17 @@ line and creates the class simulation.
                 self.tpr_file = tpr
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
-                run_kwargs.update(dict(s=tpr, c=gro, dds=0.5))
+                run_kwargs.update(dict(s=tpr, c=gro, dds=0.5, use_shell=True))
 
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
                 #add mpiexec to command                
                 gromacs.mdrun.driver = 'mpiexec -np {} gmx_mpi'.format(mpi_np)
                 #make it run in shell
-                gromacs.mdrun._use_shell = True
                 
-                sinfo.run(gromacs.mdrun, run_kwargs)
+                output = sinfo.run(gromacs.mdrun, run_kwargs)
+                print(run_kwargs)
+                print(output)
                 self.log.info('...done'.format(sinfo.name))
 
             
