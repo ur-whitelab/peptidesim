@@ -17,6 +17,7 @@ import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resourc
 
 import PeptideBuilder 
 import Bio.PDB
+import subprocess
 from math import *
 from .utilities import *
 
@@ -265,7 +266,7 @@ line and creates the class simulation.
         #don't know how we got here, so we'll just add our logger
         file_handler = logging.FileHandler(self.log_file)
         file_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)%s)")
+        formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)s)")
         file_handler.setFormatter(formatter)
         
         self.log = logging.getLogger('peptidesim:{}'.format(self.job_name))
@@ -699,18 +700,19 @@ line and creates the class simulation.
                 gromacs.grompp(f=mdp, c=self.gro_file, p=self.top_file, o=tpr)
                 self.tpr_file = tpr
 
-                self.log.info('Starting simulation...'.format(sinfo.name))
-                run_kwargs.update(dict(s=tpr, c=gro, dds=0.5, use_shell=True))
+                #run_kwargs.update(dict(s=tpr, c=gro, dds=0.5, use_shell=True, shell_executable='/bin/bash'))
+                run_kwargs.update(dict(s=tpr, c=gro, dds=0.5))
 
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
                 #add mpiexec to command                
-                gromacs.mdrun.driver = 'mpiexec -np {} gmx_mpi'.format(mpi_np)
+                gromacs.mdrun.driver = ['mpiexec', '-np {}'.format(mpi_np), 'gmx_mpi']
                 #make it run in shell
                 
-                output = sinfo.run(gromacs.mdrun, run_kwargs)
-                print(run_kwargs)
-                print(output)
+                self.log.info('Starting simulation...'.format(sinfo.name))
+                cmd = gromacs.mdrun._commandline(**run_kwargs)
+                self.log.info('cmd')
+                sinfo.run(subprocess.call, {'args': ' '.join(cmd), 'shell':True})
                 self.log.info('...done'.format(sinfo.name))
 
             
