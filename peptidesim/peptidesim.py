@@ -126,6 +126,7 @@ class PeptideSim(Configurable):
     _pdb = []
     _tpr = []
     _file_list = []
+    _ndx_file = None
 
     #keep track of simulations in case of restart needs
 
@@ -203,9 +204,20 @@ class PeptideSim(Configurable):
     @tpr_file.setter
     def tpr_file(self, f):
         self._tpr.append(self._convert_path(f))        
-        
-    
-                     
+ 
+    @property
+    def ndx(self):
+        if(self._ndx_file is None):
+            return None
+        n = gromacs.NDX()
+        n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file]))
+        return n
+
+    @ndx.setter
+    def ndx(self, n):
+        self._ndx_file = self._convert_path(n)
+        self._file_list.append(self._ndx_file)
+
     def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None):        
         '''This is an initiator that takes the arguments from the command
 line and creates the class simulation.
@@ -644,7 +656,27 @@ line and creates the class simulation.
             
             self.log.info('Preparing NDX file')
             ndx_file = 'index.ndx'
-            _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
+            
+            #build ndx input to get an index group for each peptide
+            #The one-liner below just explodes the list of peptides/repeats into a
+            #list of all peptides
+            input_str = []
+            ri = 1
+            for i, pi in enumerate(                                                    \
+                reduce(                                                                \
+                    lambda x,y: x + y,                                                 \
+                    [                                                                  \
+                        [si for _ in xrange(ni)]                                       \
+                        for si, ni in zip(self.sequences,b)                            \
+                    ]                                                                  \
+                    )):                                                                
+
+                input_str.append('ri {}-{}'.format(ri, ri + len(pi)))
+                ri += len(pi)
+                input_str.append('name peptide_{}'.format(i))
+            input_str.append('q')
+
+            _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=list(input_str))
             groups = gromacs.cbook.parse_ndxlist(out)
             
             solvent_index = -1
@@ -668,7 +700,7 @@ line and creates the class simulation.
             self.gro_file = ion_gro
             self.tpr_file = ion_tpr
             self.top_file = output
-            self._file_list.append(ndx_file)
+            self.ndx = ndx_file
 
     def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
 
