@@ -83,6 +83,11 @@ class TestPeptideSimInitialize(TestCase):
         self.assertEqual(phash, new_p.top_file + new_p.gro_file +  new_p.pdb_file)
         
 
+    def test_ndx(self):
+        #just see if the list item exists
+        #later can write test to check for atom numbers
+        self.p.ndx['peptide_3']
+
     def test_neutral(self):
         pass
         
