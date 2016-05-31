@@ -210,7 +210,7 @@ class PeptideSim(Configurable):
         if(self._ndx_file is None):
             return None
         n = gromacs.NDX()
-        n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file]))
+        n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
         return n
 
     @ndx.setter
@@ -662,18 +662,19 @@ line and creates the class simulation.
             #list of all peptides
             
             #get current list of ndx groups
-            ndx_groups = gromacs.cbook.get_ndx_groups(f=self.gro_file)
+            _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
+            groups = gromacs.cbook.parse_ndxlist(out)            
             
             input_str = []
             ri = 1 #residue index counter
-            name_i =  len(ndex_groups) + 1 #which group we're naming
+            name_i =  len(groups) + 1 #which group we're naming
 
             for i, pi in enumerate(                                                    \
                 reduce(                                                                \
                     lambda x,y: x + y,                                                 \
                     [                                                                  \
                         [si for _ in xrange(ni)]                                       \
-                        for si, ni in zip(self.sequences,b)                            \
+                        for si, ni in zip(self.sequences,self.counts)                  \
                     ]                                                                  \
                     )):                                                                
                 
@@ -683,7 +684,7 @@ line and creates the class simulation.
                 input_str.append('name {} peptide_{}'.format(name_i, i))
                 name_i += 1
                 
-                ipnut_str.append('{} & a CA'.format(name_i - 1))
+                input_str.append('{} & a CA'.format(name_i - 1))
                 input_str.append('name {} peptide_CA_{}'.format(name_i, i))
                 name_i += 1
 

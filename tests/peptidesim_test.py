@@ -86,7 +86,8 @@ class TestPeptideSimInitialize(TestCase):
     def test_ndx(self):
         #just see if the list item exists
         #later can write test to check for atom numbers
-        self.p.ndx['peptide_3']
+        self.assertIsNotNone(self.p.ndx['peptide_3'])
+
 
     def test_neutral(self):
         pass
