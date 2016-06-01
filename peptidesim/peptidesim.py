@@ -118,6 +118,15 @@ class PeptideSim(Configurable):
     mdp_emin = Unicode(u'peptidesim_emin.mdp',
                        help='The emenergy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                        ).tag(config=True)
+
+    @observe('req_files')
+    def handle_req_files(self, new_file):
+        if(type(new_file) != list):
+            new_file = [new_file]
+        for f in new_file:
+            shutil.copyfile(f, self._convert_path(f))
+            self._file_list.append(os.path.basename(f))
+
                                   
 
     #Keep a chain of all files created. Hide behind properties
