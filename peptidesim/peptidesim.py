@@ -209,7 +209,7 @@ class PeptideSim(Configurable):
     def ndx(self):
         if(self._ndx_file is None):
             return None
-        n = gromacs.NDX()
+        n = gromacs.fileformats.NDX()
         n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
         return n
 
@@ -588,7 +588,10 @@ line and creates the class simulation.
                     '''
                     structure {} 
                       number {}
+                      #make chains be different between molecules
                       changechains
+                      #residue numbers are all unique between chains
+                      resnumbers 2
                       inside box 0 0 0 {} {} {}
                     end structure
                     '''.format(f, c, *self.box_size_angstrom))
@@ -663,11 +666,11 @@ line and creates the class simulation.
             
             #get current list of ndx groups
             _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
-            groups = gromacs.cbook.parse_ndxlist(out)            
+            groups = gromacs.cbook.parse_ndxlist(out)
             
             input_str = []
             ri = 1 #residue index counter
-            name_i =  len(groups) + 1 #which group we're naming
+            name_i =  len(groups) #which group we're naming
 
             for i, pi in enumerate(                                                    \
                 reduce(                                                                \
@@ -679,7 +682,7 @@ line and creates the class simulation.
                     )):                                                                
                 
                 
-                input_str.append('r {}-{}'.format(ri, ri + len(pi)))
+                input_str.append('r {}-{}'.format(ri, ri + len(pi) - 1))
                 ri += len(pi)
                 input_str.append('name {} peptide_{}'.format(name_i, i))
                 name_i += 1
@@ -688,10 +691,14 @@ line and creates the class simulation.
                 input_str.append('name {} peptide_CA_{}'.format(name_i, i))
                 name_i += 1
 
+            #cause it to ouput the final list
+            input_str.append('')                            
             input_str.append('q')
 
-            _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=tuple(input_str))
-            groups = gromacs.cbook.parse_ndxlist(out)
+            #update indices
+            _,t,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=tuple(input_str))
+            self.log.debug('make_ndx output')
+            self.log.debug(t)
             
             solvent_index = -1
             for g in groups:
@@ -757,8 +764,9 @@ line and creates the class simulation.
                 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
-                self.log.info('cmd')
-                sinfo.run(subprocess.call, {'args': ' '.join(cmd), 'shell':True})
+                self.log.info(cmd)
+                self.log.info(' '.join(map(str, cmd)))
+                sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 self.log.info('...done'.format(sinfo.name))
 
             

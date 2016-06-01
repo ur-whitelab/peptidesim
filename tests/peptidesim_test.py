@@ -95,6 +95,7 @@ class TestPeptideSimInitialize(TestCase):
 
     def tearDown(self):
         shutil.rmtree('pinit_test')
+        
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
