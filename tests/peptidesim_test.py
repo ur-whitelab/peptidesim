@@ -48,8 +48,20 @@ class TestPeptideSimSimple(TestCase):
         self.assertTrue(os.path.exists(log_file))
         self.assertTrue(os.stat(log_file).st_size > 0)
 
+    def test_req_files(self):
+        with open('test.txt', 'w') as f:
+            f.write('fdsa\n')
+        self.p.add_file('test.txt')
+        #make sure it's on required files list. Use string find since other path info will be present
+        self.assertTrue(self.p._file_list[-1].find('test.txt') != -1, 'Adding required file did not put it on file_list. Found {}'.format(self.p._file_list[-1]))
+        #make sure it's present now in directory
+        self.p.initialize()
+        self.assertTrue(os.path.exists('psim_test/prep/test.txt'))
+        os.remove('test.txt')
+
     def tearDown(self):
         shutil.rmtree('psim_test')
+    
 
 
 class TestPeptideSimInitialize(TestCase):

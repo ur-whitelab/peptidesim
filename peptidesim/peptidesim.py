@@ -22,7 +22,7 @@ from math import *
 from .utilities import *
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
-from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
+from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict, observe
 
 
 import gromacs
@@ -118,14 +118,6 @@ class PeptideSim(Configurable):
     mdp_emin = Unicode(u'peptidesim_emin.mdp',
                        help='The emenergy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                        ).tag(config=True)
-
-    @observe('req_files')
-    def handle_req_files(self, new_file):
-        if(type(new_file) != list):
-            new_file = [new_file]
-        for f in new_file:
-            shutil.copyfile(f, self._convert_path(f))
-            self._file_list.append(os.path.basename(f))
 
                                   
 
@@ -455,6 +447,13 @@ line and creates the class simulation.
                 if(f is not None and os.path.exists(os.path.join(d, f))):
                     shutil.copyfile(os.path.join(d, f),f)
 
+
+    def add_file(self, f):
+        if f != self._convert_path(f):        
+            shutil.copyfile(f, self._convert_path(f))
+        self._file_list.append(os.path.basename(f))
+
+                    
     def get_mdpfile(self, f):
 
         mdpfile = None
@@ -707,7 +706,8 @@ line and creates the class simulation.
             #update indices
             _,t,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=tuple(input_str))
             self.log.debug('make_ndx output')
-            self.log.debug(t)
+            for ti in t.split('\n'):
+                self.log.debug('ndx_output: {}'.format(ti))
             
             solvent_index = -1
             for g in groups:
