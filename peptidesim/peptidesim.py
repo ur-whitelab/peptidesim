@@ -17,7 +17,6 @@ import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resourc
 
 import PeptideBuilder 
 import Bio.PDB
-import subprocess
 from math import *
 from .utilities import *
 
@@ -274,7 +273,10 @@ line and creates the class simulation.
     def _start_logging(self):
         #check if logger is relative
         #split path and see if folder is empty
-        self.log_file = self._convert_path(self.log_file)
+        if(self.log_file == os.path.basename(self.log_file)):
+            self.log_file = os.path.join(self.dir_name, self.log_file)
+        else:
+            self.log_file = self._convert_path(self.log_file)            
 
         #don't know how we got here, so we'll just add our logger
         file_handler = logging.FileHandler(self.log_file)
@@ -776,11 +778,23 @@ line and creates the class simulation.
                 self.log.info(cmd)
                 self.log.info(' '.join(map(str, cmd)))
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
-                self.log.info('...done'.format(sinfo.name))
-
-            
-            #finished, store any info needed
-            self.gro_file = gro
+                #sinfo.run(gromacs.mdrun, run_kwargs)
+                #check if the output file was created
+                if(not os.path.exists(gro)):
+                    #open the md log and check for error message
+                    with open('md.log') as f:
+                        s = f.read()
+                        m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
+                        if(m is None):
+                            self.log.error('Gromacs simulation failed for unknown reason.')
+                        else:
+                            self.log.error('SIMULATION FAILED:') 
+                            for line in m.group('message'):
+                                self.log.error('SIMULATION FAILED: ' + line)
+                else:
+                    self.log.info('...done'.format(sinfo.name))            
+                    #finished, store any info needed
+                    self.gro_file = gro
             
             
 
