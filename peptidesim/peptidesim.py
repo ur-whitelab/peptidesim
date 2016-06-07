@@ -344,8 +344,8 @@ line and creates the class simulation.
         tag : str
             A tag to add onto the simulation. 
            Probably good idea if you're adding additional arguments.
-        mdp_kwargs : dict
-            Additional arguments that will be added to the mdp file. 
+        mdp_kwargs : dict or list
+            Additional arguments that will be added to the mdp file. Can be list of dcits, which indicates replica exchange
         run_kwargs : dict
             Additional arguments that will be convreted to mdrun flags
         '''
@@ -749,22 +749,51 @@ line and creates the class simulation.
                 #need to prepare for simulation                
                 #Preparing emin tpr file        
                 self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
-                mdp = sinfo.short_name + '.mdp'
-                tpr = sinfo.short_name + '.tpr'
+                final_mdp = sinfo.short_name + '.mdp'
                 gro = sinfo.short_name + '.gro'
                 
                 mdp_base = gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
-                mdp_base.update(mdp_kwargs)
-                mdp_final = gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=mdp, **mdp_base)
+
+                #check if we're doing multiple mdp files
+                if isinstance(mdp_kwargs,list):                    
+                    assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
+
+                    final_mdp = []                    
+                    top_dir = 'TOPOL'
+                    
+                    if not os.path.exists(top_dir):
+                        os.mkdir(top_dir)
+
+                    #make a bunch of tpr files and put them into a subdirectory (TOPOL)
+                    for i, mk in enumerate(mdp_kwargs):
+                        mdp_temp = mdp_base.copy()
+                        mdp_temp.update(mk)
+                        final_mdp.append(sinfo.short_name + str(i) + '.mdp')
+                        gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp[i], **mdp_temp)
+                        tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
+                        gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
+                    tpr = os.path.join(top_dir, sinfo.short_name)
+
+                    #keep a reference to current topology. Use 0th since it will exist
+                    self.tpr_file = tpr + '0.tpr'
+                    
+                    #add the multi option
+                    run_kwargs.update(dict(multi=len(mdp_kwargs)))
+                        
+
+                else:
+                    tpr = sinfo.short_name + '.tpr'
+                    mdp_base.update(mdp_kwargs)
+                    gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
+                    gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
+                    self.tpr_file = tpr
+
 
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
-                sinfo.metadata['mdp-data'] = mdp_final
+                sinfo.metadata['mdp-data'] = final_mdp
 
-                gromacs.grompp(f=mdp, c=self.gro_file, p=self.top_file, o=tpr)
-                self.tpr_file = tpr
-
-                #run_kwargs.update(dict(s=tpr, c=gro, dds=0.5, use_shell=True, shell_executable='/bin/bash'))
+                
                 run_kwargs.update(dict(s=tpr, c=gro, dds=0.5))
 
                 sinfo.metadata['run-kwargs'] = run_kwargs
