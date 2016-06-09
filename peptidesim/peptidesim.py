@@ -131,6 +131,7 @@ class PeptideSim(Configurable):
     #keep track of simulations in case of restart needs
 
     _sims = dict()
+    _sim_list = []
 
     #other variables
     _box_size = [0,0,0] #box size in angstroms
@@ -212,6 +213,10 @@ class PeptideSim(Configurable):
         n = gromacs.fileformats.NDX()
         n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
         return n
+
+    @property 
+    def sims(self):
+        return self._sim_list
 
     @ndx.setter
     def ndx(self, n):
@@ -401,9 +406,10 @@ line and creates the class simulation.
         if simname in self._sims:
             si = self._sims[simname]
         else:
-            si = SimulationInfo(simname, name)
+            si = SimulationInfo(simname, name)            
 
-        self._sims[simname] = si            
+        self._sims[simname] = si
+        self._sim_list.append(si)
         yield  si    
 
         
@@ -779,6 +785,8 @@ line and creates the class simulation.
                     
                     #add the multi option
                     run_kwargs.update(dict(multi=len(mdp_kwargs)))
+
+                    sinfo.metadata['md-log'] = 'md0.log'
                         
 
                 else:
@@ -787,11 +795,12 @@ line and creates the class simulation.
                     gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
                     gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
                     self.tpr_file = tpr
-
+                    sinfo.metadata['md-log'] = 'md.log'
 
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
                 sinfo.metadata['mdp-data'] = final_mdp
+
 
                 
                 run_kwargs.update(dict(s=tpr, c=gro, dds=0.5))
@@ -808,22 +817,22 @@ line and creates the class simulation.
                 self.log.info(' '.join(map(str, cmd)))
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 #sinfo.run(gromacs.mdrun, run_kwargs)
-                #check if the output file was created
-                if(not os.path.exists(gro)):
-                    #open the md log and check for error message
-                    with open('md.log') as f:
-                        s = f.read()
-                        m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
-                        if(m is None):
-                            self.log.error('Gromacs simulation failed for unknown reason.')
-                        else:
-                            self.log.error('SIMULATION FAILED:') 
-                            for line in m.group('message'):
-                                self.log.error('SIMULATION FAILED: ' + line)
-                else:
-                    self.log.info('...done'.format(sinfo.name))            
-                    #finished, store any info needed
-                    self.gro_file = gro
+                #check if the output file was created                
+            if(not os.path.exists(gro)):
+                #open the md log and check for error message
+                with open(sinfo.metadata['log-file']) as f:
+                    s = f.read()
+                    m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
+                    if(m is None):
+                        self.log.error('Gromacs simulation failed for unknown reason.')
+                    else:
+                        self.log.error('SIMULATION FAILED:') 
+                        for line in m.group('message'):
+                            self.log.error('SIMULATION FAILED: ' + line)
+            else:
+                self.log.info('...done'.format(sinfo.name))            
+                #finished, store any info needed
+                self.gro_file = gro
             
             
 
