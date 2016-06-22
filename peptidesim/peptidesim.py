@@ -820,7 +820,7 @@ line and creates the class simulation.
                 #check if the output file was created                
             if(not os.path.exists(gro)):
                 #open the md log and check for error message
-                with open(sinfo.metadata['log-file']) as f:
+                with open(sinfo.metadata['md-log']) as f:
                     s = f.read()
                     m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
                     if(m is None):
