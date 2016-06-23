@@ -432,7 +432,10 @@ line and creates the class simulation.
         #bring files
         for f in self.file_list:
             if(f is not None and os.path.exists(f)):
-                shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
+                try:
+                    shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
+                except shutil.Error:
+                    pass #same file. Stupid that this is necessary
                 
         #go there
         curdir = os.getcwd()
@@ -453,7 +456,10 @@ line and creates the class simulation.
             #bring back files
             for f in self.file_list:
                 if(f is not None and os.path.exists(os.path.join(d, f))):
-                    shutil.copyfile(os.path.join(d, f),f)
+                    try:
+                        shutil.copyfile(os.path.join(d, f),f)
+                    except shutil.Error:
+                        pass #same file
 
 
     def add_file(self, f):
@@ -741,10 +747,12 @@ line and creates the class simulation.
             self.ndx = ndx_file
 
     def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
-
-        sinfo.location = self._convert_path(sinfo.name)
-
+        
         with self._put_in_dir(sinfo.name):
+
+            #make the simulation info an absolute path
+            sinfo.location = os.path.abspath(os.getcwd())
+
 
             #check if it's a restart
             if(sinfo.restart_count > 0):
