@@ -148,6 +148,7 @@ class TestPeptideEmin(TestCase):
 
 
 
+
 class TestConfig(TestCase):
     def test_config_setname(self):
         name = "test_config_setname.py"

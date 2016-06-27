@@ -375,6 +375,7 @@ line and creates the class simulation.
     def __getstate__(self):
         odict = self.__dict__.copy() # copy the dict since we change it
         del odict['log_handler']              # remove filehandle entry
+        del odict['log']              # remove log as well
         return odict
 
     def __setstate__(self, dict):
@@ -753,6 +754,9 @@ line and creates the class simulation.
             #make the simulation info an absolute path
             sinfo.location = os.path.abspath(os.getcwd())
 
+            #make this out of restart/no restart logic so we can check for success
+            gro = sinfo.short_name + '.gro'
+
 
             #check if it's a restart
             if(sinfo.restart_count > 0):
@@ -764,7 +768,6 @@ line and creates the class simulation.
                 #Preparing emin tpr file        
                 self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
                 final_mdp = sinfo.short_name + '.mdp'
-                gro = sinfo.short_name + '.gro'
                 
                 mdp_base = gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
 
