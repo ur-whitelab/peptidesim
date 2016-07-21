@@ -6,7 +6,7 @@ import os.path, time
 from peptidesim import *
 import shutil, os, textwrap
 
-
+import json
 import signal
 import functools
 
@@ -41,13 +41,13 @@ class TestPeptideSimSimple(TestCase):
         start = len(self.p._gro)
         self.p.gro_file = 'a'
         self.p.gro_file = 'b'
-        self.assertEqual(len(self.p._gro), 2 + start)
-        
+        self.assertEqual(len(self.p._gro), 2 + start)  
+
     def test_logging_started(self):
         log_file = self.p.log_file
         self.assertTrue(os.path.exists(log_file))
         self.assertTrue(os.stat(log_file).st_size > 0)
-
+    
     def test_req_files(self):
         with open('test.txt', 'w') as f:
             f.write('fdsa\n')
@@ -60,7 +60,7 @@ class TestPeptideSimSimple(TestCase):
         os.remove('test.txt')
 
     def tearDown(self):
-        shutil.rmtree('psim_test')
+       shutil.rmtree('psim_test')
     
 
 
@@ -93,7 +93,16 @@ class TestPeptideSimInitialize(TestCase):
         del self.p
         new_p = pickle.load(StringIO(string))        
         self.assertEqual(phash, new_p.top_file + new_p.gro_file +  new_p.pdb_file)
-        
+
+    def test_data_stored(self):
+        #tests if the data was correctly written to the json file
+        self.p.store_data()
+        self.assertTrue(os.path.exists('data/simdata.json'))
+        with open('data/simdata.json', 'r') as f:
+            data = json.load(f)
+            self.assertEqual(data['sim_name'], self.p.sim_name)         
+
+
 
     def test_ndx(self):
         #just see if the list item exists
@@ -145,7 +154,6 @@ class TestPeptideEmin(TestCase):
 
     def tearDown(self):
         shutil.rmtree('pemin_test')
-
 
 
 

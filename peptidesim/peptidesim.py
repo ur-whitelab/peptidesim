@@ -12,17 +12,15 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 import numpy as np 
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid
-
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast
 
 import PeptideBuilder 
 import Bio.PDB
 from math import *
-from .utilities import *
+#from .utilities import *
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
-from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict, observe
-
+from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
 import gromacs
 gromacs.environment.flags['capture_output'] = True
@@ -296,6 +294,19 @@ line and creates the class simulation.
         self.log.setLevel(logging.DEBUG)
         self.log.info('Started logging for PeptideSim...')
 
+    def store_data(self):
+        '''Writes the instance's Traits to a json file
+        '''
+        if not os.path.exists('data'):
+            os.mkdir('data')
+        with open('data/simdata.json', 'w' ) as f:
+            data = {}
+            for k, v in self.traits().iteritems():
+                if type(v.default_value) not in [unicode,int, float]:
+                    data[k] = ast.literal_eval(v.default_value_repr())
+                else:
+                    data[k] = v.default_value
+            f.write(json.dumps(data))
 
     def initialize(self):
         '''Build PDB files, pack them, convert to gmx, add water and ions
@@ -357,9 +368,8 @@ line and creates the class simulation.
         with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
-            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)            
+            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
 
-        
 
     def energy_minimize(self, tag, steps=1000):
         '''Energy minimize the system. Can be called anytime after initialize.        
@@ -757,7 +767,6 @@ line and creates the class simulation.
             #make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
 
-
             #check if it's a restart
             if(sinfo.restart_count > 0):
                 self.log.info('Found existing information about this simulation. Using restart')
@@ -843,6 +852,7 @@ line and creates the class simulation.
             else:
                 self.log.info('...done'.format(sinfo.name))            
                 #finished, store any info needed
+                self.store_data()
                 self.gro_file = gro
             
             
