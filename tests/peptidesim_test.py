@@ -6,7 +6,7 @@ import os.path, time
 from peptidesim import *
 import shutil, os, textwrap
 
-import json
+import json, requests
 import signal
 import functools
 
@@ -100,7 +100,19 @@ class TestPeptideSimInitialize(TestCase):
         self.assertTrue(os.path.exists('data/simdata.json'))
         with open('data/simdata.json', 'r') as f:
             data = json.load(f)
-            self.assertEqual(data['sim_name'], self.p.sim_name)         
+            self.assertEqual(data['sim_name'], self.p.sim_name)
+
+    def test_to_database(self):
+        #verifies that data can be properly sent to redis database
+        with open('data/simdata.json', 'r') as f:
+            data = json.load(f)
+            prop = 'peptide_density'
+            url = 'http://52.71.14.39/insert/simulation'
+            payload = {'sim_name':data['sim_name'], 'property':prop, 'property_value': data[prop]}
+            r = requests.put(url, payload)
+            self.assertEqual(r.status_code, 200)
+            
+            
 
 
 
