@@ -119,10 +119,51 @@ class TestPeptideEmin(TestCase):
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'steps':10})
         self.assertTrue(start_gro != self.p.gro_file)
 
-    def test_emin_metadatat(self):
+    def test_emin_metadata(self):
         start_gro = self.p.gro_file
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'steps':10})
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+
+    def test_emin_metadata_multiple(self):
+        start_gro = self.p.gro_file
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test2', mdp_kwargs={'steps':10})
+        self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'steps':10})
+        self.assertTrue(self.p.sims[0].metadata.has_key('md-log'))
+        self.assertTrue(self.p.sims[1].metadata.has_key('md-log'))
+
+
+    def test_emin_metadata_frompickle(self):
+        import dill as pickle
+        from cStringIO import StringIO
+
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'steps':10})
+
+        @timeout(1,'')
+        def wrap(this=self):
+            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'steps':10**10})
+
+        try:
+            wrap()
+        except TimeoutError:
+            pass
+
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'steps':10})
+        string = pickle.dumps(self.p)
+        #need to delete old object so we don't get duplicate logging
+        del self.p
+        new_p = pickle.load(StringIO(string))        
+        string = pickle.dumps(new_p)
+        del new_p
+        new_p = pickle.load(StringIO(string))        
+        #I do it twice because I'm paranoid
+
+        self.assertTrue(new_p.sims[0].metadata.has_key('md-log'))
+        self.assertTrue(new_p.sims[1].metadata.has_key('md-log'))
+        self.assertTrue(new_p.sims[2].metadata.has_key('md-log'))
+        self.assertTrue(new_p.sims[-1].metadata.has_key('md-log'))
+
+
 
 
     def test_pickle_emin(self):
@@ -135,6 +176,10 @@ class TestPeptideEmin(TestCase):
         #need to delete old object so we don't get duplicate logging
         del self.p
         new_p = pickle.load(StringIO(string))        
+        string = pickle.dumps(new_p)
+        del new_p
+        new_p = pickle.load(StringIO(string))        
+
         self.assertTrue(len(new_p.sims) > 0)
         
 
@@ -165,6 +210,7 @@ class TestPeptideEmin(TestCase):
 
         #check metadata is intact
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+
 
     def tearDown(self):
         shutil.rmtree('pemin_test')

@@ -386,6 +386,9 @@ line and creates the class simulation.
         odict = self.__dict__.copy()
         del odict['log']
         del odict['log_handler']
+        if(len(self._sim_list) > 0):
+            for s in odict['_sim_list']:
+                print s.metadata
         return odict
 
 
@@ -825,7 +828,7 @@ line and creates the class simulation.
                     mdp_base.update(mdp_kwargs)
                     gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
                     gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
-                    self.tpr_file = tpr
+                    self.tpr_file = tpr                    
                     sinfo.metadata['md-log'] = 'md.log'
 
                 #update metadata
@@ -839,11 +842,17 @@ line and creates the class simulation.
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
                 #add mpiexec to command                
-                gromacs.mdrun.driver = ['mpiexec', '-np {}'.format(mpi_np), 'gmx_mpi']
+                temp = gromacs.mdrun.driver
+                print 'FDSAFDSAAd', temp
+                gromacs.mdrun.driver = ['mpiexec', '-np {}'.format(mpi_np), temp]
                 #make it run in shell
                 
+                print '**********GOING TO RUN************'
+                print 'metadata is ' + str(sinfo.metadata)
+
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
+                gromacs.mdrun.driver = temp #put back the original command
                 self.log.info(cmd)
                 self.log.info(' '.join(map(str, cmd)))
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
