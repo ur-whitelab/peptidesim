@@ -38,6 +38,7 @@ class SimulationInfo(object):
     location = ''
     short_name = ''
     restart_count = 0
+    complete = False
     metadata = dict()
 
     def __init__(self,name, short_name):
@@ -54,7 +55,9 @@ class SimulationInfo(object):
             
         self.restart_count += 1
         
-        return self.run_fxn(**self.run_kwargs)
+        result = self.run_fxn(**self.run_kwargs)
+        self.complete = True
+        return result
         
 
     
@@ -119,23 +122,6 @@ class PeptideSim(Configurable):
                        ).tag(config=True)
 
                                   
-
-    #Keep a chain of all files created. Hide behind properties
-    _top = []    
-    _gro = []
-    _pdb = []
-    _tpr = []
-    _file_list = []
-    _ndx_file = None
-
-    #keep track of simulations in case of restart needs
-
-    _sims = dict()
-    _sim_list = []
-
-    #other variables
-    _box_size = [0,0,0] #box size in angstroms
-
     @property
     def box_size_angstrom(self):
         return self._box_size
@@ -236,6 +222,26 @@ line and creates the class simulation.
         counts : List[int]
             A list of the number of occurrences of each amino acid, in order.
         '''        
+
+        #We have to declare class attributes at the instance level
+        #for pickling purposes. Silly, I know.
+
+        #Keep a chain of all files created. Hide behind properties
+        self._top = []    
+        self._gro = []
+        self._pdb = []
+        self._tpr = []
+        self._file_list = []
+        self._ndx_file = None
+        
+        #keep track of simulations in case of restart needs        
+        self._sims = dict()
+        self._sim_list = []
+        
+        #other variables
+        self._box_size = [0,0,0] #box size in angstroms
+
+
 
         #Set-up directory to begin with
         self.job_name = job_name
@@ -368,15 +374,20 @@ line and creates the class simulation.
             
 
     def __del__(self):
+        self._stop_logging()
+
+    def _stop_logging(self):
         #gracefully stop logging
         self.log_handler.close()
         self.log.removeHandler(self.log_handler)
 
+
     def __getstate__(self):
-        odict = self.__dict__.copy() # copy the dict since we change it
-        del odict['log_handler']              # remove filehandle entry
-        del odict['log']              # remove log as well
+        odict = self.__dict__.copy()
+        del odict['log']
+        del odict['log_handler']
         return odict
+
 
     def __setstate__(self, dict):
         self.__dict__.update(dict)
@@ -748,6 +759,10 @@ line and creates the class simulation.
             self.ndx = ndx_file
 
     def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
+
+        if(mpi_np == 1):
+            #assuming debug. Fixing the openmp number
+            run_kwargs.update({'ntomp': '1'})
         
         with self._put_in_dir(sinfo.name):
 
@@ -756,13 +771,18 @@ line and creates the class simulation.
 
             #make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
+            if isinstance(mdp_kwargs,list):                    
+                gro = sinfo.short_name + '0.gro'
 
 
             #check if it's a restart
             if(sinfo.restart_count > 0):
                 self.log.info('Found existing information about this simulation. Using restart')
                 #yup, no prep needed
-                sinfo.run()
+                if(sinfo.complete):
+                    self.log.info('Simulation was completed already. Skipping')
+                else:
+                    sinfo.run()
             else:
                 #need to prepare for simulation                
                 #Preparing emin tpr file        
@@ -814,7 +834,7 @@ line and creates the class simulation.
 
 
                 
-                run_kwargs.update(dict(s=tpr, c=gro, dds=0.5))
+                run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro', dds=0.5))
 
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
@@ -834,8 +854,9 @@ line and creates the class simulation.
                 with open(sinfo.metadata['md-log']) as f:
                     s = f.read()
                     m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
-                    if(m is None):
-                        self.log.error('Gromacs simulation failed for unknown reason.')
+                    if(m is None):                        
+                        self.log.error('Gromacs simulation failed for unknown reason. Unable to locate output gro file ({})'.format(gro))
+                        self.log.error('Found ({})'.format([f for f in os.listdir('.') if os.path.isfile(f)]))
                     else:
                         self.log.error('SIMULATION FAILED:') 
                         for line in m.group('message'):
