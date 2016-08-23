@@ -861,7 +861,7 @@ line and creates the class simulation.
                 #add mpiexec to command                
                 #store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
-                gromacs.mdrun.driver = ['mpiexec', '-np {}'.format(mpi_np), temp]
+                gromacs.mdrun.driver = ' '.join(['mpiexec.hydra', '-np {}'.format(mpi_np), temp])
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
