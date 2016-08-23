@@ -10,26 +10,6 @@ import shutil, os, textwrap
 import signal
 import functools
 
-class TimeoutError(Exception): pass
-
-def timeout(seconds, error_message = 'Function call timed out'):
-    def decorated(func):
-        def _handle_timeout(signum, frame):
-            raise TimeoutError(error_message)
-
-        def wrapper(*args, **kwargs):
-            signal.signal(signal.SIGALRM, _handle_timeout)
-            signal.alarm(seconds)
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-
-        return functools.wraps(func)(wrapper)
-
-    return decorated
-
 class TestPeptideSimSimple(TestCase):
     def setUp(self):
         self.p = PeptideSim('psim_test', ['AA', 'RE'], [3, 1], job_name='testing')
@@ -116,19 +96,19 @@ class TestPeptideEmin(TestCase):
 
     def test_short_emin(self):
         start_gro = self.p.gro_file
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'steps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
         self.assertTrue(start_gro != self.p.gro_file)
 
     def test_emin_metadata(self):
         start_gro = self.p.gro_file
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'steps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
     def test_emin_metadata_multiple(self):
         start_gro = self.p.gro_file
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test2', mdp_kwargs={'steps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test2', mdp_kwargs={'nsteps':10})
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'steps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'nsteps':10})
         self.assertTrue(self.p.sims[0].metadata.has_key('md-log'))
         self.assertTrue(self.p.sims[1].metadata.has_key('md-log'))
 
@@ -137,18 +117,8 @@ class TestPeptideEmin(TestCase):
         import dill as pickle
         from cStringIO import StringIO
 
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'steps':10})
-
-        @timeout(1,'')
-        def wrap(this=self):
-            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'steps':10**10})
-
-        try:
-            wrap()
-        except TimeoutError:
-            pass
-
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'steps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'nsteps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
@@ -160,9 +130,6 @@ class TestPeptideEmin(TestCase):
 
         self.assertTrue(new_p.sims[0].metadata.has_key('md-log'))
         self.assertTrue(new_p.sims[1].metadata.has_key('md-log'))
-        self.assertTrue(new_p.sims[2].metadata.has_key('md-log'))
-        self.assertTrue(new_p.sims[-1].metadata.has_key('md-log'))
-
 
 
 
@@ -170,7 +137,7 @@ class TestPeptideEmin(TestCase):
         import dill as pickle
         from cStringIO import StringIO
 
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'steps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
 
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
@@ -189,21 +156,7 @@ class TestPeptideEmin(TestCase):
         start_gro = self.p.gro_file
 
         #call and interrupt the function
-        @timeout(1,'')
-        def wrap(this=self):
-            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'steps':10**10})
-
-        try:
-            wrap()
-        except TimeoutError:
-            pass
-
-        #attempt restart
-        try:
-            wrap()
-        except TimeoutError:
-            pass
-
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
         for k,v in self.p._sims.iteritems():
             if(k.startswith('emin-timeout')):
                 self.assertTrue(v.restart_count == 2)
@@ -212,7 +165,36 @@ class TestPeptideEmin(TestCase):
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
 
+    def test_signal_restart_emin(self):
+        '''
+        Test that if the simulation is killed exeternally, it can still be pickled and recovered
+        '''
+        
+        start_gro = self.p.gro_file
+        import dill as pickle
+        from cStringIO import StringIO
+
+        #test pickle on signal
+        signal.alarm(1)
+        try:
+            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal', mdp_kwargs={'nsteps':250}, pickle_name='sigtest.pickle', dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        del self.p
+        new_p = pickle.load(open('sigtest.pickle'))
+
+        for k,v in new_p._sims.iteritems():
+            if(k.startswith('emin-timeout')):
+                self.assertTrue(v.restart_count == 2)
+
+        #check metadata is intact
+        self.assertTrue(new_p.sims[-1].metadata.has_key('md-log'))
+
+        os.remove('sigtest.pickle')
+
     def tearDown(self):
+        #pass
         shutil.rmtree('pemin_test')
 
 

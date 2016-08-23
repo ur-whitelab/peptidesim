@@ -12,13 +12,14 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 import numpy as np 
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, signal
 
 
 import PeptideBuilder 
 import Bio.PDB
 from math import *
 from .utilities import *
+import dill
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict, observe
@@ -32,16 +33,15 @@ class SimulationInfo(object):
     '''A class that stores information about a simulation. Only for keeping history of simulation runs
     '''
 
-    run_fxn = None
-    run_kwargs = None
-    name = ''
-    location = ''
-    short_name = ''
-    restart_count = 0
-    complete = False
-    metadata = dict()
-
     def __init__(self,name, short_name):
+        self.run_fxn = None
+        self.run_kwargs = None
+        self.name = ''
+        self.location = ''
+        self.short_name = ''
+        self.restart_count = 0
+        self.complete = False
+        self.metadata = dict()
         self.name = name
         self.short_name = short_name
 
@@ -52,10 +52,11 @@ class SimulationInfo(object):
         else:
             self.run_fxn = run_fxn
             self.run_kwargs = run_kwargs
-            
-        self.restart_count += 1
-        
+
+        #have to add now in case we die            
+        self.restart_count += 1 
         result = self.run_fxn(**self.run_kwargs)
+
         self.complete = True
         return result
         
@@ -286,8 +287,6 @@ line and creates the class simulation.
         #split path and see if folder is empty
         if(self.log_file == os.path.basename(self.log_file)):
             self.log_file = os.path.join(self.dir_name, self.log_file)
-        else:
-            self.log_file = self._convert_path(self.log_file)            
 
         #don't know how we got here, so we'll just add our logger
         file_handler = logging.FileHandler(self.log_file)
@@ -341,7 +340,7 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def run(self, mdpfile, tag='', mpi_np=1, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict()):
+    def run(self, mdpfile, tag='', mpi_np=1, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -360,7 +359,9 @@ line and creates the class simulation.
         run_kwargs : dict
             Additional arguments that will be convreted to mdrun flags
         '''
-        with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag) as ec:
+        if pickle_name is None:
+            pickle_name = self.job_name + '.pickle'
+        with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag, pickle_name, dump_signal) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)            
@@ -386,9 +387,6 @@ line and creates the class simulation.
         odict = self.__dict__.copy()
         del odict['log']
         del odict['log_handler']
-        if(len(self._sim_list) > 0):
-            for s in odict['_sim_list']:
-                print s.metadata
         return odict
 
 
@@ -408,13 +406,24 @@ line and creates the class simulation.
 
 
     @contextlib.contextmanager
-    def _simulation_context(self, name):
+    def _simulation_context(self, name, pickle_name, dump_signal = signal.SIGTERM):
         '''This context will handle restart and keeping a history of simulations performed.
 
         TODO: Maybe have this context submit a simulation job?
         '''
 
-        #construct name
+        #construct signal handler
+        def handler(signum, frame):
+            with open(os.path.join(self.rel_dir_name,pickle_name), 'w') as f:
+                dill.dump(self, file=f)
+            os.chdir(self.rel_dir_name) #put us cleanly into the correct place
+            raise KeyboardInterrupt #Make sure we do actually end
+        #cache existing
+        oh = signal.getsignal(dump_signal)
+        #set new one
+        signal.signal(dump_signal, handler)
+
+        #construct name and add to simulation infos
         file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file + self.pdb_file)
         simname = name + '-' + str(file_hash)
 
@@ -425,7 +434,12 @@ line and creates the class simulation.
 
         self._sims[simname] = si
         self._sim_list.append(si)
-        yield  si    
+
+        try:
+            yield  si    
+        finally:
+            #reset signal handler
+            signal.signal(dump_signal, oh)
 
         
             
@@ -785,6 +799,9 @@ line and creates the class simulation.
                 if(sinfo.complete):
                     self.log.info('Simulation was completed already. Skipping')
                 else:
+                    #add restart string if this is our first
+                    if(sinfo.restart_count == 1):
+                        sinfo.run_kwargs['args'] += ' -cpi state.cpt'
                     sinfo.run()
             else:
                 #need to prepare for simulation                
@@ -842,19 +859,16 @@ line and creates the class simulation.
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
                 #add mpiexec to command                
+                #store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
-                print 'FDSAFDSAAd', temp
                 gromacs.mdrun.driver = ['mpiexec', '-np {}'.format(mpi_np), temp]
-                #make it run in shell
-                
-                print '**********GOING TO RUN************'
-                print 'metadata is ' + str(sinfo.metadata)
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
                 gromacs.mdrun.driver = temp #put back the original command
                 self.log.info(cmd)
                 self.log.info(' '.join(map(str, cmd)))
+                #make it run in shell
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 #sinfo.run(gromacs.mdrun, run_kwargs)
                 #check if the output file was created                
