@@ -12,8 +12,8 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 import numpy as np 
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, signal
 
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal
 
 import PeptideBuilder 
 import Bio.PDB
@@ -22,8 +22,7 @@ from .utilities import *
 import dill
 
 from traitlets.config import Configurable, Application, PyFileConfigLoader
-from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict, observe
-
+from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
 import gromacs
 gromacs.environment.flags['capture_output'] = True
@@ -111,16 +110,25 @@ class PeptideSim(Configurable):
                              help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
                              ).tag(config=True)
 
-    mdp_directory = Unicode(u'.',
-                            help='The directory to find gromacs MDP files'
+    mdp_directory     = Unicode(u'.',
+                                help='The directory to find gromacs MDP files'
                             ).tag(config=True)
-    mdp_base = Unicode(u'peptidesim_base.mdp',
-                       help='The MDP file containing basic forcefield parameters'
+    mdp_base          = Unicode(u'peptidesim_base.mdp',
+                                help='The MDP file containing basic forcefield parameters'
                        ).tag(config=True)
     
-    mdp_emin = Unicode(u'peptidesim_emin.mdp',
-                       help='The emenergy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
+    mdp_emin          = Unicode(u'peptidesim_emin.mdp',
+                                help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                        ).tag(config=True)
+
+    host              = Unicode(u'http://52.71.14.39',
+                                help='The host address for the Redis database'
+                        ).tag(config=True)
+    
+    post_address      = Unicode(u'/insert/simulation',
+                                help='The extension to post simulation data'
+                        ).tag(config=True)
+
 
                                   
     @property
@@ -301,6 +309,38 @@ line and creates the class simulation.
         self.log.setLevel(logging.DEBUG)
         self.log.info('Started logging for PeptideSim...')
 
+    def store_data(self):
+        '''Writes the instance's Traits to a json file
+        '''
+        if not os.path.exists('data'):
+            os.mkdir('data')
+        with open('data/simdata.json', 'w' ) as f:
+            data = {}
+            for k, v in self.traits().iteritems():
+                if type(v.default_value) not in [unicode,int, float]:
+                    data[k] = ast.literal_eval(v.default_value_repr())
+                else:
+                    data[k] = v.default_value
+            for k,v in self.__dict__.iteritems():
+                if k not in data and type(v) in [unicode, int, float, list, dict,tuple, str] and k[0] != '_':
+                    data[k] = v
+            f.write(json.dumps(data))
+
+            #put information to database
+
+            #properties that we want to store
+            properties = ['peptide_density', 'ion_concentration']
+            url = (self.host + self.post_address).encode('utf-8')
+
+            i = 0
+            for seq in data['sequences']:
+                for prop in properties:
+                    payload = {'sim_name': self.sim_name, 'property':prop, 'property_value':data[prop]}
+                    r = requests.put(url, payload)
+                payload = {'sim_name': self.sim_name, 'property':'counts', 'property_value':data['counts'][i]}
+                r = requests.put(url, payload)
+                i+=1    
+
 
     def initialize(self):
         '''Build PDB files, pack them, convert to gmx, add water and ions
@@ -364,9 +404,8 @@ line and creates the class simulation.
         with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag, pickle_name, dump_signal) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
-            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)            
+            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
 
-        
 
     def energy_minimize(self, tag, steps=1000):
         '''Energy minimize the system. Can be called anytime after initialize.        
@@ -791,7 +830,6 @@ line and creates the class simulation.
             if isinstance(mdp_kwargs,list):                    
                 gro = sinfo.short_name + '0.gro'
 
-
             #check if it's a restart
             if(sinfo.restart_count > 0):
                 self.log.info('Found existing information about this simulation. Using restart')
@@ -887,6 +925,7 @@ line and creates the class simulation.
             else:
                 self.log.info('...done'.format(sinfo.name))            
                 #finished, store any info needed
+                self.store_data()
                 self.gro_file = gro
             
             
