@@ -99,9 +99,14 @@ class TestPeptideEmin(TestCase):
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
         self.assertTrue(start_gro != self.p.gro_file)
 
+
+    def test_emin_mdp_combine(self):
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test_mdp',  mdp_kwargs={'nsteps':10})
+        self.assertIn('constraints', self.p.sims[-1].metadata['mdp-data'])
+
     def test_emin_metadata(self):
         start_gro = self.p.gro_file
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})        
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
     def test_emin_metadata_multiple(self):

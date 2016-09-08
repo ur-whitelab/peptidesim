@@ -815,7 +815,8 @@ line and creates the class simulation.
                 if isinstance(mdp_kwargs,list):                    
                     assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
 
-                    final_mdp = []                    
+                    final_mdp = []
+                    mdp_data = []
                     top_dir = 'TOPOL'
                     
                     if not os.path.exists(top_dir):
@@ -826,7 +827,7 @@ line and creates the class simulation.
                         mdp_temp = mdp_base.copy()
                         mdp_temp.update(mk)
                         final_mdp.append(sinfo.short_name + str(i) + '.mdp')
-                        gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp[i], **mdp_temp)
+                        mdp_data.append(gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp[i], **mdp_temp))
                         tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
                         gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
                     tpr = os.path.join(top_dir, sinfo.short_name)
@@ -838,19 +839,21 @@ line and creates the class simulation.
                     run_kwargs.update(dict(multi=len(mdp_kwargs)))
 
                     sinfo.metadata['md-log'] = 'md0.log'
+                    sinfo.metadata['mdp-data'] = mdp_data
                         
 
                 else:
                     tpr = sinfo.short_name + '.tpr'
                     mdp_base.update(mdp_kwargs)
-                    gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
+                    mdp_data = gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
                     gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
                     self.tpr_file = tpr                    
                     sinfo.metadata['md-log'] = 'md.log'
+                    sinfo.metadata['mdp-data'] = mdp_data
 
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
-                sinfo.metadata['mdp-data'] = final_mdp
+
 
 
                 

@@ -1,5 +1,5 @@
 ;Base parameters for peptidesim
-oulombtype     = PME
+coulombtype     = PME
 rlist           = 1.0
 optimize-fft    = yes
 fourierspacing  = 0.12
