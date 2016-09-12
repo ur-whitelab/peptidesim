@@ -9,6 +9,7 @@ import shutil, os, textwrap
 import json, requests
 import signal
 import functools
+import gromacs
 
 class TestPeptideSimSimple(TestCase):
     def setUp(self):
@@ -74,6 +75,26 @@ class TestPeptideSimInitialize(TestCase):
         new_p = pickle.load(StringIO(string))        
         self.assertEqual(phash, new_p.top_file + new_p.gro_file +  new_p.pdb_file)
 
+    def test_ndx(self):
+        #just see if the list item exists
+        #later can write test to check for atom numbers
+        self.assertIsNotNone(self.p.ndx['peptide_3'])
+
+
+    def test_neutral(self):
+        pass
+        
+
+    def tearDown(self):
+        shutil.rmtree('pinit_test')
+
+class TestDataStore(TestCase):
+
+    def setUp(self):
+        self.p = PeptideSim('data_test', ['AA', 'REE'], [3, 1], job_name='dtesting')
+        self.p.initialize()
+
+
     def test_data_stored(self):
         #tests if the data was correctly written to the json file
         self.p.store_data()
@@ -90,24 +111,15 @@ class TestPeptideSimInitialize(TestCase):
             url = 'http://52.71.14.39/insert/simulation'
             payload = {'sim_name':data['sim_name'], 'property':prop, 'property_value': data[prop]}
             r = requests.put(url, payload)
-            self.assertEqual(r.status_code, 200)
-            
-            
-
-
-
-    def test_ndx(self):
-        #just see if the list item exists
-        #later can write test to check for atom numbers
-        self.assertIsNotNone(self.p.ndx['peptide_3'])
-
-
-    def test_neutral(self):
-        pass
-        
+            self.assertEqual(r.status_code, 200)            
 
     def tearDown(self):
-        shutil.rmtree('pinit_test')
+        shutil.rmtree('data_test')
+        shutil.rmtree('data')
+            
+
+
+
         
 
 class TestPeptideEmin(TestCase):
@@ -198,12 +210,15 @@ class TestPeptideEmin(TestCase):
         
         start_gro = self.p.gro_file
         import dill as pickle
+        import time
         from cStringIO import StringIO
 
         #test pickle on signal
         signal.alarm(1)
         try:
-            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal', mdp_kwargs={'nsteps':250}, pickle_name='sigtest.pickle', dump_signal=signal.SIGALRM)
+            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal', mdp_kwargs={'nsteps':2500}, pickle_name='sigtest.pickle', dump_signal=signal.SIGALRM)
+            #to make sure if the test fails we dont' interfere
+            time.sleep(1)
         except KeyboardInterrupt:
             pass
 

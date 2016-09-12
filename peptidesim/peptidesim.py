@@ -740,7 +740,8 @@ line and creates the class simulation.
             ion_gro = 'prepared.gro'
             
             
-            mdp_base = gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+            #NOTE: edit_mdp rewrites, it does not load
+            mdp_base = gromacs.cbook.read_mdp(self.get_mdpfile(self.mdp_base))
             gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_emin),new_mdp=ion_mdp, **mdp_base)
             
             gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
@@ -818,7 +819,7 @@ line and creates the class simulation.
 
         if(mpi_np == 1):
             #assuming debug. Fixing the openmp number
-            run_kwargs.update({'ntomp': '1'})
+            run_kwargs.update({'nt': '1'})
         
         with self._put_in_dir(sinfo.name):
 
@@ -847,7 +848,7 @@ line and creates the class simulation.
                 self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
                 final_mdp = sinfo.short_name + '.mdp'
                 
-                mdp_base = gromacs.cbook.edit_mdp(self.get_mdpfile(self.mdp_base))
+                mdp_base = gromacs.cbook.read_mdp(self.get_mdpfile(self.mdp_base))
 
                 #check if we're doing multiple mdp files
                 if isinstance(mdp_kwargs,list):                    
@@ -865,7 +866,8 @@ line and creates the class simulation.
                         mdp_temp = mdp_base.copy()
                         mdp_temp.update(mk)
                         final_mdp.append(sinfo.short_name + str(i) + '.mdp')
-                        mdp_data.append(gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp[i], **mdp_temp))
+                        gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp[i], **mdp_temp)
+                        mdp_data.append(gromacs.cbook.read_mdp(final_mdp[i]))
                         tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
                         gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
                     tpr = os.path.join(top_dir, sinfo.short_name)
@@ -883,7 +885,8 @@ line and creates the class simulation.
                 else:
                     tpr = sinfo.short_name + '.tpr'
                     mdp_base.update(mdp_kwargs)
-                    mdp_data = gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
+                    gromacs.cbook.edit_mdp(self.get_mdpfile(mdpfile), new_mdp=final_mdp, **mdp_base)
+                    mdp_data = gromacs.cbook.read_mdp(final_mdp)
                     gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
                     self.tpr_file = tpr                    
                     sinfo.metadata['md-log'] = 'md.log'
@@ -891,8 +894,6 @@ line and creates the class simulation.
 
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
-
-
 
                 
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro', dds=0.5))
