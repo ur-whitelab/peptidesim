@@ -563,47 +563,6 @@ line and creates the class simulation.
 
         return mdpfile
                 
-    def analysis(self):
-            """This function analyzes the output of the simulation. 
-
-            It reads md.log file specified in configuration. It extracts the total
-            energy and temperature at each timestep and creates respective
-            histograms. The function creates a folder called Images and saves the
-            historams as TotalEnergyHist.png and TemperatureHist.png.
-                            
-            Returns
-            -------
-            list
-                The relative path to the *.png images.
-
-            """
-            
-            pass
-        
-
-    def equilibration(self,dirname):
-        '''This is the method of equiliberation which contains five steps.
-
-        First step: Adding water into the system and the output goes to file named peptide_addwater_gro.
-        
-        Second step: Adding ions into the system and the output goes to file named peptide_addwater_addions_gro. 
-
-        Third step: Getting energy minimization  
-        
-        Fourth step: Annealing for simulated annealing 
-
-        Fifth step: Equil run
-
-        Parameters
-        -------------
-        dirname : str 
-            the name of directory that has output files of the equiliberation simulation
-
-        Returns                                                                                                          
-        -------
-        '''
-        pass
-
     def _pdb_file_generator(self, sequence, name):
         '''Generates PDB file from  sequence using BioPython + PeptideBuilder
 
@@ -722,9 +681,10 @@ line and creates the class simulation.
             output = 'wet_mixed.gro'
             water = self.water + '.gro'
 
-            if self.water == 'tip3p':
+            if self.water == 'spce' or self.water == 'spec' or self.water == 'tip3p':
                 #swtich to spc
                 water = 'spc216.gro'
+
             gromacs.solvate(cp=self.gro_file, cs=water, o=output, p=self.top_file, box=self.box_size_nm)
             self.gro_file = output
 
@@ -851,8 +811,9 @@ line and creates the class simulation.
                 
                 mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
                 mdp_sim = gromacs.fileformats.mdp.MDP(self.get_mdpfile(mdpfile))
-                mdp_sim.update(mdp_base)              
-                mdp_sim.write()
+                #make sure sim has higher priority than base
+                mdp_base.update(mdp_sim)              
+                mdp_sim = mdp_base
                 
 
                 #check if we're doing multiple mdp files
@@ -893,6 +854,8 @@ line and creates the class simulation.
                     tpr = sinfo.short_name + '.tpr'
                     mdp = gromacs.fileformats.mdp.MDP()
                     mdp.update(mdp_sim)
+                    #make passed highest priority
+                    mdp.update(mdp_kwargs)
                     mdp.write(final_mdp)                    
                     mdp_data = dict(mdp)
                     gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
