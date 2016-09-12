@@ -3,5 +3,5 @@ nsteps = 100
 nstxout = 5
 nstenergy = 1
 nstlog = 0
-constraints    = none
+constraints = none
 integrator = steep

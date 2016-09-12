@@ -4,6 +4,6 @@ rlist           = 1.0
 optimize-fft    = yes
 fourierspacing  = 0.12
 pme-order       = 4
-wald-rtol      = 1e-5
+ewald-rtol      = 1e-5
 dispcorr        = ener
 constraints    = h-angles

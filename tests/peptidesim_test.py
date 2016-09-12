@@ -134,8 +134,9 @@ class TestPeptideEmin(TestCase):
 
 
     def test_emin_mdp_combine(self):
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test_mdp',  mdp_kwargs={'nsteps':10})
+        self.p.run(mdpfile='peptidesim_nvt.mdp', tag='test_mdp',  mdp_kwargs={'nsteps':2})
         self.assertIn('constraints', self.p.sims[-1].metadata['mdp-data'])
+
 
     def test_emin_metadata(self):
         start_gro = self.p.gro_file
@@ -217,8 +218,6 @@ class TestPeptideEmin(TestCase):
         signal.alarm(1)
         try:
             self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal', mdp_kwargs={'nsteps':2500}, pickle_name='sigtest.pickle', dump_signal=signal.SIGALRM)
-            #to make sure if the test fails we dont' interfere
-            time.sleep(1)
         except KeyboardInterrupt:
             pass
 
