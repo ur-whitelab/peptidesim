@@ -25,9 +25,8 @@ RUN apt-get install -y gromacs gromacs-data
 #RUN apt-get install -y -f -t wheezy gromacs=4.5.5-2 gromacs-data=4.5.5-2
 
 #configure the GromacsWrapper
-RUN echo "bust"
-RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
-ADD gromacs.cfg /root/.gromacswrapper.cfg
+RUN source activate python2 && pip install git+git://github.com/Becksteinlab/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
+#ADD gromacs.cfg /root/.gromacswrapper.cfg
 #ADD gromacs4.cfg /root/.gromacswrapper.cfg
 
 #Install packmol
@@ -35,5 +34,7 @@ RUN apt-get install -y gfortran
 ADD packmol.tar.gz /usr/share
 RUN cd /usr/share/packmol && ./configure && make && ln -s /usr/share/packmol/packmol  /sbin/packmol
 
-USER jovyan
 
+#set default
+ADD test.sh /root
+CMD ["bash", "/root/test.sh"]
