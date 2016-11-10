@@ -662,7 +662,7 @@ line and creates the class simulation.
             else:
                 self.log.info('Packmol succeeded with retcode {}'.format(*result))
 
-            assert os.path.exists(output_file), 'Packmol claimed to succeed but no output file found'
+            assert os.path.exists(output_file), 'Packmol succeeded with retcode {} but has no output. Out: {} Err: {} Input: {input}'.format(*result, input=input_string)
 
     def _pdb2gmx(self):
 
