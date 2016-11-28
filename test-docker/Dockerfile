@@ -21,7 +21,7 @@ RUN echo "deb http://ftp.be.debian.org/debian/ wheezy main contrib" >> /etc/apt/
 RUN echo "deb http://ftp.be.debian.org/debian/ wheezy-updates main contrib" >> /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get install -y fftw3
-RUN apt-get install -y gromacs gromacs-data
+RUN apt-get install -y gromacs-openmpi gromacs-data
 #RUN apt-get install -y -f -t wheezy gromacs=4.5.5-2 gromacs-data=4.5.5-2
 
 #configure the GromacsWrapper
@@ -33,6 +33,8 @@ RUN source activate python2 && pip install git+git://github.com/whitead/GromacsW
 RUN apt-get install -y gfortran
 ADD packmol.tar.gz /usr/share
 RUN cd /usr/share/packmol && ./configure && make && ln -s /usr/share/packmol/packmol  /sbin/packmol
+
+
 
 #set default
 ADD test.sh /root

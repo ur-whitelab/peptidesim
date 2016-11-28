@@ -24,7 +24,7 @@ import dill
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
-import gromacs
+import gromacs, gromacs.cbook
 gromacs.environment.flags['capture_output'] = True
 
 
@@ -128,6 +128,10 @@ class PeptideSim(Configurable):
     post_address      = Unicode(u'/insert/simulation',
                                 help='The extension to post simulation data'
                         ).tag(config=True)
+
+    mpiexec           = Unicode(u'mpiexec',
+                                help='The MPI executable'
+                                ).tag(config=True)
 
 
                                   
@@ -627,8 +631,7 @@ line and creates the class simulation.
         
         #build input text
         input_string = textwrap.dedent(
-                '''
-                tolerance 2.0
+                '''tolerance 2.0
                 filetype pdb 
                 output {}
                 '''.format(output_file))
@@ -643,19 +646,23 @@ line and creates the class simulation.
                       resnumbers 2
                       inside box 0 0 0 {} {} {}
                     end structure
+
                     '''.format(f, c, *self.box_size_angstrom))
 
 
         with self._put_in_dir('peptide_structures'):
 
             self.pdb_file = output_file
-        
+            input_file = 'packmol.inp'
+            
+            with open(input_file, 'w') as f:
+                f.write(input_string)
 
             #pack up packmol into a gromacs command
             class Packmol(gromacs.core.Command):
                 command_name = self.packmol_exe            
             cmd = Packmol()
-            result = cmd(input=input_string)
+            result = cmd(input=open(input_file, 'r'))
         
             if result[0] != 0:
                 self.log.error('Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(*result, input=input_string))
@@ -874,7 +881,7 @@ line and creates the class simulation.
                 #add mpiexec to command                
                 #store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
-                gromacs.mdrun.driver = ' '.join(['mpiexec.hydra', '-np {}'.format(mpi_np), temp])
+                gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
