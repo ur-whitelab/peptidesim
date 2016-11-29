@@ -882,8 +882,8 @@ line and creates the class simulation.
                 if 'o' in run_kwargs:
                     sinfo.metadata['traj'] = run_kwargs['o']
                 else:
-                    sinfo.metadata['traj'] = 'traj.xtc'
-                    run_kwargs['o'] = 'traj.xtc'
+                    sinfo.metadata['traj'] = 'traj.trr'
+                    run_kwargs['o'] = 'traj.trr'
 
 
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
