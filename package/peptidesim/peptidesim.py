@@ -222,6 +222,12 @@ class PeptideSim(Configurable):
         self._ndx_file = self._convert_path(n)
         self._file_list.append(self._ndx_file)
 
+    @property
+    def transformer(self):
+        if len(self.sims) > 0:
+            self.trans = gromacs.cbook.Transformer(self.tpr_file, self.sims[-1].metadata['traj'])
+            
+
     def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None):        
         '''This is an initiator that takes the arguments from the command
 line and creates the class simulation.
@@ -871,12 +877,18 @@ line and creates the class simulation.
                     sinfo.metadata['mdp-data'] = mdp_data
 
                 #update metadata
-                sinfo.metadata['mdp-name'] = mdpfile
+                sinfo.metadata['mdp-name'] = mdpfile                                                                   
+                #store reference to trajectory
+                if 'o' in run_kwargs:
+                    sinfo.metadata['traj'] = run_kwargs['o']
+                else:
+                    sinfo.metadata['traj'] = 'traj.xtc'
+                    run_kwargs['o'] = 'traj.xtc'
 
-                
-                run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro', dds=0.5))
 
+                run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
                 sinfo.metadata['run-kwargs'] = run_kwargs
+
 
                 #add mpiexec to command                
                 #store original driver and prepend mpiexec to it
