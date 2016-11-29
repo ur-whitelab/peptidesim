@@ -3,7 +3,7 @@ from glob import glob
 from setuptools import setup
 
 def readme():
-    with open('README.rst') as f:
+    with open('../README.rst') as f:
         return f.read()
 
 exec(open('peptidesim/version.py').read())
