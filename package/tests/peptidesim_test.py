@@ -105,6 +105,7 @@ class TestDataStore(TestCase):
 
     def test_to_database(self):
         #verifies that data can be properly sent to redis database
+        self.p.store_data()        
         with open('data/simdata.json', 'r') as f:
             data = json.load(f)
             prop = 'peptide_density'
@@ -261,7 +262,7 @@ class TestConfig(TestCase):
             os.remove(name)
             try:
                 pass
-                #shutil.rmtree('testconfig')
+                shutil.rmtree('testconfig')
             except OSError as e:
                 pass
 
