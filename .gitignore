@@ -31,3 +31,5 @@
 doc/_build
 
 .dox/*
+.cache/*
+.tox/*
