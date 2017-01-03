@@ -916,6 +916,7 @@ line and creates the class simulation.
                         self.log.error('SIMULATION FAILED:') 
                         for line in m.group('message'):
                             self.log.error('SIMULATION FAILED: ' + line)
+                    raise RuntimeError('Failed simulation. See log')
             else:
                 self.log.info('...done'.format(sinfo.name))            
                 #finished, store any info needed
