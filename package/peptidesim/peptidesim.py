@@ -132,6 +132,10 @@ class PeptideSim(Configurable):
     mpiexec           = Unicode(u'mpiexec',
                                 help='The MPI executable'
                                 ).tag(config=True)
+    mdrun_driver              =Unicode(None,
+                                allow_none=True,
+                                help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)'
+                                ).tag(config=True)
 
 
                                   
@@ -882,8 +886,8 @@ line and creates the class simulation.
                 if 'o' in run_kwargs:
                     sinfo.metadata['traj'] = run_kwargs['o']
                 else:
-                    sinfo.metadata['traj'] = 'traj.xtc'
-                    run_kwargs['o'] = 'traj.xtc'
+                    sinfo.metadata['traj'] = 'traj.trr'
+                    run_kwargs['o'] = 'traj.trr'
 
 
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
@@ -893,7 +897,11 @@ line and creates the class simulation.
                 #add mpiexec to command                
                 #store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
-                gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
+                #also add custom mdrun executable if necessary
+                if(self.mdrun_driver is not None):                    
+                    gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])                    
+                else:
+                    gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
 
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
