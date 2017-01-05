@@ -385,6 +385,9 @@ line and creates the class simulation.
         #now get gromcas files
         self._pdb2gmx()
 
+        #center the peptides
+        self._center()
+        
         #Add solvent
         self._solvate()
 
@@ -467,10 +470,11 @@ line and creates the class simulation.
 
         #construct signal handler
         def handler(signum, frame):
+            self.log.warning
             with open(os.path.join(self.rel_dir_name,pickle_name), 'w') as f:
                 dill.dump(self, file=f)
             os.chdir(self.rel_dir_name) #put us cleanly into the correct place
-            raise KeyboardInterrupt #Make sure we do actually end
+            raise KeyboardInterrupt() #Make sure we do actually end
         #cache existing
         oh = signal.getsignal(dump_signal)
         #set new one
@@ -489,7 +493,7 @@ line and creates the class simulation.
         self._sim_list.append(si)
 
         try:
-            yield  si    
+            yield si    
         finally:
             #reset signal handler
             signal.signal(dump_signal, oh)
@@ -637,7 +641,11 @@ line and creates the class simulation.
         proposed_box_dim = vol**(1/3.)
         proposed_box_dim = max(long_dim, proposed_box_dim)
         self.box_size_angstrom = [proposed_box_dim, sqrt(vol / proposed_box_dim), sqrt(vol / proposed_box_dim)]
-        
+
+        if min(self.box_size_angstrom) / 2 < 10.0:
+            raise ValueError('The boxsize is too small ({}) to conduct a simulation. Try decreasing the peptide density. Half the shortest box length must be greater than cutoff.'.format(self.box_size_angstrom))
+
+        self.log.info('Final box size to achieve density {} mg/mL: {} Angstrom'.format(self.peptide_density, self.box_size_angstrom))
         
         #build input text
         input_string = textwrap.dedent(
@@ -692,13 +700,23 @@ line and creates the class simulation.
             self.gro_file = output
             self.top_file = topology        
 
+
+    def _center(self):                
+        with self._put_in_dir('prep'):
+            output = 'dry_centered.gro'
+            self.log.info('Centering molecule')
+            gromacs.editconf(f=self.gro_file, o=output, c=True, box=self.box_size_nm, bt='cubic')
+            self.gro_file = output
+
+
+            
     def _solvate(self):
         
         with self._put_in_dir('prep'):
             output = 'wet_mixed.gro'
             water = self.water + '.gro'
 
-            if self.water == 'spce' or self.water == 'spec' or self.water == 'tip3p':
+            if self.water == 'spce' or self.water == 'spc' or self.water == 'tip3p':
                 #swtich to spc
                 water = 'spc216.gro'
 
@@ -786,11 +804,11 @@ line and creates the class simulation.
             #now we need to remove all the include stuff so we can actually pass the file around if needed
             self.log.info('Resovling include statements via GromacsWrapper...')
             output = self.top_file = gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
+            self.top_file = output            
             self.log.info('...OK')
             
             self.gro_file = ion_gro
             self.tpr_file = ion_tpr
-            self.top_file = output
             self.ndx = ndx_file
 
     def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
@@ -906,8 +924,8 @@ line and creates the class simulation.
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
                 gromacs.mdrun.driver = temp #put back the original command
-                self.log.info(cmd)
-                self.log.info(' '.join(map(str, cmd)))
+                self.log.debug(cmd)
+                self.log.debug(' '.join(map(str, cmd)))
                 #make it run in shell
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 #sinfo.run(gromacs.mdrun, run_kwargs)
@@ -924,7 +942,7 @@ line and creates the class simulation.
                         self.log.error('SIMULATION FAILED:') 
                         for line in m.group('message'):
                             self.log.error('SIMULATION FAILED: ' + line)
-                    raise RuntimeError('Failed simulation. See log')
+                raise RuntimeError('Failed to complete simulation')
             else:
                 self.log.info('...done'.format(sinfo.name))            
                 #finished, store any info needed

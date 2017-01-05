@@ -1,9 +1,10 @@
 ;Base parameters for peptidesim
 coulombtype     = PME
 rlist           = 1.0
-optimize-fft    = yes
+;optimize-fft    = yes
 fourierspacing  = 0.12
 pme-order       = 4
 ewald-rtol      = 1e-5
 dispcorr        = ener
 constraints    = h-angles
+lincs-iter     = 2
