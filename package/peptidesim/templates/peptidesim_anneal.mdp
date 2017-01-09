@@ -1,0 +1,21 @@
+integrator   = sd
+nstxout      = 25
+nstvout      = 0
+nstfout      = 0
+nstlog       = 25
+nstenergy    = 0
+tcoupl       = v-rescale
+tau-t        = 2
+tc-grps      = System
+ref-p        = 0
+
+
+constraints  = h-bonds
+dt           = 0.002
+annealing    = single
+ref-t        = 300
+annealing-npoints = 3
+nsteps       = 2500
+annealing-time = 0 2.5 5
+annealing-temp = 350 450 300
+lincs-iter     = 3

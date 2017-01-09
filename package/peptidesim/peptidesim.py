@@ -99,14 +99,15 @@ class PeptideSim(Configurable):
                                 help='The command to run the packmol program.'
                                 ).tag(config=True)
 
-    forcefield        = Unicode(u'amber99sb-ildn',
+#    forcefield        = Unicode(u'amber99sb-ildn',
+    forcefield        = Unicode(u'charmm27',
                                 help='The gromacs syntax forcefield',
                                 ).tag(config=True)
     water             = Unicode(u'tip3p',
                                help='The water model to use',
                                ).tag(config=True)
 
-    pdb2gmx_args      = Dict(dict(ignh=None),
+    pdb2gmx_args      = Dict(dict(ignh=True),
                              help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
                              ).tag(config=True)
 
@@ -387,7 +388,10 @@ line and creates the class simulation.
 
         #center the peptides
         self._center()
-        
+
+        #energy minimize it
+        self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps':500})
+                
         #Add solvent
         self._solvate()
 
@@ -418,17 +422,13 @@ line and creates the class simulation.
         '''
         if pickle_name is None:
             pickle_name = self.job_name + '.pickle'
-        with self._simulation_context(os.path.basename(mdpfile).split('.')[0] + '-' + tag, pickle_name, dump_signal) as ec:
+        if tag == '':
+            tag = os.path.basename(mdpfile).split('.')[0]
+        with self._simulation_context(tag, pickle_name, dump_signal) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
 
-
-    def energy_minimize(self, tag, steps=1000):
-        '''Energy minimize the system. Can be called anytime after initialize.        
-        '''
-
-            
 
     def __del__(self):
         self._stop_logging()
@@ -482,7 +482,8 @@ line and creates the class simulation.
 
         #construct name and add to simulation infos
         file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file + self.pdb_file)
-        simname = name + '-' + str(file_hash)
+        #the hash is huge. Take the first few chars        
+        simname = name + '-' + str(file_hash)[:8]
 
         if simname in self._sims:
             si = self._sims[simname]

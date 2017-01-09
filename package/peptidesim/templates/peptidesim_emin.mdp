@@ -1,7 +1,7 @@
-emtol = 1e-5
+emtol = 1e-10
 nsteps = 100
 nstxout = 1
 nstenergy = 1
 nstlog = 0
-integrator = cg
-lincs-iter = 4
+integrator = steep
+constraints = none

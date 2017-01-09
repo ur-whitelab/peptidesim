@@ -120,25 +120,39 @@ class TestDataStore(TestCase):
             
 
 
+class TestPeptideStability(TestCase):
+    def test_dipeptides(self):
+        for a in ['GG', 'VV', 'EE', 'SS', 'YY', 'SS', 'PP']:
+            p = PeptideSim('dipeptide', [a], [1], job_name='dipeptide')
+            p.peptide_density=0.005
+            p.initialize()
+            p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':50})                    
+            p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
+            shutil.rmtree('dipeptide')        
 
+    
         
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
-        self.p = PeptideSim('pemin_test', ['GG'], [1], job_name='testing-emin')
+        self.p = PeptideSim('pemin_test', ['VV'], [1], job_name='testing-emin')
         self.p.peptide_density=0.005
         self.p.initialize()
         #do short emin
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='set-up-emin', mdp_kwargs={'nsteps':50, 'constraints': 'none'})        
-        #self.p.run(mdpfile='peptidesim_emin.mdp', tag='set-up-emin-constraints', mdp_kwargs={'nsteps':50})
-        #do short nvt to enforce constraints
-        self.p.run(mdpfile='peptidesim_nvt.mdp', tag='set-up-nvt', mdp_kwargs={'nsteps':500, 'dt':0.0005, 'constraints': 'none'})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='set-up-emin-constraints', mdp_kwargs={'nsteps':25})
+
 
     def test_short_emin(self):
         start_gro = self.p.gro_file
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='short-test', mdp_kwargs={'nsteps':10})
         self.assertTrue(start_gro != self.p.gro_file)
 
+    def test_notag(self):
+        start_gro = self.p.gro_file
+        self.p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':1})
+        self.assertTrue(start_gro != self.p.gro_file)
+
+        
 
     def test_emin_mdp_combine(self):
         self.p.run(mdpfile='peptidesim_nvt.mdp', tag='test-mdp',  mdp_kwargs={'nsteps':2})
