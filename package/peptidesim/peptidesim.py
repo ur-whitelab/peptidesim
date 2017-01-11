@@ -813,10 +813,6 @@ line and creates the class simulation.
             self.ndx = ndx_file
 
     def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
-
-        if(mpi_np == 1):
-            #assuming debug. Fixing the openmp number
-            run_kwargs.update({'nt': '1'})
         
         with self._put_in_dir(sinfo.name):
 
@@ -865,12 +861,13 @@ line and creates the class simulation.
 
                     #make a bunch of tpr files and put them into a subdirectory (TOPOL)
                     for i, mk in enumerate(mdp_kwargs):
-                        mdp_temp = mdp_sim.copy()
+                        mdp_temp = gromacs.fileformats.mdp.MDP()
+                        mdp_temp.update(mdp_sim)
                         mdp_temp.update(mk)
                         final_mdp.append(sinfo.short_name + str(i) + '.mdp')
                         mdp = gromacs.fileformats.mdp.MDP()
                         mdp.update(mdp_temp)
-                        mdp.write(final_mdp)
+                        mdp.write(final_mdp[i])
                         mdp_data.append(dict(mdp))
                         tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
                         gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
