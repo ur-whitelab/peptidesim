@@ -95,9 +95,9 @@ class TestPeptideSimInitialize(TestCase):
         new_p = pickle.load(StringIO(string))
         #make sure on pickling we still have our history intact
         self.assertEqual(len(new_p.sims), n)        
+        #now actually ensure that we don't repeat the initialization
         new_p.initialize()
         self.assertEqual(len(new_p.sims), n)
-
         
 
     def tearDown(self):

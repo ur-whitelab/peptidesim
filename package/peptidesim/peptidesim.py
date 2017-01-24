@@ -491,10 +491,9 @@ line and creates the class simulation.
         if simname in self._sims:
             si = self._sims[simname]
         else:
-            si = SimulationInfo(simname, name)            
-
-        self._sims[simname] = si
-        self._sim_list.append(si)
+            si = SimulationInfo(simname, name)
+            self._sims[simname] = si
+            self._sim_list.append(si)
 
         try:
             yield si    
