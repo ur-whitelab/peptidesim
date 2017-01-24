@@ -279,7 +279,10 @@ line and creates the class simulation.
             os.mkdir(self.dir_name)
 
         for f in self.req_files:
-            shutil.copyfile(f, self._convert_path(f))
+            if os.path.isdir(f):
+                shutil.copytree(f, self._convert_path(f))
+            else:
+                shutil.copy2(f, self._convert_path(f))
             self._file_list.append(os.path.basename(f))
 
         self._start_logging()
@@ -518,11 +521,12 @@ line and creates the class simulation.
             os.mkdir(d)
         #bring files
         for f in self.file_list:
-            if(f is not None and os.path.exists(f)):
-                try:
-                    shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
-                except shutil.Error:
-                    pass #same file. Stupid that this is necessary
+            #make sure it exists, is not none and needs to be copied
+            if(f is not None and os.path.exists(f) and not os.path.exists(os.path.join(d, os.path.basename(f)))):
+                if os.path.isdir(f):
+                    shutil.copytree(f, os.path.join(d, os.path.basename(f)))
+                else:
+                    shutil.copy2(f, os.path.join(d, os.path.basename(f)))
                 
         #go there
         curdir = os.getcwd()
@@ -541,13 +545,13 @@ line and creates the class simulation.
             self.rel_dir_name  = '.'
             
             #bring back files
+            #TODO: Why? Is this every necessary
             for f in self.file_list:
-                if(f is not None and os.path.exists(os.path.join(d, f))):
-                    try:
-                        shutil.copyfile(os.path.join(d, f),f)
-                    except shutil.Error:
-                        pass #same file
-
+                if(f is not None and os.path.exists(os.path.join(d, f)) and not os.path.exists(f)):
+                    if os.path.isdir(f):
+                        shutil.copytree(os.path.join(d, f),f)
+                    else:
+                        shutil.copy2(os.path.join(d, f),f)
 
     def add_file(self, f):
         if f != self._convert_path(f):        

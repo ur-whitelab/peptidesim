@@ -81,13 +81,47 @@ class TestPeptideSimInitialize(TestCase):
         self.assertIsNotNone(self.p.ndx['peptide_3'])
 
 
-    def test_neutral(self):
-        pass
+    def test_restore(self):
+        '''
+        Assert that we don't repeat the initialization simulations
+        and that no errors occur
+        '''
+
+        n = len(self.p.sims)        
+        import dill as pickle
+        from cStringIO import StringIO
+        string = pickle.dumps(self.p)
+        del self.p
+        new_p = pickle.load(StringIO(string))
+        #make sure on pickling we still have our history intact
+        self.assertEqual(len(new_p.sims), n)        
+        new_p.initialize()
+        self.assertEqual(len(new_p.sims), n)
+
         
 
     def tearDown(self):
         shutil.rmtree('pinit_test')
 
+class TestFileTransfer(TestCase):
+
+    def setUp(self):
+        self.p = PeptideSim('file_trans', ['AA', 'REE'], [3, 1])
+        #make some files to move around
+        os.makedirs('data')
+        with open('data/file.txt', 'w') as f:
+            f.write('test\n')        
+
+    def test_move_directory(self):
+        self.p.add_file('data')
+        self.p.initialize()
+        self.assertTrue(os.path.exists(os.path.join(self.p.sims[-1].location, 'data/file.txt')))
+
+    def tearDown(self):
+        shutil.rmtree('file_trans')
+        shutil.rmtree('data')
+
+    
 class TestDataStore(TestCase):
 
     def setUp(self):
@@ -230,6 +264,7 @@ class TestPeptideEmin(TestCase):
 
         #check metadata is intact
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+
 
 
     def test_signal_restart_emin(self):
