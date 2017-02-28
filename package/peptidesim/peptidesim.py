@@ -11,9 +11,7 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
-import numpy as np 
-
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal
+import logging, os, shutil, datetime, subprocess, re, textwrap, pkg_resources, contextlib, uuid, json, ast, requests, signal
 
 import PeptideBuilder 
 import Bio.PDB

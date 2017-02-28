@@ -7,4 +7,4 @@ tox
 #install for interactive use
 source activate python2
 pip install . --user
-tail -f /dev/null
+#tail -f /dev/null

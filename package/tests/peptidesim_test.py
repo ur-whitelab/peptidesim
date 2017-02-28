@@ -8,8 +8,6 @@ import shutil, os, textwrap
 
 import json, requests
 import signal
-import functools
-import gromacs
 
 class TestPeptideSimSimple(TestCase):
     def setUp(self):
@@ -199,14 +197,12 @@ class TestPeptideEmin(TestCase):
 
 
     def test_emin_metadata(self):
-        start_gro = self.p.gro_file
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})        
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
 
 
     def test_emin_metadata_multiple(self):
-        start_gro = self.p.gro_file
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test2', mdp_kwargs={'nsteps':10})
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'nsteps':10})
@@ -254,8 +250,6 @@ class TestPeptideEmin(TestCase):
 
     def test_restart_emin(self):
         
-        start_gro = self.p.gro_file
-
         #call and interrupt the function
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
         for k,v in self.p._sims.iteritems():
@@ -272,7 +266,6 @@ class TestPeptideEmin(TestCase):
         Test that if the simulation is killed exeternally, it can still be pickled and recovered
         '''
         
-        start_gro = self.p.gro_file
         import dill as pickle
         import time
         from cStringIO import StringIO

@@ -1,7 +1,10 @@
+from __future__ import absolute_import, division, print_function
+
 from traitlets.config import Configurable, Application, PyFileConfigLoader
-from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
+from traitlets import Unicode, Dict, List
 from .peptidesim import PeptideSim
 from .version import __version__
+from builtins import input
 
 import os
 
@@ -31,7 +34,7 @@ class PeptideSimConfigurator(Application):
             def ask():
                 prompt = "Overwrite {} with default config? [y/N]".format(self.config_file)
                 try:
-                    return raw_input(prompt).lower() or 'n'
+                    return input(prompt).lower() or 'n'
                 except KeyboardInterrupt:
                     print('') # empty line
                     return 'n'
