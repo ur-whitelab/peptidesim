@@ -1,10 +1,8 @@
 #!/bin/bash
 
-cp -R /usr/share/peptidesim /root
-cd /root/peptidesim/package
-pip install -r requirements.txt
+cp -R /usr/share/peptidesim /home/tester
+cd /home/tester/peptidesim/package
 tox
 #install for interactive use
-source activate python2
-pip install . --user
+#pip install . --user
 #tail -f /dev/null

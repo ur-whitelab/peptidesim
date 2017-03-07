@@ -1,13 +1,8 @@
-FROM jupyter/scipy-notebook
+FROM ubuntu:xenial
 
 MAINTAINER Andrew White
 
 USER root
-
-#make it easy to execuate as root
-RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/00nopass && chmod 0440 /etc/sudoers.d/00nopass
-RUN adduser jovyan sudo
-RUN passwd jovyan -d
 
 #set default shell to bash
 RUN echo "dash dash/sh boolean false" | debconf-set-selections
@@ -16,26 +11,22 @@ RUN dpkg-reconfigure -f noninteractive dash
 #install gromacs
 
 #enable contributed packages
-RUN sed -i 's/main/main contrib/g' /etc/apt/sources.list
-RUN echo "deb http://ftp.be.debian.org/debian/ wheezy main contrib" >> /etc/apt/sources.list
-RUN echo "deb http://ftp.be.debian.org/debian/ wheezy-updates main contrib" >> /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get install -y fftw3
 RUN apt-get install -y gromacs-openmpi gromacs-data ssh
 #RUN apt-get install -y -f -t wheezy gromacs=4.5.5-2 gromacs-data=4.5.5-2
 
-#configure the GromacsWrapper
-RUN source activate python2 && pip install git+git://github.com/whitead/GromacsWrapper.git@develop && echo "import gromacs;  gromacs.config.setup(); " | python
-#ADD gromacs.cfg /root/.gromacswrapper.cfg
-#ADD gromacs4.cfg /root/.gromacswrapper.cfg
-
 #Install packmol
-RUN apt-get install -y gfortran
+RUN apt-get install -y gfortran make
 ADD packmol.tar.gz /usr/share
 RUN cd /usr/share/packmol && ./configure && make && ln -s /usr/share/packmol/packmol  /sbin/packmol
 
+#Get tools for testing
+RUN apt-get install -y python-tox python-setuptools python-pip
 
+#create user
+RUN useradd -ms /bin/bash tester
 
 #set default
-ADD test.sh /root
-CMD ["bash", "/root/test.sh"]
+ADD test.sh /home/tester
+CMD ["bash", "/home/tester/test.sh"]
