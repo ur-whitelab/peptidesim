@@ -11,7 +11,9 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
-import logging, os, shutil, datetime, subprocess, re, textwrap, pkg_resources, contextlib, uuid, json, ast, requests, signal
+import numpy as np 
+
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal
 
 import PeptideBuilder 
 import Bio.PDB
@@ -127,7 +129,7 @@ class PeptideSim(Configurable):
     post_address      = Unicode(u'/insert/simulation',
                                 help='The extension to post simulation data'
                         ).tag(config=True)
-
+   
     mpiexec           = Unicode(u'mpiexec',
                                 help='The MPI executable'
                                 ).tag(config=True)
@@ -175,7 +177,7 @@ class PeptideSim(Configurable):
     @pdb_file.setter
     def pdb_file(self, f):
         self._pdb.append(self._convert_path(f))
-
+    
     @property
     def gro_file(self):
         if(len(self._gro) == 0):
@@ -208,6 +210,28 @@ class PeptideSim(Configurable):
     def tpr_file(self, f):
         self._tpr.append(self._convert_path(f))        
  
+    @property
+    def traj_file(self):
+        if(len(self._trr) == 0):
+            return None
+        return os.path.normpath(os.path.join(self.rel_dir_name, self._trr[-1]))
+    @traj_file.setter
+    def traj_file(self, f):
+        self._trr.append(self._convert_path(f))        
+        
+
+
+    @property
+    def rmsd_output(self):
+        if(len(self._rmsd) == 0):
+            return None
+        return os.path.normpath(os.path.join(self.rel_dir_name, self._rmsd[-1]))
+
+
+    @rmsd_output.setter
+    def rmsd_output(self, f):
+        self._rmsd.append(self._convert_path(f))        
+
     @property
     def ndx(self):
         if(self._ndx_file is None):
@@ -253,6 +277,8 @@ line and creates the class simulation.
         self._gro = []
         self._pdb = []
         self._tpr = []
+        self._rmsd=[]
+        self._trr=[]
         self._file_list = []
         self._ndx_file = None
         
@@ -429,7 +455,9 @@ line and creates the class simulation.
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
-
+    def analyze(self):
+        self._rmsd_calc()
+        self._sham_calc()
 
     def __del__(self):
         self._stop_logging()
@@ -465,10 +493,8 @@ line and creates the class simulation.
     @contextlib.contextmanager
     def _simulation_context(self, name, pickle_name, dump_signal = signal.SIGTERM):
         '''This context will handle restart and keeping a history of simulations performed.
-
         TODO: Maybe have this context submit a simulation job?
         '''
-
         #construct signal handler
         def handler(signum, frame):
             self.log.warning
@@ -696,11 +722,35 @@ line and creates the class simulation.
         with self._put_in_dir('prep'):
 
             output = 'dry_mixed.gro'
+            output2='template.pdb'
             topology = 'dry_topology.top'
             self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
             gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            gromacs.pdb2gmx(f=self.pdb_file, o=output2, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            self.pdb_file=output2
             self.gro_file = output
             self.top_file = topology        
+
+    def _rmsd_calc(self):
+        with self._put_in_dir('analysis'):
+            self.log.info('Plotting the RMSD of your simulation')
+            noe_data="noe.dat"
+            rmsd_output="distrmsd.xvg"
+            gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['Backbone',4],o=rmsd_output)
+            #gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['C-alpha',3],o=rmsd_output) #if you have more than one amino acid in a sequence 
+            self.rmsd_output=rmsd_output
+    def _sham_calc(self):
+        with self._put_in_dir('analysis'):
+            self.log.info('Generating free energy surface of your simulation')
+            gibbs_output="gibbs.xpm"
+            histogram_output="histogram.xvg"
+            gromacs.g_sham(f=self.rmsd_output,histo=histogram_output,ls=gibbs_output)
+            self.histogram_output=histogram_output
+            self.gibbs_output=gibbs_output
+            
+
+
+
 
 
     def _center(self):                
@@ -903,8 +953,11 @@ line and creates the class simulation.
                 if 'o' in run_kwargs:
                     sinfo.metadata['traj'] = run_kwargs['o']
                 else:
-                    sinfo.metadata['traj'] = 'traj.trr'
-                    run_kwargs['o'] = 'traj.trr'
+                    trajectory_file='traj.trr'
+                    sinfo.metadata['traj'] = trajectory_file
+                    run_kwargs['o'] = trajectory_file
+                    self.traj_file=trajectory_file
+                    self._file_list.append(os.path.basename(self.traj_file))
 
 
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
