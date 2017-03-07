@@ -221,16 +221,16 @@ class PeptideSim(Configurable):
         
 
 
-    @property
-    def rmsd_output(self):
-        if(len(self._rmsd) == 0):
-            return None
-        return os.path.normpath(os.path.join(self.rel_dir_name, self._rmsd[-1]))
+#    @property
+ #   def rmsd_output(self):
+  #      if(len(self._rmsd) == 0):
+   #         return None
+    #    return os.path.normpath(os.path.join(self.rel_dir_name, self._rmsd[-1]))
 
 
-    @rmsd_output.setter
-    def rmsd_output(self, f):
-        self._rmsd.append(self._convert_path(f))        
+    #@rmsd_output.setter
+    #def rmsd_output(self, f):
+    #    self._rmsd.append(self._convert_path(f))        
 
     @property
     def ndx(self):
@@ -456,8 +456,8 @@ line and creates the class simulation.
             ec.metadata.update(metadata)
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
     def analyze(self):
-        self._rmsd_calc()
-        self._sham_calc()
+        self.calc_rmsd()
+        self.calc_sham()
 
     def __del__(self):
         self._stop_logging()
@@ -731,22 +731,19 @@ line and creates the class simulation.
             self.gro_file = output
             self.top_file = topology        
 
-    def _rmsd_calc(self):
+    def calc_rmsd(self):
         with self._put_in_dir('analysis'):
             self.log.info('Plotting the RMSD of your simulation')
             noe_data="noe.dat"
             rmsd_output="distrmsd.xvg"
             gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['Backbone',4],o=rmsd_output)
             #gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['C-alpha',3],o=rmsd_output) #if you have more than one amino acid in a sequence 
-            self.rmsd_output=rmsd_output
-    def _sham_calc(self):
+            return rmsd_output
+    def calc_sham(self):
         with self._put_in_dir('analysis'):
             self.log.info('Generating free energy surface of your simulation')
-            gibbs_output="gibbs.xpm"
-            histogram_output="histogram.xvg"
-            gromacs.g_sham(f=self.rmsd_output,histo=histogram_output,ls=gibbs_output)
-            self.histogram_output=histogram_output
-            self.gibbs_output=gibbs_output
+            gromacs.g_sham(f="distrmsd.xvg",ene="energy.xvg")
+            return "energy.xvg"
             
 
 
