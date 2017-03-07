@@ -218,19 +218,6 @@ class PeptideSim(Configurable):
     @traj_file.setter
     def traj_file(self, f):
         self._trr.append(self._convert_path(f))        
-        
-
-
-#    @property
- #   def rmsd_output(self):
-  #      if(len(self._rmsd) == 0):
-   #         return None
-    #    return os.path.normpath(os.path.join(self.rel_dir_name, self._rmsd[-1]))
-
-
-    #@rmsd_output.setter
-    #def rmsd_output(self, f):
-    #    self._rmsd.append(self._convert_path(f))        
 
     @property
     def ndx(self):
