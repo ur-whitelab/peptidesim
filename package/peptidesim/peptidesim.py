@@ -728,9 +728,9 @@ line and creates the class simulation.
             return rmsd_output
     def calc_sham(self):
         with self._put_in_dir('analysis'):
-            self.log.info('Generating free energy surface of your simulation')
-            gromacs.g_sham(f="distrmsd.xvg",ene="energy.xvg")
-            return "energy.xvg"
+            self.log.info('Generating free energy landscape of your simulation by boltzman inversion')
+            gromacs.g_sham(f="distrmsd.xvg", notime=True, bin='bindex.ndx',lp='probability.xpm',ls='gibbs.xpm',histo="histogram.xvg",lsh='enthalpy.xpm',lss="entropy.xpm")
+            return "energy.xvg",'bindex.ndx','probability.xpm', "entropy.xpm",'enthalpy.xpm','gibbs.xpm', "histogram.xvg"
             
 
 
