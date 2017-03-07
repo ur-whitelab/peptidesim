@@ -1,4 +1,4 @@
-b from peptidesim import PeptideSim
+from peptidesim import PeptideSim
 import textwrap, sys, re, os,json
 import sys
 import dill as pickle
@@ -10,7 +10,8 @@ configure=sys.argv[5]
 debug = False
 pickle_name = name + '.pickle'
 
-MPI_NP = 8#should be a multiple of mpi
+com_data=json.load(open(data_file))
+MPI_NP = com_data["mpi_np"]
 #try to reload 
 if(os.path.exists(pickle_name)):
     print 'loading restart'
@@ -23,8 +24,12 @@ ps.mdrun_driver='gmx_mpi'
 ps.water
 ps.forcefield='oplsaa'
 ps.initialize()
+
+
+
 def make_ladder(hot, N, cold=300.):
     return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
+
 def get_replex_e(ps, replica_number):
     with open(ps.sims[-1].location + '/' + ps.sims[-1].metadata['md-log']) as f:
         p1 = re.compile('Repl  average probabilities:')        
@@ -37,17 +42,19 @@ def get_replex_e(ps, replica_number):
                 match = p2.match(line)
                 if match:
                     return [float(s) for s in match.groups()]
+                
+        
+
 #get ndx indices
 i0 = ps.ndx['peptide_CA_0']
 i1 = ps.ndx['peptide_CA_1']
 i0 = [str(x) for x in i0]
 i1 = [str(x) for x in i1]
 
-com_data=json.load(open(data_file))
-com_data=com_data['{}{}'.format(seq1,seq2)]
-atoms1=com_data[0]
-atoms2=com_data[1]
-
+center_of_mass=com_data['{}{}'.format(seq1,seq2)]
+atoms1=center_of_mass[0]
+atoms2=center_of_mass[1]
+hill_height=com_data["hill_height"]
 
 #make plumed wte files
 plumed_input = textwrap.dedent(
@@ -60,7 +67,7 @@ plumed_input = textwrap.dedent(
     LABEL=METADPT
     ARG=ene
     SIGMA=100.0
-    HEIGHT=0.000000000000000000001
+    HEIGHT={}
     PACE=250
     TEMP=300
     FILE=HILLS_PTWTE
@@ -69,7 +76,7 @@ plumed_input = textwrap.dedent(
     
     
     PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
-    ''')
+    '''.format(hill_height)
 with open('plumed_wte.dat', 'w') as f:
     f.write(plumed_input)            
 ps.add_file('plumed_wte.dat')
@@ -135,10 +142,10 @@ ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt', mpi_np=MPI_NP)
 time_ns = 0.00005
 if debug:
     time_ns = 0.00001
-replicas = 8
-hot = 450
+replicas = com_data["replica_number"]
+hot = com_data["hot_temperature"]
 replex_eff = 0
-max_iters = 25
+max_iters = com_data["max_iterations"]
 if debug:
     max_iters = 2
 kwargs = [{'nsteps': int(time_ns * 5 * 10 ** 5), 'ref_t': ti} for ti in make_ladder(hot, replicas)]
