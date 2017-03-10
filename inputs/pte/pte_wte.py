@@ -11,7 +11,6 @@ debug = False
 pickle_name = name + '.pickle'
 
 com_data=json.load(open(data_file))
-MPI_NP = com_data["mpi_np"]
 #try to reload 
 if(os.path.exists(pickle_name)):
     print 'loading restart'
@@ -21,7 +20,7 @@ else:
     ps = PeptideSim(name, [seq1,seq2], [1,1], job_name='2mer_{}'.format(name),config_file=configure)
 ps.peptide_density = 0.02
 ps.mdrun_driver='gmx_mpi'
-ps.water
+ps.mpi_np = com_data['mpi_np']
 ps.forcefield='oplsaa'
 ps.initialize()
 
@@ -133,10 +132,8 @@ ps.add_file('plumed.dat')
 
 
 
-ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 0.00001*10**5}, mpi_np=MPI_NP)
-#ps.run(mdpfile='peptidesim_nvt.mdp', tag='init_nvt', mdp_kwargs={'nsteps': int(0.5 * 10**5), 'dt': 0.001, 'constraints': 'none'}, mpi_np=MPI_NP)
-#ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(5 * 5*10**5)}, mpi_np=MPI_NP)
-ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt', mpi_np=MPI_NP)
+ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 0.00001*10**5})
+ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 
 #equilibrate parallel tempering metadynamics -> add hills until replica exchange efficiency is high enough
 time_ns = 0.00005
@@ -157,7 +154,7 @@ for i in xrange(replicas):
 for i in range(max_iters):
     with open(pickle_name, 'w') as f:
         pickle.dump(ps, file=f)
-    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, mpi_np=MPI_NP, run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25}, pickle_name=pickle_name)
+    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25}, pickle_name=pickle_name)
     replex_eff = min(get_replex_e(ps, replicas))
     if replex_eff >= 0.3:
         print 'Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff)
@@ -175,7 +172,7 @@ if debug:
 for kw in kwargs:
     kw['nsteps']=  int(time_ns * 5 * 10 ** 5)
 try:
-    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod'.format(i),  mdp_kwargs=kwargs, mpi_np=MPI_NP, run_kwargs={'plumed':'plumed.dat', 'replex': 100}, pickle_name=pickle_name)
+    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod'.format(i),  mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat', 'replex': 100}, pickle_name=pickle_name)
 finally:
     with open(pickle_name, 'w') as f:
         pickle.dump(ps, file=f)
