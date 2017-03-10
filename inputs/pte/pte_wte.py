@@ -53,7 +53,7 @@ i1 = [str(x) for x in i1]
 center_of_mass=com_data['{}{}'.format(seq1,seq2)]
 atoms1=center_of_mass[0]
 atoms2=center_of_mass[1]
-hill_height=com_data["hill_height"]
+hill_height=com_data['hill_height']
 
 #make plumed wte files
 plumed_input = textwrap.dedent(
@@ -136,13 +136,13 @@ ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 0.0
 ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 
 #equilibrate parallel tempering metadynamics -> add hills until replica exchange efficiency is high enough
-time_ns = 0.00005
+    time_ns = com_data['final_time']
 if debug:
     time_ns = 0.00001
-replicas = com_data["replica_number"]
-hot = com_data["hot_temperature"]
+replicas = com_data['replica_number']
+hot = com_data['hot_temperature']
 replex_eff = 0
-max_iters = com_data["max_iterations"]
+max_iters = com_data['max_iterations']
 if debug:
     max_iters = 2
 kwargs = [{'nsteps': int(time_ns * 5 * 10 ** 5), 'ref_t': ti} for ti in make_ladder(hot, replicas)]
@@ -166,7 +166,7 @@ with open(pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
 
 #now do production metadynamics
-time_ns = 0.00005
+
 if debug:
     time = 0.00005
 for kw in kwargs:
