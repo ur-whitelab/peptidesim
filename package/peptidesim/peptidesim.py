@@ -132,7 +132,10 @@ class PeptideSim(Configurable):
    
     mpiexec           = Unicode(u'mpiexec',
                                 help='The MPI executable'
-                                ).tag(config=True)
+                                ).tag(config=True)    
+    mpi_np           = Int(1,
+                                help='Number of mpi processes'
+                                ).tag(config=True)    
     mdrun_driver              =Unicode(None,
                                 allow_none=True,
                                 help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)'
@@ -415,7 +418,7 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def run(self, mdpfile, tag='', mpi_np=1, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
+    def run(self, mdpfile, tag='', mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -434,6 +437,8 @@ line and creates the class simulation.
         run_kwargs : dict
             Additional arguments that will be convreted to mdrun flags
         '''
+        if mpi_np is None:
+            mpi_np = self.mpi_np
         if pickle_name is None:
             pickle_name = self.job_name + '.pickle'
         if tag == '':
