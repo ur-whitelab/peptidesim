@@ -6,7 +6,7 @@ seq1 = sys.argv[1]
 seq2=sys.argv[2]
 name = sys.argv[3]
 data_file=sys.argv[4]
-configure=sys.argv[5]
+#configure=sys.argv[5]
 debug = False
 pickle_name = name + '.pickle'
 
@@ -17,7 +17,7 @@ if(os.path.exists(pickle_name)):
     with open(pickle_name, 'r') as f:
         ps = pickle.load(f)
 else:
-    ps = PeptideSim(name, [seq1,seq2], [1,1], job_name='2mer_{}'.format(name),config_file=configure)
+    ps = PeptideSim(name, [seq1,seq2], [1,1], job_name='2mer_{}'.format(name))#config_file=configure)
 ps.peptide_density = 0.02
 ps.mdrun_driver='gmx_mpi'
 ps.mpi_np = com_data['mpi_np']
