@@ -449,7 +449,7 @@ line and creates the class simulation.
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
     def analyze(self):
         self.calc_rmsd()
-        self.calc_sham()
+        #self.calc_sham()
 
     def __del__(self):
         self._stop_logging()
