@@ -11,19 +11,23 @@ debug = False
 pickle_name = name + '.pickle'
 
 com_data=json.load(open(data_file))
+
 #try to reload 
 if(os.path.exists(pickle_name)):
     print 'loading restart'
     with open(pickle_name, 'r') as f:
         ps = pickle.load(f)
 else:
-    ps = PeptideSim(name, [seq1,seq2], [1,1], job_name='2mer_{}'.format(name))#config_file=configure)
-ps.peptide_density = 0.02
+    ps = PeptideSim(name, [seq1,seq2], [1,1], job_name='2mer_{}'.format(name))#,config_file=configure)
+ps.peptide_density = 0.0095#this density generates 30.8634 A box
 ps.mdrun_driver='gmx_mpi'
-ps.mpi_np = com_data['mpi_np']
+ps.water='tip4p'
 ps.forcefield='oplsaa'
+ps.mpi_np =com_data["mpi_np"]
+#ps.box_size_angstrom=[30,30,30]
 ps.initialize()
 
+time_ns=com_data['final_time']
 
 
 def make_ladder(hot, N, cold=300.):
@@ -53,7 +57,7 @@ i1 = [str(x) for x in i1]
 center_of_mass=com_data['{}{}'.format(seq1,seq2)]
 atoms1=center_of_mass[0]
 atoms2=center_of_mass[1]
-hill_height=com_data['hill_height']
+hill_height=com_data["hill_height"]
 
 #make plumed wte files
 plumed_input = textwrap.dedent(
@@ -75,7 +79,7 @@ plumed_input = textwrap.dedent(
     
     
     PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
-    '''.format(hill_height)
+    '''.format(hill_height))
 with open('plumed_wte.dat', 'w') as f:
     f.write(plumed_input)            
 ps.add_file('plumed_wte.dat')
@@ -90,8 +94,7 @@ plumed_input = textwrap.dedent(
     
     c1: COM ATOMS={c1}
     c2: COM ATOMS={c2}
-    
-    d: DISTANCE ATOMS=c1,c2
+    d1: DISTANCE ATOMS=c1,c2
     ene: ENERGY
 
     #load hills but don't add to bias
@@ -110,13 +113,13 @@ plumed_input = textwrap.dedent(
     
     METAD ...
     LABEL=METAD
-    ARG=d
+    ARG=d1
     SIGMA=0.1
     HEIGHT=1.0
     PACE=500
     TEMP=300
     GRID_MIN=0
-    GRID_MAX=10
+    GRID_MAX=3
     GRID_BIN=250
     GRID_WFILE=BIAS
     GRID_WSTRIDE=1000
@@ -124,25 +127,24 @@ plumed_input = textwrap.dedent(
     ... METAD
     
     
-    PRINT ARG=d,ene STRIDE=10 FILE=COLVAR
+    PRINT ARG=d1,ene STRIDE=10 FILE=COLVAR
     '''.format(c1=atoms1,c2=atoms2))
 with open('plumed.dat', 'w') as f:
     f.write(plumed_input)            
 ps.add_file('plumed.dat')
-
-
-
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 0.00001*10**5})
+#ps.run(mdpfile='peptidesim_nvt.mdp', tag='init_nvt', mdp_kwargs={'nsteps': int(0.5 * 10**5), 'dt': 0.001, 'constraints': 'none'}, mpi_np=MPI_NP)
+#ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(5 * 5*10**5)}, mpi_np=MPI_NP)
 ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 
 #equilibrate parallel tempering metadynamics -> add hills until replica exchange efficiency is high enough
-    time_ns = com_data['final_time']
+
 if debug:
     time_ns = 0.00001
-replicas = com_data['replica_number']
-hot = com_data['hot_temperature']
+replicas = com_data["replica_number"]
+hot = com_data["hot_temperature"]
 replex_eff = 0
-max_iters = com_data['max_iterations']
+max_iters = com_data["max_iterations"]
 if debug:
     max_iters = 2
 kwargs = [{'nsteps': int(time_ns * 5 * 10 ** 5), 'ref_t': ti} for ti in make_ladder(hot, replicas)]
@@ -166,14 +168,14 @@ with open(pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
 
 #now do production metadynamics
-
 if debug:
     time = 0.00005
 for kw in kwargs:
     kw['nsteps']=  int(time_ns * 5 * 10 ** 5)
 try:
-    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod'.format(i),  mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat', 'replex': 100}, pickle_name=pickle_name)
+    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed.dat', 'replex': 100}, pickle_name=pickle_name)
 finally:
     with open(pickle_name, 'w') as f:
         pickle.dump(ps, file=f)
     
+print ps.box_size_angstrom
