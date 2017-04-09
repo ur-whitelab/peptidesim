@@ -682,6 +682,7 @@ line and creates the class simulation.
                       changechains
                       #residue numbers are all unique between chains
                       resnumbers 2
+                      add_amber_ter
                       inside box 0 0 0 {} {} {}
                     end structure
 
