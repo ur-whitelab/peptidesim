@@ -174,8 +174,12 @@ class PeptideSim(Configurable):
     def pdb_file(self):
         if(len(self._pdb) == 0):
             return None
+        elif(len(self._gro)!=0 and self._gro[-1][-12:]!='prepared.gro'):
+            output='{}.pdb'.format(self._gro[-1][:-4])
+            gromacs.editconf(f=self._gro[-1], o=output)
+            self._pdb.append(output)
+            print output
         return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
-
 
     @pdb_file.setter
     def pdb_file(self, f):
