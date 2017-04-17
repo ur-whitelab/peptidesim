@@ -20,7 +20,7 @@ import Bio.PDB
 from math import *
 from .utilities import *
 import dill
-
+import dill as pickle
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 
@@ -421,6 +421,97 @@ line and creates the class simulation.
 
 
         self.log.info('Completed Initialization')
+
+    def pte_replica(self,pickle_name=None,MPI_NP=None,emin_mdp_kwargs=dict(), emin_run_kwargs=dict(), anneal_mdp_kwargs=dict(), anneal_run_kwargs=dict(),equil_mdp_kwargs=dict(), equil_run_kwargs=dict(),hill_height=1,max_iterations=25,hot_temperatures=400,replicas=4,final_time=int(0.2*5*10**2), debug=False):
+        '''Build PDB files, pack them, convert to gmx, add water and ions
+
+        This method accomplishes the following steps:
+          0. Energy Minimization
+          1. Runs annealing method
+          2. Runs NVT equlibration
+          3. Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
+          
+        '''
+        #energy minimization
+        self.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs=emin_mdp_kwargs,run_kwargs=emin_run_kwargs, mpi_np=MPI_NP)   
+        # annealing
+        self.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs=anneal_mdp_kwargs, run_kwargs=anneal_run_kwargs, mpi_np=MPI_NP, pickle_name=pickle_name )
+        # equilibration at NPT
+        self.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs=equil_mdp_kwargs,  run_kwargs=equil_run_kwargs, mpi_np=MPI_NP,pickle_name=pickle_name)
+        # replica temperatures
+        def make_ladder(hot, N, cold=300.):
+            return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
+        
+        def get_replex_e(self, replica_number):
+            with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
+                p1 = re.compile('Repl  average probabilities:')
+                p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
+                ready = False
+                for line in f:
+                    if not ready and p1.findall(line):
+                        ready = True
+                    elif ready:
+                        match = p2.match(line)
+                        if match:
+                            return [float(s) for s in match.groups()]
+        #plumed input for WT-PTE   
+        plumed_input = textwrap.dedent(
+            '''                                                                                                    
+           RESTART                                                                                                    
+           ene: ENERGY                                                                                                
+                                                                                                                
+                                                                                                               
+           METAD ...                                                                                                  
+           LABEL=METADPT                                                                                              
+           ARG=ene                                                                                                    
+           SIGMA=100.0                                                                                                
+           HEIGHT={}                                                                                                  
+           PACE=250                                                                                                   
+           TEMP=300                                                                                                   
+           FILE=HILLS_PTWTE                                                                                           
+           BIASFACTOR=10                                                                                              
+           ... METAD                                                            
+           PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE                                                                 
+           '''.format(hill_height))
+        #putting the above text into a file
+        with open('plumed_wte.dat', 'w') as f:
+            f.write(plumed_input)
+        #adding the file to the list of required files
+        self.add_file('plumed_wte.dat')                                                                          
+        #hot temp
+        hot = 400
+        #replex eff initiated
+        replex_eff = 0
+        
+        max_iters =25
+        #if debugging less replicas
+        if debug:
+            max_iters = 2
+        replica_temps=make_ladder(hot,replicas)#creates the replica temps
+        #arguments for WT-PTE
+        kwargs = [{'nsteps': final_time, 'ref_t': ti, 'ref_p':0.061} for ti in make_ladder(hot, replicas)]
+
+        #take our hill files with us                                                                                   
+        for i in xrange(replicas):
+            self.add_file('HILLS_PTWTE.{}'.format(i))
+            
+            for i in range(max_iters):
+                with open(pickle_name, 'w') as f:
+                    pickle.dump(self, file=f)
+                self.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, mpi_np=MPI_NP,run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25}, pickle_name=pickle_name)
+                replex_eff = min(get_replex_e(self, replicas))
+                if replex_eff >= 0.3:
+                    print 'Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff)
+                    break
+                else:
+                    print 'Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff)
+        
+        with open(pickle_name, 'w') as f:
+            pickle.dump(self, file=f)
+        self.log.info('Completed WT PTE')
+
+
+
 
     def run(self, mdpfile, tag='', mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
