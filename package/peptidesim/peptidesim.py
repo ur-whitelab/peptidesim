@@ -422,22 +422,58 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def pte_replica(self,pickle_name=None,MPI_NP=None,emin_mdp_kwargs=dict(), emin_run_kwargs=dict(), anneal_mdp_kwargs=dict(), anneal_run_kwargs=dict(),equil_mdp_kwargs=dict(), equil_run_kwargs=dict(),hill_height=1,max_iterations=25,hot_temperatures=400,replicas=4,final_time=int(0.2*5*10**2), debug=False):
-        '''Build PDB files, pack them, convert to gmx, add water and ions
+    def pte_replica(self,pickle_name=None,MPI_NP=None,emin_mdp_kwargs=dict(), emin_run_kwargs=dict(), anneal_mdp_kwargs=dict(), anneal_run_kwargs=dict(),equil_mdp_kwargs=dict(), equil_run_kwargs=dict(),hill_height=1,max_iterations=25,hot_temperatures=400,replicas=8,final_time=int(0.2*5*10**2), debug=False,pte_temperature=278):
+        '''runs energy minimization, annealing, equilibration, and parallel-tempered WTE to achieve good sampling
 
         This method accomplishes the following steps:
           0. Energy Minimization
           1. Runs annealing method
           2. Runs NVT equlibration
           3. Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
-          
+        
+                Parameters
+        ----------
+        pickle_name : 
+            name of the restart file
+        MPI_NP: int
+            number of mpi processes. 
+        emin_mdp_kwargs : dict or list
+            Additional arguments that will be added to the emin  mdp file. Can be list of dcits, which indicates replica exchange
+        emin_run_kwargs : dict
+            Additional arguments that will be convreted to mdrun flags
+        anneal_mdp_kwargs : dict or list
+            Additional arguments that will be added to the anneal  mdp file. Can be list of dcits, which indicates replica exchange
+        emin_run_kwargs : dict
+            Additional arguments that will be convreted to mdrun flags
+        equil_mdp_kwargs : dict or list
+            Additional arguments that will be added to the npt equilibration mdp file. Can be list of dcits, which indicates replica exchange
+        emin_run_kwargs : dict
+            Additional arguments that will be convreted to mdrun flags
+        hill_height:float
+            hill height for pt-wte
+        max_iterations: int
+            number of iterations for replica exchange
+        hot_temperatures: float
+            maximum temp for replica temps
+        replicas: int
+            number of replicas
+        final_time:int
+            time for running pt-wte in ns
+        debug: bool
+            debug mode
+        pte_temperature: float
+            temperature for pt-wte
         '''
+
         #energy minimization
         self.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs=emin_mdp_kwargs,run_kwargs=emin_run_kwargs, mpi_np=MPI_NP)   
+
         # annealing
         self.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs=anneal_mdp_kwargs, run_kwargs=anneal_run_kwargs, mpi_np=MPI_NP, pickle_name=pickle_name )
+
         # equilibration at NPT
         self.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs=equil_mdp_kwargs,  run_kwargs=equil_run_kwargs, mpi_np=MPI_NP,pickle_name=pickle_name)
+
         # replica temperatures
         def make_ladder(hot, N, cold=300.):
             return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
@@ -467,19 +503,22 @@ line and creates the class simulation.
            SIGMA=100.0                                                                                                
            HEIGHT={}                                                                                                  
            PACE=250                                                                                                   
-           TEMP=300                                                                                                   
+           TEMP={}                                                                                                   
            FILE=HILLS_PTWTE                                                                                           
            BIASFACTOR=10                                                                                              
            ... METAD                                                            
            PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE                                                                 
-           '''.format(hill_height))
+           '''.format(hill_height,pte_temperature))
+
         #putting the above text into a file
         with open('plumed_wte.dat', 'w') as f:
             f.write(plumed_input)
+
         #adding the file to the list of required files
         self.add_file('plumed_wte.dat')                                                                          
+
         #hot temp
-        hot = 400
+        hot = hot_temperatures
         #replex eff initiated
         replex_eff = 0
         
