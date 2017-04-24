@@ -259,9 +259,14 @@ class PeptideSim(Configurable):
 
     @property
     def sims(self):
+        '''a property that returns a list of simulation objects        '''
+        return self._sim_list
+
+    @property
+    def sim_dicts(self):
         '''a property that returns a dictionary of simulation names        '''
         return self._sims
-         #return self._sim_list
+         
 
     @ndx.setter
     def ndx(self, n):
@@ -445,33 +450,14 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def pte_replica(self,pickle_name=None,MPI_NP=None,emin_mdp_kwargs=dict(), emin_run_kwargs=dict(), anneal_mdp_kwargs=dict(), anneal_run_kwargs=dict(),equil_mdp_kwargs=dict(), equil_run_kwargs=dict(),hill_height=1,max_iterations=25,hot_temperatures=400,replicas=8,final_time=int(0.2*5*10**2), debug=False,pte_temperature=278):
-        '''runs energy minimization, annealing, equilibration, and parallel-tempered WTE to achieve good sampling
-
-        This method accomplishes the following steps:
-          0. Energy Minimization
-          1. Runs annealing method
-          2. Runs NVT equlibration
-          3. Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
-
+    def pte_replica(self, mpi_np=None,hill_height=1,max_iterations=25,hot_temperatures=400,replicas=8,final_time=int(0.2*5*10**2), debug=False,pte_temperature=278):
+        '''Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
+ and returns the absolute path of the hills bias file and logs name of the plumed input scripts and other outputs
                 Parameters
         ----------
-        pickle_name :
-            name of the restart file
-        MPI_NP: int
+        
+        mpi_np: int
             number of mpi processes.
-        emin_mdp_kwargs : dict or list
-            Additional arguments that will be added to the emin  mdp file. Can be list of dcits, which indicates replica exchange
-        emin_run_kwargs : dict
-            Additional arguments that will be convreted to mdrun flags
-        anneal_mdp_kwargs : dict or list
-            Additional arguments that will be added to the anneal  mdp file. Can be list of dcits, which indicates replica exchange
-        emin_run_kwargs : dict
-            Additional arguments that will be convreted to mdrun flags
-        equil_mdp_kwargs : dict or list
-            Additional arguments that will be added to the npt equilibration mdp file. Can be list of dcits, which indicates replica exchange
-        emin_run_kwargs : dict
-            Additional arguments that will be convreted to mdrun flags
         hill_height:float
             hill height for pt-wte
         max_iterations: int
@@ -487,16 +473,6 @@ line and creates the class simulation.
         pte_temperature: float
             temperature for pt-wte
         '''
-
-        #energy minimization
-        self.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs=emin_mdp_kwargs,run_kwargs=emin_run_kwargs, mpi_np=MPI_NP)
-
-        # annealing
-        self.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs=anneal_mdp_kwargs, run_kwargs=anneal_run_kwargs, mpi_np=MPI_NP, pickle_name=pickle_name )
-
-        # equilibration at NPT
-        self.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs=equil_mdp_kwargs,  run_kwargs=equil_run_kwargs, mpi_np=MPI_NP,pickle_name=pickle_name)
-
         # replica temperatures
         def make_ladder(hot, N, cold=pte_temperature):
             return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
@@ -552,26 +528,20 @@ line and creates the class simulation.
         replica_temps=make_ladder(hot,replicas)#creates the replica temps
         #arguments for WT-PTE
         kwargs = [{'nsteps': final_time, 'ref_t': ti} for ti in make_ladder(hot, replicas)]
-
         #take our hill files with us
+    
         for i in xrange(replicas):
             self.add_file('HILLS_PTWTE.{}'.format(i))
 
-            for i in range(max_iters):
-                with open(pickle_name, 'w') as f:
-                    pickle.dump(self, file=f)
-                self.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, mpi_np=MPI_NP,run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25}, pickle_name=pickle_name)
+            for j in range(max_iters):
+                self.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, mpi_np=mpi_np,run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25})
                 replex_eff = min(get_replex_e(self, replicas))
                 if replex_eff >= 0.3:
-                    print 'Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff)
+                    self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
                     break
                 else:
-                    print 'Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff)
-
-        with open(pickle_name, 'w') as f:
-            pickle.dump(self, file=f)
-        self.log.info('Completed WT PTE')
-
+                    self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing simulation'.format(replex_eff,replica_temps))
+        return os.path.abspath('HILLS_PTWTE.0')
 
 
 
