@@ -11,11 +11,11 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
-import numpy as np 
+import numpy as np
 
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal
 
-import PeptideBuilder 
+import PeptideBuilder
 import Bio.PDB
 from math import *
 from .utilities import *
@@ -45,22 +45,22 @@ class SimulationInfo(object):
         self.short_name = short_name
 
     def run(self,run_fxn=None, run_kwargs=None):
-        if(self.restart_count > 0):            
+        if(self.restart_count > 0):
             if (run_fxn is not None and run_fxn != self.run_fxn) or (run_kwargs is not None and run_kwargs != self.run_kwargs):
                 raise ValueError('Name collision in simulation. You tried to repeat a non-identical simulation')
         else:
             self.run_fxn = run_fxn
             self.run_kwargs = run_kwargs
 
-        #have to add now in case we die            
-        self.restart_count += 1 
+        #have to add now in case we die
+        self.restart_count += 1
         result = self.run_fxn(**self.run_kwargs)
 
         self.complete = True
         return result
-        
 
-    
+
+
 
 
 class PeptideSim(Configurable):
@@ -83,7 +83,7 @@ class PeptideSim(Configurable):
     pressure          = Float(0,
                               help='Barostat pressure. Ignored if not doing NPT'
                              ).tag(config=True)
-    
+
     peptide_density   = Float(0.02,
                               help='The density of the peptides in milligrams / milliliter',
                              ).tag(config=True)
@@ -117,32 +117,37 @@ class PeptideSim(Configurable):
     mdp_base          = Unicode(u'peptidesim_base.mdp',
                                 help='The MDP file containing basic forcefield parameters'
                        ).tag(config=True)
-    
+
     mdp_emin          = Unicode(u'peptidesim_emin.mdp',
                                 help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                        ).tag(config=True)
 
+    remote_log       = Bool(False,
+                            help='Whether or not to log the simulations in the Redis database'
+                            ).tag(config=True)
+
+
     host              = Unicode(u'http://52.71.14.39',
                                 help='The host address for the Redis database'
                         ).tag(config=True)
-    
+
     post_address      = Unicode(u'/insert/simulation',
                                 help='The extension to post simulation data'
                         ).tag(config=True)
-   
+
     mpiexec           = Unicode(u'mpiexec',
                                 help='The MPI executable'
-                                ).tag(config=True)    
+                                ).tag(config=True)
     mpi_np           = Int(1,
                                 help='Number of mpi processes'
-                                ).tag(config=True)    
+                                ).tag(config=True)
     mdrun_driver              =Unicode(None,
                                 allow_none=True,
                                 help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)'
                                 ).tag(config=True)
 
 
-                                  
+
     @property
     def box_size_angstrom(self):
         return self._box_size
@@ -150,17 +155,17 @@ class PeptideSim(Configurable):
     @box_size_angstrom.setter
     def box_size_angstrom(self, v):
         assert(len(v) == 3)
-        self._box_size[:] = v[:]        
+        self._box_size[:] = v[:]
 
     @property
-    def box_size_nm(self):        
+    def box_size_nm(self):
         return [x / 10 for x in self._box_size]
 
     @box_size_nm.setter
     def box_size_nm(self, v):
         assert(len(v) == 3)
         self._box_size = [x * 10 for x in v]
-    
+
 
     @property
     def file_list(self):
@@ -178,13 +183,13 @@ class PeptideSim(Configurable):
             output='{}.pdb'.format(self._gro[-1][:-4])
             gromacs.editconf(f=self._gro[-1], o=output)
             self._pdb.append(output)
-            
+
         return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
 
     @pdb_file.setter
     def pdb_file(self, f):
         self._pdb.append(self._convert_path(f))
-    
+
     @property
     def gro_file(self):
         if(len(self._gro) == 0):
@@ -215,8 +220,8 @@ class PeptideSim(Configurable):
 
     @tpr_file.setter
     def tpr_file(self, f):
-        self._tpr.append(self._convert_path(f))        
- 
+        self._tpr.append(self._convert_path(f))
+
     @property
     def traj_file(self):
         if(len(self._trr) == 0):
@@ -224,7 +229,7 @@ class PeptideSim(Configurable):
         return os.path.normpath(os.path.join(self.rel_dir_name, self._trr[-1]))
     @traj_file.setter
     def traj_file(self, f):
-        self._trr.append(self._convert_path(f))        
+        self._trr.append(self._convert_path(f))
 
     @property
     def ndx(self):
@@ -234,7 +239,7 @@ class PeptideSim(Configurable):
         n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
         return n
 
-    @property 
+    @property
     def sims(self):
         return self._sim_list
 
@@ -247,9 +252,9 @@ class PeptideSim(Configurable):
     def transformer(self):
         if len(self.sims) > 0:
             self.trans = gromacs.cbook.Transformer(self.tpr_file, self.sims[-1].metadata['traj'])
-            
 
-    def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None):        
+
+    def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None):
         '''This is an initiator that takes the arguments from the command
 line and creates the class simulation.
 
@@ -261,13 +266,13 @@ line and creates the class simulation.
             A list of amino acid sequences.
         counts : List[int]
             A list of the number of occurrences of each amino acid, in order.
-        '''        
+        '''
 
         #We have to declare class attributes at the instance level
         #for pickling purposes. Silly, I know.
 
         #Keep a chain of all files created. Hide behind properties
-        self._top = []    
+        self._top = []
         self._gro = []
         self._pdb = []
         self._tpr = []
@@ -275,11 +280,11 @@ line and creates the class simulation.
         self._trr=[]
         self._file_list = []
         self._ndx_file = None
-        
-        #keep track of simulations in case of restart needs        
+
+        #keep track of simulations in case of restart needs
         self._sims = dict()
         self._sim_list = []
-        
+
         #other variables
         self._box_size = [0,0,0] #box size in angstroms
 
@@ -292,7 +297,7 @@ line and creates the class simulation.
 
         self.dir_name = dir_name
         self.rel_dir_name = '.'
-        
+
         if not os.path.exists(self.dir_name):
             os.mkdir(self.dir_name)
 
@@ -305,7 +310,7 @@ line and creates the class simulation.
 
         self._start_logging()
 
-        
+
         #Note: use load_pyconfig_files to merge them. Useful in future
         #load in configuration file
         config = config_file
@@ -314,8 +319,8 @@ line and creates the class simulation.
             config = PyFileConfigLoader(config_file).load_config()
         else:
             self.log.info('Using default configuration'.format(config_file))
-            
-        self.log.debug('Loaded {}:'.format(str(config)))            
+
+        self.log.debug('Loaded {}:'.format(str(config)))
         super(PeptideSim, self).__init__(config=config, parent=None)
 
         #store passed parameters
@@ -337,10 +342,10 @@ line and creates the class simulation.
         file_handler.setLevel(logging.DEBUG)
         formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)s)")
         file_handler.setFormatter(formatter)
-        
+
         self.log = logging.getLogger('peptidesim:{}'.format(self.job_name))
         self.log.addHandler(file_handler)
-        
+
         self.log_handler = file_handler
         self.log.setLevel(logging.DEBUG)
         self.log.info('Started logging for PeptideSim...')
@@ -348,6 +353,10 @@ line and creates the class simulation.
     def store_data(self):
         '''Writes the instance's Traits to a json file
         '''
+
+        if(not self.remote_log):
+            return
+
         if not os.path.exists('data'):
             os.mkdir('data')
         with open('data/simdata.json', 'w' ) as f:
@@ -375,7 +384,7 @@ line and creates the class simulation.
                     r = requests.put(url, payload)
                 payload = {'sim_name': self.sim_name, 'property':'counts', 'property_value':data['counts'][i]}
                 r = requests.put(url, payload)
-                i+=1    
+                i+=1
 
 
     def initialize(self):
@@ -412,7 +421,7 @@ line and creates the class simulation.
 
         #energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps':500})
-                
+
         #Add solvent
         self._solvate()
 
@@ -430,13 +439,13 @@ line and creates the class simulation.
           1. Runs annealing method
           2. Runs NVT equlibration
           3. Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
-        
+
                 Parameters
         ----------
-        pickle_name : 
+        pickle_name :
             name of the restart file
         MPI_NP: int
-            number of mpi processes. 
+            number of mpi processes.
         emin_mdp_kwargs : dict or list
             Additional arguments that will be added to the emin  mdp file. Can be list of dcits, which indicates replica exchange
         emin_run_kwargs : dict
@@ -466,7 +475,7 @@ line and creates the class simulation.
         '''
 
         #energy minimization
-        self.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs=emin_mdp_kwargs,run_kwargs=emin_run_kwargs, mpi_np=MPI_NP)   
+        self.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs=emin_mdp_kwargs,run_kwargs=emin_run_kwargs, mpi_np=MPI_NP)
 
         # annealing
         self.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs=anneal_mdp_kwargs, run_kwargs=anneal_run_kwargs, mpi_np=MPI_NP, pickle_name=pickle_name )
@@ -477,7 +486,7 @@ line and creates the class simulation.
         # replica temperatures
         def make_ladder(hot, N, cold=pte_temperature):
             return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
-        
+
         def get_replex_e(self, replica_number):
             with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
                 p1 = re.compile('Repl  average probabilities:')
@@ -490,24 +499,24 @@ line and creates the class simulation.
                         match = p2.match(line)
                         if match:
                             return [float(s) for s in match.groups()]
-        #plumed input for WT-PTE   
+        #plumed input for WT-PTE
         plumed_input = textwrap.dedent(
-            '''                                                                                                    
-           RESTART                                                                                                    
-           ene: ENERGY                                                                                                
-                                                                                                                
-                                                                                                               
-           METAD ...                                                                                                  
-           LABEL=METADPT                                                                                              
-           ARG=ene                                                                                                    
-           SIGMA=100.0                                                                                                
-           HEIGHT={}                                                                                                  
-           PACE=250                                                                                                   
-           TEMP={}                                                                                                   
-           FILE=HILLS_PTWTE                                                                                           
-           BIASFACTOR=10                                                                                              
-           ... METAD                                                            
-           PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE                                                                 
+            '''
+           RESTART
+           ene: ENERGY
+
+
+           METAD ...
+           LABEL=METADPT
+           ARG=ene
+           SIGMA=100.0
+           HEIGHT={}
+           PACE=250
+           TEMP={}
+           FILE=HILLS_PTWTE
+           BIASFACTOR=10
+           ... METAD
+           PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
            '''.format(hill_height,pte_temperature))
 
         #putting the above text into a file
@@ -515,13 +524,13 @@ line and creates the class simulation.
             f.write(plumed_input)
 
         #adding the file to the list of required files
-        self.add_file('plumed_wte.dat')                                                                          
+        self.add_file('plumed_wte.dat')
 
         #hot temp
         hot = hot_temperatures
         #replex eff initiated
         replex_eff = 0
-        
+
         max_iters =25
         #if debugging less replicas
         if debug:
@@ -530,10 +539,10 @@ line and creates the class simulation.
         #arguments for WT-PTE
         kwargs = [{'nsteps': final_time, 'ref_t': ti} for ti in make_ladder(hot, replicas)]
 
-        #take our hill files with us                                                                                   
+        #take our hill files with us
         for i in xrange(replicas):
             self.add_file('HILLS_PTWTE.{}'.format(i))
-            
+
             for i in range(max_iters):
                 with open(pickle_name, 'w') as f:
                     pickle.dump(self, file=f)
@@ -544,7 +553,7 @@ line and creates the class simulation.
                     break
                 else:
                     print 'Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff)
-        
+
         with open(pickle_name, 'w') as f:
             pickle.dump(self, file=f)
         self.log.info('Completed WT PTE')
@@ -564,7 +573,7 @@ line and creates the class simulation.
         mdpfile : str
             name of the mdp file
         tag : str
-            A tag to add onto the simulation. 
+            A tag to add onto the simulation.
            Probably good idea if you're adding additional arguments.
         mdp_kwargs : dict or list
             Additional arguments that will be added to the mdp file. Can be list of dcits, which indicates replica exchange
@@ -606,7 +615,7 @@ line and creates the class simulation.
         self._start_logging()
         self.log.info('Restarting from pickled state')
 
-        
+
     def _convert_path(self, p):
         '''Converts path to be local to our working directory'''
         if(os.path.exists(p)):
@@ -635,7 +644,7 @@ line and creates the class simulation.
 
         #construct name and add to simulation infos
         file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file + self.pdb_file)
-        #the hash is huge. Take the first few chars        
+        #the hash is huge. Take the first few chars
         simname = name + '-' + str(file_hash)[:8]
 
         if simname in self._sims:
@@ -646,19 +655,19 @@ line and creates the class simulation.
             self._sim_list.append(si)
 
         try:
-            yield si    
+            yield si
         finally:
             #reset signal handler
             signal.signal(dump_signal, oh)
 
-        
-            
 
-    
+
+
+
     @contextlib.contextmanager
     def _put_in_dir(self, dirname):
         ''' This is a context that will wrap a block of code so that it is executed inside of a particular directory.
-	
+
         Parameters
         ----------
         dirname : str
@@ -676,7 +685,7 @@ line and creates the class simulation.
                     shutil.copytree(f, os.path.join(d, os.path.basename(f)))
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-                
+
         #go there
         curdir = os.getcwd()
         #keep path to original directory
@@ -692,7 +701,7 @@ line and creates the class simulation.
 
             #update path to original directory
             self.rel_dir_name  = '.'
-            
+
             #bring back files
             #TODO: Why? Is this every necessary
             for f in self.file_list:
@@ -703,15 +712,15 @@ line and creates the class simulation.
                         shutil.copy2(os.path.join(d, f),f)
 
     def add_file(self, f):
-        if f != self._convert_path(f):        
+        if f != self._convert_path(f):
             shutil.copyfile(f, self._convert_path(f))
         self._file_list.append(os.path.basename(f))
 
-                    
+
     def get_mdpfile(self, f):
 
         mdpfile = None
-        
+
         #check if mdp file exist in current directory, on the file list or in dir_name, or in parent of dir_name
         for d in ['.', self.dir_name, os.path.join('..', self.dir_name)]:
             if(os.path.exists(os.path.join(d, f))):
@@ -720,7 +729,7 @@ line and creates the class simulation.
         #now check if it's in our mdp file path
         if(os.path.exists(os.path.join(self.mdp_directory, f))):
             mdpfile =  os.path.join(self.mdp_directory, f)
-        
+
 
         #now check if it's in our package resource
         if(pkg_resources.resource_exists(__name__, 'templates/' + f)):
@@ -734,7 +743,7 @@ line and creates the class simulation.
             raise IOError('Could not find MDP file called {}'.format(f))
 
         return mdpfile
-                
+
     def _pdb_file_generator(self, sequence, name):
         '''Generates PDB file from  sequence using BioPython + PeptideBuilder
 
@@ -752,12 +761,12 @@ line and creates the class simulation.
 
         from Bio.PDB import PDBIO
         from Bio.SeqUtils.ProtParam import ProteinAnalysis
-        
+
         pdbfile=name+'.pdb'# sets the pdbfilename after the sequence
         structure = PeptideBuilder.initialize_res(sequence[0])
         for s in sequence[1:]:
             structure = PeptideBuilder.add_residue(structure, s)
-        
+
         #extract minmax
         smax = [-10**10, -10**10, -10**10]
         smin = [10**10, 10**10, 10**10]
@@ -772,10 +781,10 @@ line and creates the class simulation.
             out.save( pdbfile ) #adds aminoacids one at a time and generates a pdbfile
 
             #get molecular weight
-            p = ProteinAnalysis(sequence)        
+            p = ProteinAnalysis(sequence)
 
             return (pdbfile, [smin, smax], p.molecular_weight())
-        
+
     def _packmol(self, output_file='dry_packed.pdb'):
         '''This function takes multiple pdbfiles and combines them into one pdbfile
         '''
@@ -785,7 +794,7 @@ line and creates the class simulation.
         #compute volume based on density
         mass = sum([c * m for c,m in zip(self.counts, self.peptide_mass)])
         vol = mass / self.peptide_density
-        
+
         #sum volumes and get longest dimension
         long_dim = 0
         for e in self.structure_extents:
@@ -800,17 +809,17 @@ line and creates the class simulation.
             raise ValueError('The boxsize is too small ({}) to conduct a simulation. Try decreasing the peptide density. Half the shortest box length must be greater than cutoff.'.format(self.box_size_angstrom))
 
         self.log.info('Final box size to achieve density {} mg/mL: {} Angstrom'.format(self.peptide_density, self.box_size_angstrom))
-        
+
         #build input text
         input_string = textwrap.dedent(
                 '''tolerance 2.0
-                filetype pdb 
+                filetype pdb
                 output {}
                 '''.format(output_file))
         for f, c in zip(self.peptide_pdb_files, self.counts):
             input_string += textwrap.dedent(
                     '''
-                    structure {} 
+                    structure {}
                       number {}
                       #make chains be different between molecules
                       changechains
@@ -827,16 +836,16 @@ line and creates the class simulation.
 
             self.pdb_file = output_file
             input_file = 'packmol.inp'
-            
+
             with open(input_file, 'w') as f:
                 f.write(input_string)
 
             #pack up packmol into a gromacs command
             class Packmol(gromacs.core.Command):
-                command_name = self.packmol_exe            
+                command_name = self.packmol_exe
             cmd = Packmol()
             result = cmd(input=open(input_file, 'r'))
-        
+
             if result[0] != 0:
                 self.log.error('Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(*result, input=input_string))
             else:
@@ -856,7 +865,7 @@ line and creates the class simulation.
             gromacs.pdb2gmx(f=self.pdb_file, o=output2, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.pdb_file=output2
             self.gro_file = output
-            self.top_file = topology        
+            self.top_file = topology
 
     def calc_rmsd(self):
         with self._put_in_dir('analysis'):
@@ -864,20 +873,20 @@ line and creates the class simulation.
             noe_data="noe.dat"
             rmsd_output="distrmsd.xvg"
             gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['Backbone',4],o=rmsd_output)
-            #gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['C-alpha',3],o=rmsd_output) #if you have more than one amino acid in a sequence 
+            #gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['C-alpha',3],o=rmsd_output) #if you have more than one amino acid in a sequence
             return rmsd_output
     def calc_sham(self):
         with self._put_in_dir('analysis'):
             self.log.info('Generating free energy landscape of your simulation by boltzman inversion')
             gromacs.g_sham(f="distrmsd.xvg", notime=True, bin='bindex.ndx',lp='probability.xpm',ls='gibbs.xpm',histo="histogram.xvg",lsh='enthalpy.xpm',lss="entropy.xpm")
             return "energy.xvg",'bindex.ndx','probability.xpm', "entropy.xpm",'enthalpy.xpm','gibbs.xpm', "histogram.xvg"
-            
 
 
 
 
 
-    def _center(self):                
+
+    def _center(self):
         with self._put_in_dir('prep'):
             output = 'dry_centered.gro'
             self.log.info('Centering molecule')
@@ -885,9 +894,9 @@ line and creates the class simulation.
             self.gro_file = output
 
 
-            
+
     def _solvate(self):
-        
+
         with self._put_in_dir('prep'):
             output = 'wet_mixed.gro'
             water = self.water + '.gro'
@@ -903,34 +912,34 @@ line and creates the class simulation.
     def _add_ions(self):
 
         with self._put_in_dir('prep'):
-        
+
             #need a TPR file to add ions
             self.log.info('Building first TPR file for adding ions')
             ion_tpr = 'ion.tpr'
             ion_mdp = 'ion.mdp'
             ion_gro = 'prepared.gro'
-            
-            
+
+
             mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
             mdp_sim = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_emin))
             mdp_sim.update(mdp_base)
             mdp_sim.write(ion_mdp)
-            
+
             gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
             self.tpr_file = ion_tpr
-            
-            
+
+
             self.log.info('Preparing NDX file')
             ndx_file = 'index.ndx'
-            
+
             #build ndx input to get an index group for each peptide
             #The one-liner below just explodes the list of peptides/repeats into a
             #list of all peptides
-            
+
             #get current list of ndx groups
             _,out,_  = gromacs.make_ndx(f=self.gro_file, o=ndx_file, input=('', 'q'))
             groups = gromacs.cbook.parse_ndxlist(out)
-            
+
             input_str = []
             ri = 1 #residue index counter
             name_i =  len(groups) #which group we're naming
@@ -942,20 +951,20 @@ line and creates the class simulation.
                         [si for _ in xrange(ni)]                                       \
                         for si, ni in zip(self.sequences,self.counts)                  \
                     ]                                                                  \
-                    )):                                                                
-                
-                
+                    )):
+
+
                 input_str.append('r {}-{}'.format(ri, ri + len(pi) - 1))
                 ri += len(pi)
                 input_str.append('name {} peptide_{}'.format(name_i, i))
                 name_i += 1
-                
+
                 input_str.append('{} & a CA'.format(name_i - 1))
                 input_str.append('name {} peptide_CA_{}'.format(name_i, i))
                 name_i += 1
 
             #cause it to ouput the final list
-            input_str.append('')                            
+            input_str.append('')
             input_str.append('q')
 
             #update indices
@@ -963,7 +972,7 @@ line and creates the class simulation.
             self.log.debug('make_ndx output')
             for ti in t.split('\n'):
                 self.log.debug('ndx_output: {}'.format(ti))
-            
+
             solvent_index = -1
             for g in groups:
                 if g['name'] == 'SOL':
@@ -971,24 +980,24 @@ line and creates the class simulation.
                     break
             assert solvent_index >= 0, 'Problem with making index file and finding solvent'
             self.log.info('Identified {} as the solvent group'.format(solvent_index))
-        
+
 
             self.log.info('Adding Ions...')
             gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True, o=ion_gro, p=self.top_file, input=('', solvent_index))
             self.log.info('...OK')
-            
+
             #now we need to remove all the include stuff so we can actually pass the file around if needed
             self.log.info('Resovling include statements via GromacsWrapper...')
             output = self.top_file = gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
-            self.top_file = output            
+            self.top_file = output
             self.log.info('...OK')
-            
+
             self.gro_file = ion_gro
             self.tpr_file = ion_tpr
             self.ndx = ndx_file
 
     def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
-        
+
         with self._put_in_dir(sinfo.name):
 
             #make the simulation info an absolute path
@@ -996,7 +1005,7 @@ line and creates the class simulation.
 
             #make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
-            if isinstance(mdp_kwargs,list):                    
+            if isinstance(mdp_kwargs,list):
                 gro = sinfo.short_name + '0.gro'
 
             #check if it's a restart
@@ -1011,26 +1020,26 @@ line and creates the class simulation.
                         sinfo.run_kwargs['args'] += ' -cpi state.cpt'
                     sinfo.run()
             else:
-                #need to prepare for simulation                
-                #Preparing emin tpr file        
+                #need to prepare for simulation
+                #Preparing emin tpr file
                 self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
                 final_mdp = sinfo.short_name + '.mdp'
-                
+
                 mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
                 mdp_sim = gromacs.fileformats.mdp.MDP(self.get_mdpfile(mdpfile))
                 #make sure sim has higher priority than base
-                mdp_base.update(mdp_sim)              
+                mdp_base.update(mdp_sim)
                 mdp_sim = mdp_base
-                
+
 
                 #check if we're doing multiple mdp files
-                if isinstance(mdp_kwargs,list):                    
+                if isinstance(mdp_kwargs,list):
                     assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
 
                     final_mdp = []
                     mdp_data = []
                     top_dir = 'TOPOL'
-                    
+
                     if not os.path.exists(top_dir):
                         os.mkdir(top_dir)
 
@@ -1050,13 +1059,13 @@ line and creates the class simulation.
 
                     #keep a reference to current topology. Use 0th since it will exist
                     self.tpr_file = tpr + '0.tpr'
-                    
+
                     #add the multi option
                     run_kwargs.update(dict(multi=len(mdp_kwargs)))
 
                     sinfo.metadata['md-log'] = 'md0.log'
                     sinfo.metadata['mdp-data'] = mdp_data
-                        
+
 
                 else:
                     tpr = sinfo.short_name + '.tpr'
@@ -1064,15 +1073,15 @@ line and creates the class simulation.
                     mdp.update(mdp_sim)
                     #make passed highest priority
                     mdp.update(mdp_kwargs)
-                    mdp.write(final_mdp)                    
+                    mdp.write(final_mdp)
                     mdp_data = dict(mdp)
                     gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
-                    self.tpr_file = tpr                    
+                    self.tpr_file = tpr
                     sinfo.metadata['md-log'] = 'md.log'
                     sinfo.metadata['mdp-data'] = mdp_data
 
                 #update metadata
-                sinfo.metadata['mdp-name'] = mdpfile                                                                   
+                sinfo.metadata['mdp-name'] = mdpfile
                 #store reference to trajectory
                 if 'o' in run_kwargs:
                     sinfo.metadata['traj'] = run_kwargs['o']
@@ -1088,12 +1097,12 @@ line and creates the class simulation.
                 sinfo.metadata['run-kwargs'] = run_kwargs
 
 
-                #add mpiexec to command                
+                #add mpiexec to command
                 #store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
                 #also add custom mdrun executable if necessary
-                if(self.mdrun_driver is not None):                    
-                    gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])                    
+                if(self.mdrun_driver is not None):
+                    gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])
                 else:
                     gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
 
@@ -1105,26 +1114,22 @@ line and creates the class simulation.
                 #make it run in shell
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 #sinfo.run(gromacs.mdrun, run_kwargs)
-                #check if the output file was created                
+                #check if the output file was created
             if(not os.path.exists(gro)):
                 #open the md log and check for error message
                 with open(sinfo.metadata['md-log']) as f:
                     s = f.read()
                     m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
-                    if(m is None):                        
+                    if(m is None):
                         self.log.error('Gromacs simulation failed for unknown reason. Unable to locate output gro file ({})'.format(gro))
                         self.log.error('Found ({})'.format([f for f in os.listdir('.') if os.path.isfile(f)]))
                     else:
-                        self.log.error('SIMULATION FAILED:') 
+                        self.log.error('SIMULATION FAILED:')
                         for line in m.group('message'):
                             self.log.error('SIMULATION FAILED: ' + line)
                 raise RuntimeError('Failed to complete simulation')
             else:
-                self.log.info('...done'.format(sinfo.name))            
+                self.log.info('...done'.format(sinfo.name))
                 #finished, store any info needed
                 self.store_data()
                 self.gro_file = gro
-            
-            
-
-

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESULT=$(docker run -d -v "`pwd`:/usr/share/peptidesim" peptidesim/test)
+RESULT=$(docker run -d -v "`pwd`:/home/tester/peptidesim" peptidesim/test)
 echo "run the following: "
 echo "[wait until docker container is finished (check logs)]"
 echo "sudo docker logs $RESULT"
