@@ -12,8 +12,7 @@ RUN dpkg-reconfigure -f noninteractive dash
 
 #enable contributed packages
 RUN apt-get update
-RUN apt-get install -y fftw3
-RUN apt-get install -y gromacs-openmpi gromacs-data ssh
+RUN apt-get install -y gromacs-openmpi gromacs-data ssh fftw3
 #RUN apt-get install -y -f -t wheezy gromacs=4.5.5-2 gromacs-data=4.5.5-2
 
 #Install packmol
@@ -22,7 +21,7 @@ ADD packmol.tar.gz /usr/share
 RUN cd /usr/share/packmol && ./configure && make && ln -s /usr/share/packmol/packmol  /sbin/packmol
 
 #Get tools for testing
-RUN apt-get install -y python-tox python-setuptools python-pip
+RUN apt-get install -y python-tox python-setuptools python-pip python-numpy python-scipy emacs
 
 #create user
 RUN useradd -ms /bin/bash tester
