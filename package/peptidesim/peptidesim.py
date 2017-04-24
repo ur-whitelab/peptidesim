@@ -99,7 +99,6 @@ class PeptideSim(Configurable):
                                 help='The command to run the packmol program.'
                                 ).tag(config=True)
 
-#    forcefield        = Unicode(u'amber99sb-ildn',
     forcefield        = Unicode(u'charmm27',
                                 help='The gromacs syntax forcefield',
                                 ).tag(config=True)
@@ -150,6 +149,8 @@ class PeptideSim(Configurable):
 
     @property
     def box_size_angstrom(self):
+        ''' a property that returns a box size in Angstroms
+        '''
         return self._box_size
 
     @box_size_angstrom.setter
@@ -159,6 +160,8 @@ class PeptideSim(Configurable):
 
     @property
     def box_size_nm(self):
+        '''  a property that returns a box size in nm
+        '''
         return [x / 10 for x in self._box_size]
 
     @box_size_nm.setter
@@ -169,6 +172,8 @@ class PeptideSim(Configurable):
 
     @property
     def file_list(self):
+        ''' a proeprty that returns the list of files needed for a simulations
+        '''
         result = []
         result.extend(self._file_list)
         #for now, we'll keep these as paths relative to basedirectory. So we won't have local copies everywhere
@@ -177,6 +182,8 @@ class PeptideSim(Configurable):
 
     @property
     def pdb_file(self):
+        ''' a property that returns the latest generated pdb file
+        '''
         if(len(self._pdb) == 0):
             return None
         elif(len(self._gro)!=0 and self._gro[-1][-12:]!='prepared.gro'):
@@ -192,6 +199,8 @@ class PeptideSim(Configurable):
 
     @property
     def gro_file(self):
+        '''  a property that returns the latest gro file
+        '''
         if(len(self._gro) == 0):
             return None
         return os.path.normpath(os.path.join(self.rel_dir_name, self._gro[-1]))
@@ -203,17 +212,21 @@ class PeptideSim(Configurable):
 
     @property
     def top_file(self):
+        '''a property that returns the latest topology file
+        '''
         if(len(self._top) == 0):
             return None
         return os.path.normpath(os.path.join(self.rel_dir_name, self._top[-1]))
 
 
     @top_file.setter
-    def top_file(self, f):
-        self._top.append(self._convert_path(f))
+    def top_file(self, f): 
+       self._top.append(self._convert_path(f))
 
     @property
     def tpr_file(self):
+        ''' a property that returns the latest tpr file
+        '''
         if(len(self._tpr) == 0):
             return None
         return os.path.normpath(os.path.join(self.rel_dir_name, self._tpr[-1]))
@@ -229,10 +242,15 @@ class PeptideSim(Configurable):
         return os.path.normpath(os.path.join(self.rel_dir_name, self._trr[-1]))
     @traj_file.setter
     def traj_file(self, f):
+        ''' a property that returns the latest trr file
+        '''
+
         self._trr.append(self._convert_path(f))
 
     @property
     def ndx(self):
+        '''a property that returns the latest ndx file
+        '''
         if(self._ndx_file is None):
             return None
         n = gromacs.fileformats.NDX()
@@ -241,18 +259,14 @@ class PeptideSim(Configurable):
 
     @property
     def sims(self):
-        return self._sim_list
+        '''a property that returns a dictionary of simulation names        '''
+        return self._sims
+         #return self._sim_list
 
     @ndx.setter
     def ndx(self, n):
         self._ndx_file = self._convert_path(n)
         self._file_list.append(self._ndx_file)
-
-    @property
-    def transformer(self):
-        if len(self.sims) > 0:
-            self.trans = gromacs.cbook.Transformer(self.tpr_file, self.sims[-1].metadata['traj'])
-
 
     def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None):
         '''This is an initiator that takes the arguments from the command
