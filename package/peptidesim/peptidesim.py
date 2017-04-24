@@ -475,7 +475,7 @@ line and creates the class simulation.
         self.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs=equil_mdp_kwargs,  run_kwargs=equil_run_kwargs, mpi_np=MPI_NP,pickle_name=pickle_name)
 
         # replica temperatures
-        def make_ladder(hot, N, cold=300.):
+        def make_ladder(hot, N, cold=pte_temperature):
             return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
         
         def get_replex_e(self, replica_number):
@@ -528,7 +528,7 @@ line and creates the class simulation.
             max_iters = 2
         replica_temps=make_ladder(hot,replicas)#creates the replica temps
         #arguments for WT-PTE
-        kwargs = [{'nsteps': final_time, 'ref_t': ti, 'ref_p':0.061} for ti in make_ladder(hot, replicas)]
+        kwargs = [{'nsteps': final_time, 'ref_t': ti} for ti in make_ladder(hot, replicas)]
 
         #take our hill files with us                                                                                   
         for i in xrange(replicas):
