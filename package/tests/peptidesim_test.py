@@ -12,7 +12,7 @@ import signal
 class TestPeptideSimSimple(TestCase):
     def setUp(self):
         self.p = PeptideSim('psim_test', ['AA', 'RE'], [3, 1], job_name='testing')
-        
+
     def test_init(self):
         self.assertTrue(os.path.exists('psim_test'))
 
@@ -20,13 +20,13 @@ class TestPeptideSimSimple(TestCase):
         start = len(self.p._gro)
         self.p.gro_file = 'a'
         self.p.gro_file = 'b'
-        self.assertEqual(len(self.p._gro), 2 + start)  
+        self.assertEqual(len(self.p._gro), 2 + start)
 
     def test_logging_started(self):
         log_file = self.p.log_file
         self.assertTrue(os.path.exists(log_file))
         self.assertTrue(os.stat(log_file).st_size > 0)
-    
+
     def test_req_files(self):
         with open('test.txt', 'w') as f:
             f.write('fdsa\n')
@@ -40,7 +40,7 @@ class TestPeptideSimSimple(TestCase):
 
     def tearDown(self):
        shutil.rmtree('psim_test')
-    
+
 
 
 class TestPeptideSimInitialize(TestCase):
@@ -48,7 +48,7 @@ class TestPeptideSimInitialize(TestCase):
     def setUp(self):
         self.p = PeptideSim('pinit_test', ['AA', 'REE'], [3, 1], job_name='testing')
         self.p.initialize()
-    
+
     def test_packmol_success(self):
         output_file = self.p.pdb_file
         self.assertIsNotNone(output_file)
@@ -70,7 +70,7 @@ class TestPeptideSimInitialize(TestCase):
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
-        new_p = pickle.load(StringIO(string))        
+        new_p = pickle.load(StringIO(string))
         self.assertEqual(phash, new_p.top_file + new_p.gro_file +  new_p.pdb_file)
 
     def test_ndx(self):
@@ -85,18 +85,18 @@ class TestPeptideSimInitialize(TestCase):
         and that no errors occur
         '''
 
-        n = len(self.p.sims)        
+        n = len(self.p.sims)
         import dill as pickle
         from cStringIO import StringIO
         string = pickle.dumps(self.p)
         del self.p
         new_p = pickle.load(StringIO(string))
         #make sure on pickling we still have our history intact
-        self.assertEqual(len(new_p.sims), n)        
+        self.assertEqual(len(new_p.sims), n)
         #now actually ensure that we don't repeat the initialization
         new_p.initialize()
         self.assertEqual(len(new_p.sims), n)
-        
+
 
     def tearDown(self):
         shutil.rmtree('pinit_test')
@@ -108,7 +108,7 @@ class TestFileTransfer(TestCase):
         #make some files to move around
         os.makedirs('data')
         with open('data/file.txt', 'w') as f:
-            f.write('test\n')        
+            f.write('test\n')
 
     def test_move_directory(self):
         self.p.add_file('data')
@@ -119,11 +119,12 @@ class TestFileTransfer(TestCase):
         shutil.rmtree('file_trans')
         shutil.rmtree('data')
 
-    
+
 class TestDataStore(TestCase):
 
     def setUp(self):
         self.p = PeptideSim('data_test', ['AA', 'REE'], [3, 1], job_name='dtesting')
+        self.p.remote_log = True
         self.p.initialize()
 
 
@@ -137,19 +138,19 @@ class TestDataStore(TestCase):
 
     def test_to_database(self):
         #verifies that data can be properly sent to redis database
-        self.p.store_data()        
+        self.p.store_data()
         with open('data/simdata.json', 'r') as f:
             data = json.load(f)
             prop = 'peptide_density'
             url = 'http://52.71.14.39/insert/simulation'
             payload = {'sim_name':data['sim_name'], 'property':prop, 'property_value': data[prop]}
             r = requests.put(url, payload)
-            self.assertEqual(r.status_code, 200)            
+            self.assertEqual(r.status_code, 200)
 
     def tearDown(self):
         shutil.rmtree('data_test')
         shutil.rmtree('data')
-            
+
 
 
 class TestPeptideStability(TestCase):
@@ -158,12 +159,12 @@ class TestPeptideStability(TestCase):
             p = PeptideSim('dipeptide', [a], [1], job_name='dipeptide')
             p.peptide_density=0.005
             p.initialize()
-            p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':50})                    
+            p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':50})
             p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
-            shutil.rmtree('dipeptide')        
+            shutil.rmtree('dipeptide')
 
-    
-        
+
+
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
@@ -184,7 +185,7 @@ class TestPeptideEmin(TestCase):
         self.p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':1})
         self.assertTrue(start_gro != self.p.gro_file)
 
-        
+
 
     def test_emin_mdp_combine(self):
         self.p.run(mdpfile='peptidesim_nvt.mdp', tag='test-mdp',  mdp_kwargs={'nsteps':2})
@@ -197,7 +198,7 @@ class TestPeptideEmin(TestCase):
 
 
     def test_emin_metadata(self):
-        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})        
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
 
@@ -219,10 +220,10 @@ class TestPeptideEmin(TestCase):
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
-        new_p = pickle.load(StringIO(string))        
+        new_p = pickle.load(StringIO(string))
         string = pickle.dumps(new_p)
         del new_p
-        new_p = pickle.load(StringIO(string))        
+        new_p = pickle.load(StringIO(string))
         #I do it twice because I'm paranoid
 
         self.assertTrue(new_p.sims[0].metadata.has_key('md-log'))
@@ -239,17 +240,17 @@ class TestPeptideEmin(TestCase):
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
-        new_p = pickle.load(StringIO(string))        
+        new_p = pickle.load(StringIO(string))
         string = pickle.dumps(new_p)
         del new_p
-        new_p = pickle.load(StringIO(string))        
+        new_p = pickle.load(StringIO(string))
 
         self.assertTrue(len(new_p.sims) > 0)
-        
+
 
 
     def test_restart_emin(self):
-        
+
         #call and interrupt the function
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
         for k,v in self.p._sims.iteritems():
@@ -265,7 +266,7 @@ class TestPeptideEmin(TestCase):
         '''
         Test that if the simulation is killed exeternally, it can still be pickled and recovered
         '''
-        
+
         import dill as pickle
         import time
         from cStringIO import StringIO
@@ -313,4 +314,3 @@ class TestConfig(TestCase):
                 shutil.rmtree('testconfig')
             except OSError as e:
                 pass
-
