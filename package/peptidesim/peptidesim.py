@@ -98,6 +98,9 @@ class PeptideSim(Configurable):
     packmol_exe       = Unicode(u'packmol',
                                 help='The command to run the packmol program.'
                                 ).tag(config=True)
+    demux_exe       = Unicode(u'demux',
+                                help='The command to demux the replica temperatures.'
+                                ).tag(config=True)
 
     forcefield        = Unicode(u'charmm27',
                                 help='The gromacs syntax forcefield',
@@ -186,11 +189,10 @@ class PeptideSim(Configurable):
         '''
         if(len(self._pdb) == 0):
             return None
-        elif(len(self._gro)!=0 and self._gro[-1][-12:]!='prepared.gro'):
+        elif(len(self._gro)!=0  and self._gro[-1][-12:]!='prepared.gro' and self._gro[-1][-13:]!='equil_npt.gro'):
             output='{}.pdb'.format(self._gro[-1][:-4])
             gromacs.editconf(f=self._gro[-1], o=output)
-            self._pdb.append(output)
-
+            self._pdb.append(output)        
         return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
 
     @pdb_file.setter
@@ -450,7 +452,26 @@ line and creates the class simulation.
 
         self.log.info('Completed Initialization')
 
-    def pte_replica(self, mpi_np=None,hill_height=1,max_iterations=25,hot_temperatures=400,replicas=8,final_time=int(0.2*5*10**2), debug=False,pte_temperature=278):
+    def demux(self,path_to_replica_dir):
+        with self._put_in_dir('demux'):
+
+            class Demux(gromacs.core.Command):
+                command_name = self.demux_exe
+            cmd = Demux()
+            result = cmd('{}/md0.log'.format(path_to_replica_dir))
+            if result[0] != 0:
+                self.log.error('Demux failed with retcode {}. Out: {} Err: {} '.format(*result))
+            else:
+                self.log.info('Demux succeeded with retcode {}'.format(*result))
+
+                assert os.path.exists('replica_temp.xvg'), 'Demux succeeded with retcode {} but has no output. Out: {} Err: {}'.format(*result)
+        current_dir=os.getcwd()
+        return '{}/replica_temp.xvg'.format(current_dir)
+
+
+
+
+    def pte_replica(self, mpi_np=None,hill_height=1.2,hot_temperatures=400.0,sigma=140.0,replicas=8,bias_factor=10,final_time=int(500*5*10**2), debug=False,pte_temperature=278.0,replica_exchange=25,alarm_time=20):
         '''Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
  and returns the absolute path of the hills bias file and logs name of the plumed input scripts and other outputs
                 Parameters
@@ -470,82 +491,113 @@ line and creates the class simulation.
             time for running pt-wte in ns
         debug: bool
             debug mode
+        sigma: float
+            the width of the gaussian for pte-wte
+        bias_factor: int or float
+            biasfactor to add to pte_wte
         pte_temperature: float
             temperature for pt-wte
         '''
         # replica temperatures
-        def make_ladder(hot, N, cold=pte_temperature):
-            return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
-
-        def get_replex_e(self, replica_number):
-            with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
-                p1 = re.compile('Repl  average probabilities:')
-                p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
-                ready = False
-                for line in f:
-                    if not ready and p1.findall(line):
-                        ready = True
-                    elif ready:
-                        match = p2.match(line)
-                        if match:
-                            return [float(s) for s in match.groups()]
-        #plumed input for WT-PTE
-        plumed_input = textwrap.dedent(
-            '''
-           RESTART
-           ene: ENERGY
+        with self._put_in_dir('pte_nvt_tune'):
+            def make_ladder(N,hot=hot_temperatures, cold=pte_temperature):
+                return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
+            
+            def get_replex_e(self, replica_number):
+                print(self.sims[-1].location)
+                with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
+                    p1 = re.compile('Repl  average probabilities:')
+                    p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
+                    ready = False
+                    for line in f:
+                        if not ready and p1.findall(line):
+                            ready = True
+                        elif ready:
+                            match = p2.match(line)
+                            if match:
+                                return [float(s) for s in match.groups()]
 
 
-           METAD ...
-           LABEL=METADPT
-           ARG=ene
-           SIGMA=100.0
-           HEIGHT={}
-           PACE=250
-           TEMP={}
-           FILE=HILLS_PTWTE
-           BIASFACTOR=10
-           ... METAD
-           PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
-           '''.format(hill_height,pte_temperature))
-
-        #putting the above text into a file
-        with open('plumed_wte.dat', 'w') as f:
-            f.write(plumed_input)
-
-        #adding the file to the list of required files
-        self.add_file('plumed_wte.dat')
-
-        #hot temp
-        hot = hot_temperatures
         #replex eff initiated
-        replex_eff = 0
+            replex_eff = 0
 
-        max_iters =25
         #if debugging less replicas
-        if debug:
-            max_iters = 2
-        replica_temps=make_ladder(hot,replicas)#creates the replica temps
-        #arguments for WT-PTE
-        kwargs = [{'nsteps': final_time, 'ref_t': ti} for ti in make_ladder(hot, replicas)]
-        #take our hill files with us
-    
-        for i in xrange(replicas):
-            self.add_file('HILLS_PTWTE.{}'.format(i))
 
-            for j in range(max_iters):
-                self.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, mpi_np=mpi_np,run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25})
+            replica_temps=make_ladder(replicas)#creates the replica temps
+        #plumed input for WT-PTE
+            temps = ','.join(str(e) for e in replica_temps)
+            plumed_input = textwrap.dedent(
+                '''
+                RESTART
+                ene: ENERGY
+                METAD ...
+                LABEL=METADPT
+                ARG=ene
+                SIGMA={}
+                HEIGHT={}
+                PACE=250
+                TEMP=@replicas:{{{}}}
+                FILE={}/HILLS_PTWTE
+                BIASFACTOR={}
+                ... METAD
+                PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
+                '''.format(sigma,hill_height,temps,self.sims[-1].location,bias_factor))
+        
+            #putting the above text into a file
+        
+            with open('plumed_wte.dat', 'w') as f:
+                f.write(plumed_input)
+            #adding the file to the list of required files
+            self.plumed_file='plumed_wte.dat'
+            plumed_output_script=None
+
+        #arguments for WT-PTE
+            kwargs = [{'nsteps': final_time, 'ref_t': ti} for ti in replica_temps]
+        #take our hill files with us
+        
+ #           for i in xrange(replicas):
+#                self.add_file('HILLS_PTWTE.{}'.format(i))
+                
+            for i in range(30):
+                #old=signal.signal(signal.SIGALRM,handler)
+                signal.alarm(int(60 * alarm_time))
+                try:
+                    self.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs=kwargs, mpi_np=mpi_np,run_kwargs={'plumed':self.plumed_file, 'replex': replica_exchange},dont_put_in_dir=True,dump_signal=signal.SIGALRM)                
+                except KeyboardInterrupt:
+                    pass
                 replex_eff = min(get_replex_e(self, replicas))
                 if replex_eff >= 0.3:
                     self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
+        
+                #=os.path.abspath('HILLS_PTEWTE.0.dat')
+                    plumed_output_script=textwrap.dedent(
+                        '''
+                 RESTART
+                 ene: ENERGY
+                 METAD ...
+                 LABEL=METADPT
+                 ARG=ene
+                 SIGMA={}
+                 HEIGHT={}
+                 PACE=99999999
+                 TEMP=@replicas:{{{}}}
+                 FILE={}/HILLS_PTWTE
+                 BIASFACTOR={}
+                 ... METAD
+                 PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE_OUTPUT
+                        '''.format(sigma,hill_height,temps,self.sims[-1].location,bias_factor))
                     break
                 else:
-                    self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing simulation'.format(replex_eff,replica_temps))
-        return os.path.abspath('HILLS_PTWTE.0')
-
-
-
-    def run(self, mdpfile, tag='', mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
+                    self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
+                    continue
+                    #raise NameError('Did not complete the simulation')
+       
+            if plumed_output_script is None:
+                raise NameError('Did not reach high enough efficiency')
+            else:
+                return plumed_output_script
+                
+    def run(self, mdpfile, tag='', mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dont_put_in_dir=False,dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -573,7 +625,7 @@ line and creates the class simulation.
         with self._simulation_context(tag, pickle_name, dump_signal) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
-            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
+            self._run(mpi_np, mdpfile, ec,mdp_kwargs, run_kwargs,dont_put_in_dir=dont_put_in_dir)
     def analyze(self):
         self.calc_rmsd()
         #self.calc_sham()
@@ -980,10 +1032,10 @@ line and creates the class simulation.
             self.tpr_file = ion_tpr
             self.ndx = ndx_file
 
-    def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
+    def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs, dont_put_in_dir=False):
 
-        with self._put_in_dir(sinfo.name):
-
+        if (dont_put_in_dir==True):
+            
             #make the simulation info an absolute path
             sinfo.location = os.path.abspath(os.getcwd())
 
@@ -1066,7 +1118,7 @@ line and creates the class simulation.
 
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
-                #store reference to trajectory
+                # store reference to trajectory
                 if 'o' in run_kwargs:
                     sinfo.metadata['traj'] = run_kwargs['o']
                 else:
@@ -1075,7 +1127,6 @@ line and creates the class simulation.
                     run_kwargs['o'] = trajectory_file
                     self.traj_file=trajectory_file
                     self._file_list.append(os.path.basename(self.traj_file))
-
 
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
                 sinfo.metadata['run-kwargs'] = run_kwargs
@@ -1105,7 +1156,7 @@ line and creates the class simulation.
                     s = f.read()
                     m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
                     if(m is None):
-                        self.log.error('Gromacs simulation failed for unknown reason. Unable to locate output gro file ({})'.format(gro))
+                        self.log.error('Gromacs simulation failed for unknown raeson. Unable to locate output gro file ({})'.format(gro))
                         self.log.error('Found ({})'.format([f for f in os.listdir('.') if os.path.isfile(f)]))
                     else:
                         self.log.error('SIMULATION FAILED:')
@@ -1117,3 +1168,140 @@ line and creates the class simulation.
                 #finished, store any info needed
                 self.store_data()
                 self.gro_file = gro
+
+
+        else:
+            with self._put_in_dir(sinfo.name):
+
+            #make the simulation info an absolute path
+                sinfo.location = os.path.abspath(os.getcwd())
+
+            #make this out of restart/no restart logic so we can check for success
+                gro = sinfo.short_name + '.gro'
+                if isinstance(mdp_kwargs,list):
+                    gro = sinfo.short_name + '0.gro'
+
+            #check if it's a restart
+                if(sinfo.restart_count > 0):
+                    self.log.info('Found existing information about this simulation. Using restart')
+                #yup, no prep needed
+                    if(sinfo.complete):
+                        self.log.info('Simulation was completed already. Skipping')
+                    else:
+                    #add restart string if this is our first
+                        if(sinfo.restart_count == 1):
+                            sinfo.run_kwargs['args'] += ' -cpi state.cpt'
+                        sinfo.run()
+                else:
+                #need to prepare for simulation
+                #Preparing emin tpr file
+                    self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
+                    final_mdp = sinfo.short_name + '.mdp'
+
+                    mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
+                    mdp_sim = gromacs.fileformats.mdp.MDP(self.get_mdpfile(mdpfile))
+                #make sure sim has higher priority than base
+                    mdp_base.update(mdp_sim)
+                    mdp_sim = mdp_base
+
+
+                #check if we're doing multiple mdp files
+                    if isinstance(mdp_kwargs,list):
+                        assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
+
+                        final_mdp = []
+                        mdp_data = []
+                        top_dir = 'TOPOL'
+
+                        if not os.path.exists(top_dir):
+                            os.mkdir(top_dir)
+
+                    #make a bunch of tpr files and put them into a subdirectory (TOPOL)
+                        for i, mk in enumerate(mdp_kwargs):
+                            mdp_temp = gromacs.fileformats.mdp.MDP()
+                            mdp_temp.update(mdp_sim)
+                            mdp_temp.update(mk)
+                            final_mdp.append(sinfo.short_name + str(i) + '.mdp')
+                            mdp = gromacs.fileformats.mdp.MDP()
+                            mdp.update(mdp_temp)
+                            mdp.write(final_mdp[i])
+                            mdp_data.append(dict(mdp))
+                            tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
+                            gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
+                        tpr = os.path.join(top_dir, sinfo.short_name)
+
+                    #keep a reference to current topology. Use 0th since it will exist
+                        self.tpr_file = tpr + '0.tpr'
+
+                    #add the multi option
+                        run_kwargs.update(dict(multi=len(mdp_kwargs)))
+
+                        sinfo.metadata['md-log'] = 'md0.log'
+                        sinfo.metadata['mdp-data'] = mdp_data
+
+
+                    else:
+                        tpr = sinfo.short_name + '.tpr'
+                        mdp = gromacs.fileformats.mdp.MDP()
+                        mdp.update(mdp_sim)
+                    #make passed highest priority
+                        mdp.update(mdp_kwargs)
+                        mdp.write(final_mdp)
+                        mdp_data = dict(mdp)
+                        gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
+                        self.tpr_file = tpr
+                        sinfo.metadata['md-log'] = 'md.log'
+                        sinfo.metadata['mdp-data'] = mdp_data
+                        
+                #update metadata
+                    sinfo.metadata['mdp-name'] = mdpfile
+                # store reference to trajectory
+                    if 'o' in run_kwargs:
+                        sinfo.metadata['traj'] = run_kwargs['o']
+                    else:
+                        trajectory_file='traj.trr'
+                        sinfo.metadata['traj'] = trajectory_file
+                        run_kwargs['o'] = trajectory_file
+                        self.traj_file=trajectory_file
+                        self._file_list.append(os.path.basename(self.traj_file))
+
+                    run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
+                    sinfo.metadata['run-kwargs'] = run_kwargs
+
+
+                #add mpiexec to command
+                #store original driver and prepend mpiexec to it
+                    temp = gromacs.mdrun.driver
+                #also add custom mdrun executable if necessary
+                    if(self.mdrun_driver is not None):
+                        gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])
+                    else:
+                        gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
+
+                    self.log.info('Starting simulation...'.format(sinfo.name))
+                    cmd = gromacs.mdrun._commandline(**run_kwargs)
+                    gromacs.mdrun.driver = temp #put back the original command
+                    self.log.debug(cmd)
+                    self.log.debug(' '.join(map(str, cmd)))
+                #make it run in shell
+                    sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
+                #sinfo.run(gromacs.mdrun, run_kwargs)
+                #check if the output file was created
+                if(not os.path.exists(gro)):
+                #open the md log and check for error message
+                    with open(sinfo.metadata['md-log']) as f:
+                        s = f.read()
+                        m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
+                        if(m is None):
+                            self.log.error('Gromacs simulation failed for unknown raeson. Unable to locate output gro file ({})'.format(gro))
+                            self.log.error('Found ({})'.format([f for f in os.listdir('.') if os.path.isfile(f)]))
+                        else:
+                            self.log.error('SIMULATION FAILED:')
+                            for line in m.group('message'):
+                                self.log.error('SIMULATION FAILED: ' + line)
+                    raise RuntimeError('Failed to complete simulation')
+                else:
+                    self.log.info('...done'.format(sinfo.name))
+                #finished, store any info needed
+                    self.store_data()
+                    self.gro_file = gro
