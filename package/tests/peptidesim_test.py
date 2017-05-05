@@ -261,6 +261,16 @@ class TestPeptideEmin(TestCase):
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
 
+    def test_continue_emin(self):        
+        #call and interrupt the function
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='repeat', mdp_kwargs={'nsteps':10})
+        self.p.run(mdpfile='peptidesim_emin.mdp', tag='repeat-1', mdp_kwargs={'nsteps':10}, repeat=True)
+        #check locations are the same
+        self.assertEqual(self.p.sims[-1].location, self.p.sim[-2])
+        
+
+
+
 
     def test_signal_restart_emin(self):
         '''

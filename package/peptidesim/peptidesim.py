@@ -11,21 +11,18 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
     p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
+
+from __future__  import division, print_function
 import numpy as np
-
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal
-
-import PeptideBuilder
-import Bio.PDB
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal, PeptideBuilder, Bio.PDB
 from math import *
 from .utilities import *
-import dill
 import dill as pickle
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
-
 import gromacs, gromacs.cbook
 gromacs.environment.flags['capture_output'] = True
+
 
 
 class SimulationInfo(object):
@@ -597,7 +594,7 @@ line and creates the class simulation.
             else:
                 return plumed_output_script
                 
-    def run(self, mdpfile, tag='', mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dont_put_in_dir=False,dump_signal=signal.SIGTERM):
+    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -610,11 +607,18 @@ line and creates the class simulation.
             name of the mdp file
         tag : str
             A tag to add onto the simulation.
-           Probably good idea if you're adding additional arguments.
+            Probably good idea if you're adding additional arguments.
+        repeat : bool
+            This will prevent the simulation for becoming a new name/hash/directory. Useful for continuing a simulation. 
         mdp_kwargs : dict or list
             Additional arguments that will be added to the mdp file. Can be list of dcits, which indicates replica exchange
         run_kwargs : dict
             Additional arguments that will be convreted to mdrun flags
+        metadata : dict
+            Metadata which will be saved with the SimulationInfo Object
+        dump_signal : signal
+            This is the signal that will trigger saving the simulation, the piclkle file, and gracefully shutdown
+        
         '''
         if mpi_np is None:
             mpi_np = self.mpi_np
@@ -622,10 +626,12 @@ line and creates the class simulation.
             pickle_name = self.job_name + '.pickle'
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
-        with self._simulation_context(tag, pickle_name, dump_signal) as ec:
+        with self._simulation_context(tag, pickle_name, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
-            self._run(mpi_np, mdpfile, ec,mdp_kwargs, run_kwargs,dont_put_in_dir=dont_put_in_dir)
+            self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
+
+            
     def analyze(self):
         self.calc_rmsd()
         #self.calc_sham()
@@ -662,7 +668,7 @@ line and creates the class simulation.
 
 
     @contextlib.contextmanager
-    def _simulation_context(self, name, pickle_name, dump_signal = signal.SIGTERM):
+    def _simulation_context(self, name, pickle_name, dump_signal, repeat):
         '''This context will handle restart and keeping a history of simulations performed.
         TODO: Maybe have this context submit a simulation job?
         '''
@@ -687,9 +693,12 @@ line and creates the class simulation.
             si = self._sims[simname]
         else:
             si = SimulationInfo(simname, name)
+            if repeat:
+                si.location = self._convert_path(os.path.join(self.dir_name, self._sim_list[-1].name))
+            else:
+                si.location = self._convert_path(os.path.join(self.dir_name, si.name))
             self._sims[simname] = si
-            self._sim_list.append(si)
-
+            self._sim_list.append(si)            
         try:
             yield si
         finally:
@@ -710,7 +719,11 @@ line and creates the class simulation.
             The name of the directory which the function should be exectued within. This is relative
             to the dir_name of the PeptideSim object.
         '''
-        d = self._convert_path(os.path.join(self.dir_name, dirname))
+        #check if the path contains our dir_name already
+        if(in_directory(dirname, self.dir_name)):
+           d = dirname
+        else:
+           d = self._convert_path(os.path.join(self.dir_name, dirname))
         if not os.path.exists(d):
             os.mkdir(d)
         #bring files
@@ -1032,18 +1045,15 @@ line and creates the class simulation.
             self.tpr_file = ion_tpr
             self.ndx = ndx_file
 
-    def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs, dont_put_in_dir=False):
+    def _run(self, mpi_np, mdpfile, sinfo, mdp_kwargs, run_kwargs):
 
-        if (dont_put_in_dir==True):
-            
-            #make the simulation info an absolute path
-            sinfo.location = os.path.abspath(os.getcwd())
+        with self._put_in_dir(sinfo.location):
 
             #make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
             if isinstance(mdp_kwargs,list):
                 gro = sinfo.short_name + '0.gro'
-
+                
             #check if it's a restart
             if(sinfo.restart_count > 0):
                 self.log.info('Found existing information about this simulation. Using restart')
@@ -1051,7 +1061,7 @@ line and creates the class simulation.
                 if(sinfo.complete):
                     self.log.info('Simulation was completed already. Skipping')
                 else:
-                    #add restart string if this is our first
+                #add restart string if this is our first
                     if(sinfo.restart_count == 1):
                         sinfo.run_kwargs['args'] += ' -cpi state.cpt'
                     sinfo.run()
@@ -1060,26 +1070,20 @@ line and creates the class simulation.
                 #Preparing emin tpr file
                 self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
                 final_mdp = sinfo.short_name + '.mdp'
-
                 mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
                 mdp_sim = gromacs.fileformats.mdp.MDP(self.get_mdpfile(mdpfile))
                 #make sure sim has higher priority than base
                 mdp_base.update(mdp_sim)
                 mdp_sim = mdp_base
-
-
                 #check if we're doing multiple mdp files
                 if isinstance(mdp_kwargs,list):
                     assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
-
                     final_mdp = []
                     mdp_data = []
                     top_dir = 'TOPOL'
-
                     if not os.path.exists(top_dir):
                         os.mkdir(top_dir)
-
-                    #make a bunch of tpr files and put them into a subdirectory (TOPOL)
+                     #make a bunch of tpr files and put them into a subdirectory (TOPOL)
                     for i, mk in enumerate(mdp_kwargs):
                         mdp_temp = gromacs.fileformats.mdp.MDP()
                         mdp_temp.update(mdp_sim)
@@ -1092,17 +1096,12 @@ line and creates the class simulation.
                         tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
                         gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
                     tpr = os.path.join(top_dir, sinfo.short_name)
-
                     #keep a reference to current topology. Use 0th since it will exist
                     self.tpr_file = tpr + '0.tpr'
-
                     #add the multi option
                     run_kwargs.update(dict(multi=len(mdp_kwargs)))
-
                     sinfo.metadata['md-log'] = 'md0.log'
                     sinfo.metadata['mdp-data'] = mdp_data
-
-
                 else:
                     tpr = sinfo.short_name + '.tpr'
                     mdp = gromacs.fileformats.mdp.MDP()
@@ -1115,7 +1114,7 @@ line and creates the class simulation.
                     self.tpr_file = tpr
                     sinfo.metadata['md-log'] = 'md.log'
                     sinfo.metadata['mdp-data'] = mdp_data
-
+                    
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
                 # store reference to trajectory
@@ -1127,11 +1126,8 @@ line and creates the class simulation.
                     run_kwargs['o'] = trajectory_file
                     self.traj_file=trajectory_file
                     self._file_list.append(os.path.basename(self.traj_file))
-
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
                 sinfo.metadata['run-kwargs'] = run_kwargs
-
-
                 #add mpiexec to command
                 #store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
@@ -1140,7 +1136,6 @@ line and creates the class simulation.
                     gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])
                 else:
                     gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
-
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
                 gromacs.mdrun.driver = temp #put back the original command
@@ -1149,7 +1144,9 @@ line and creates the class simulation.
                 #make it run in shell
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 #sinfo.run(gromacs.mdrun, run_kwargs)
-                #check if the output file was created
+
+            
+            #check if the output file was created
             if(not os.path.exists(gro)):
                 #open the md log and check for error message
                 with open(sinfo.metadata['md-log']) as f:
@@ -1165,143 +1162,21 @@ line and creates the class simulation.
                 raise RuntimeError('Failed to complete simulation')
             else:
                 self.log.info('...done'.format(sinfo.name))
-                #finished, store any info needed
-                self.store_data()
-                self.gro_file = gro
+            #finished, store any info needed
+            self.store_data()
+            self.gro_file = gro
 
 
-        else:
-            with self._put_in_dir(sinfo.name):
+#http://stackoverflow.com/questions/3812849/how-to-check-whether-a-directory-is-a-sub-directory-of-another-directory
+def in_directory(file, directory, allow_symlink = False):
+    #make both absolute    
+    directory = os.path.abspath(directory)
+    file = os.path.abspath(file)
 
-            #make the simulation info an absolute path
-                sinfo.location = os.path.abspath(os.getcwd())
+    #check whether file is a symbolic link, if yes, return false if they are not allowed
+    if not allow_symlink and os.path.islink(file):
+        return False
 
-            #make this out of restart/no restart logic so we can check for success
-                gro = sinfo.short_name + '.gro'
-                if isinstance(mdp_kwargs,list):
-                    gro = sinfo.short_name + '0.gro'
-
-            #check if it's a restart
-                if(sinfo.restart_count > 0):
-                    self.log.info('Found existing information about this simulation. Using restart')
-                #yup, no prep needed
-                    if(sinfo.complete):
-                        self.log.info('Simulation was completed already. Skipping')
-                    else:
-                    #add restart string if this is our first
-                        if(sinfo.restart_count == 1):
-                            sinfo.run_kwargs['args'] += ' -cpi state.cpt'
-                        sinfo.run()
-                else:
-                #need to prepare for simulation
-                #Preparing emin tpr file
-                    self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
-                    final_mdp = sinfo.short_name + '.mdp'
-
-                    mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
-                    mdp_sim = gromacs.fileformats.mdp.MDP(self.get_mdpfile(mdpfile))
-                #make sure sim has higher priority than base
-                    mdp_base.update(mdp_sim)
-                    mdp_sim = mdp_base
-
-
-                #check if we're doing multiple mdp files
-                    if isinstance(mdp_kwargs,list):
-                        assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
-
-                        final_mdp = []
-                        mdp_data = []
-                        top_dir = 'TOPOL'
-
-                        if not os.path.exists(top_dir):
-                            os.mkdir(top_dir)
-
-                    #make a bunch of tpr files and put them into a subdirectory (TOPOL)
-                        for i, mk in enumerate(mdp_kwargs):
-                            mdp_temp = gromacs.fileformats.mdp.MDP()
-                            mdp_temp.update(mdp_sim)
-                            mdp_temp.update(mk)
-                            final_mdp.append(sinfo.short_name + str(i) + '.mdp')
-                            mdp = gromacs.fileformats.mdp.MDP()
-                            mdp.update(mdp_temp)
-                            mdp.write(final_mdp[i])
-                            mdp_data.append(dict(mdp))
-                            tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
-                            gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
-                        tpr = os.path.join(top_dir, sinfo.short_name)
-
-                    #keep a reference to current topology. Use 0th since it will exist
-                        self.tpr_file = tpr + '0.tpr'
-
-                    #add the multi option
-                        run_kwargs.update(dict(multi=len(mdp_kwargs)))
-
-                        sinfo.metadata['md-log'] = 'md0.log'
-                        sinfo.metadata['mdp-data'] = mdp_data
-
-
-                    else:
-                        tpr = sinfo.short_name + '.tpr'
-                        mdp = gromacs.fileformats.mdp.MDP()
-                        mdp.update(mdp_sim)
-                    #make passed highest priority
-                        mdp.update(mdp_kwargs)
-                        mdp.write(final_mdp)
-                        mdp_data = dict(mdp)
-                        gromacs.grompp(f=final_mdp, c=self.gro_file, p=self.top_file, o=tpr)
-                        self.tpr_file = tpr
-                        sinfo.metadata['md-log'] = 'md.log'
-                        sinfo.metadata['mdp-data'] = mdp_data
-                        
-                #update metadata
-                    sinfo.metadata['mdp-name'] = mdpfile
-                # store reference to trajectory
-                    if 'o' in run_kwargs:
-                        sinfo.metadata['traj'] = run_kwargs['o']
-                    else:
-                        trajectory_file='traj.trr'
-                        sinfo.metadata['traj'] = trajectory_file
-                        run_kwargs['o'] = trajectory_file
-                        self.traj_file=trajectory_file
-                        self._file_list.append(os.path.basename(self.traj_file))
-
-                    run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
-                    sinfo.metadata['run-kwargs'] = run_kwargs
-
-
-                #add mpiexec to command
-                #store original driver and prepend mpiexec to it
-                    temp = gromacs.mdrun.driver
-                #also add custom mdrun executable if necessary
-                    if(self.mdrun_driver is not None):
-                        gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])
-                    else:
-                        gromacs.mdrun.driver = ' '.join([self.mpiexec, '-np {}'.format(mpi_np), temp])
-
-                    self.log.info('Starting simulation...'.format(sinfo.name))
-                    cmd = gromacs.mdrun._commandline(**run_kwargs)
-                    gromacs.mdrun.driver = temp #put back the original command
-                    self.log.debug(cmd)
-                    self.log.debug(' '.join(map(str, cmd)))
-                #make it run in shell
-                    sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
-                #sinfo.run(gromacs.mdrun, run_kwargs)
-                #check if the output file was created
-                if(not os.path.exists(gro)):
-                #open the md log and check for error message
-                    with open(sinfo.metadata['md-log']) as f:
-                        s = f.read()
-                        m = re.search(gromacs.mdrun.gmxfatal_pattern, s, re.VERBOSE | re.DOTALL)
-                        if(m is None):
-                            self.log.error('Gromacs simulation failed for unknown raeson. Unable to locate output gro file ({})'.format(gro))
-                            self.log.error('Found ({})'.format([f for f in os.listdir('.') if os.path.isfile(f)]))
-                        else:
-                            self.log.error('SIMULATION FAILED:')
-                            for line in m.group('message'):
-                                self.log.error('SIMULATION FAILED: ' + line)
-                    raise RuntimeError('Failed to complete simulation')
-                else:
-                    self.log.info('...done'.format(sinfo.name))
-                #finished, store any info needed
-                    self.store_data()
-                    self.gro_file = gro
+    #return true, if the common prefix of both is equal to directory
+    #e.g. /a/b/c/d.rst and directory is /a/b, the common prefix is /a/b
+    return os.path.commonprefix([file, directory]) == directory

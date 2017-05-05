@@ -28,4 +28,5 @@ RUN useradd -ms /bin/bash tester
 
 #set default
 ADD test.sh /home/tester
+USER tester
 CMD ["bash", "/home/tester/test.sh"]
