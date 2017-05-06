@@ -17,7 +17,7 @@ import numpy as np
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal, PeptideBuilder, Bio.PDB
 from math import *
 from .utilities import *
-import dill as pickle
+import dill
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 import gromacs, gromacs.cbook

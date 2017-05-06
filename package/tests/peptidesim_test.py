@@ -266,7 +266,7 @@ class TestPeptideEmin(TestCase):
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='repeat', mdp_kwargs={'nsteps':10})
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='repeat-1', mdp_kwargs={'nsteps':10}, repeat=True)
         #check locations are the same
-        self.assertEqual(self.p.sims[-1].location, self.p.sim[-2])
+        self.assertEqual(self.p.sims[-1].location, self.p.sims[-2].location)
         
 
 
