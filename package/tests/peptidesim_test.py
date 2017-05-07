@@ -106,7 +106,9 @@ class TestFileTransfer(TestCase):
     def setUp(self):
         self.p = PeptideSim('file_trans', ['AA', 'REE'], [3, 1])
         #make some files to move around
-        os.makedirs('data')
+        if(not os.path.exists('data')):
+           os.makedirs('data')
+
         with open('data/file.txt', 'w') as f:
             f.write('test\n')
 

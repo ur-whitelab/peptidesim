@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker run -it -u tester -v "`pwd`:/home/tester/peptidesim" peptidesim/test
+docker run -it --rm -v "`pwd`:/home/whitelab/peptidesim" peptidesim/test
