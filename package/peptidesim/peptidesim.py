@@ -468,35 +468,52 @@ line and creates the class simulation.
 
 
 
-    def pte_replica(self, tag='pte_tune', mpi_np=None, max_tries=30, mdp_kwargs=dict(),
+    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, mdp_kwargs=dict(),
                     cold = 300.0, hot = 400.0, eff_threshold = 0.3,
-                    hill_height=1.2,sigma=140.0,replicas=8,bias_factor=10,
-                    replica_exchange=25):
-        '''Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
- and returns the absolute path of the hills bias file and logs name of the plumed input scripts and other outputs
-                Parameters
+                    hill_height=1.2,sigma=140.0,bias_factor=10,
+                    exchange_period=25):
+        '''
+        Runs NVT tuning with plumed PTE and teplica exchange to obtain high replica efficiency.
+        
+        Parameters
         ----------
         
+        tag : str
+            name of run        
         mpi_np: int
-            number of mpi processes.
-        hill_height:float
+            number of mpi processes. Must be multiple of replicas
+        replicas : int
+            Number of replicas
+        max_tries : int
+            number of simulations to attempt for achieving eff_threshold
+        mdp_kwargs : dict
+            additional gromacs mdp arguments 
+        hot : float
+            hottest replica temperatrue
+        cold : float
+            coldest replica temperatrue
+        eff_threshold : float
+            The target replica exchange efficiency
+        hill_height : float
             hill height for pt-wte
-        max_iterations: int
-            number of iterations for replica exchange
-        hot_temperatures: float
-            maximum temp for replica temps
-        replicas: int
-            number of replicas
-        final_time:int
-            time for running pt-wte in ns
-        debug: bool
-            debug mode
         sigma: float
             the width of the gaussian for pte-wte
         bias_factor: int or float
             biasfactor to add to pte_wte
-        pte_temperature: float
-            temperature for pt-wte
+        exchange_period : int
+            the number of steps between exchange attempts
+
+        Returns
+        ----------
+        A dictionary with:
+        
+        plumed : str
+            A plumed input section that will utilzie the PTE bias
+        efficiency : float
+            The final efficiency
+        temperature : list
+            The list of temperatures used for the baises
+
         '''
         
 
@@ -553,15 +570,15 @@ line and creates the class simulation.
             for i, ti in enumerate(replica_temps):
                 replica_kwargs[i]['ref_t'] = ti
                 
-            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': replica_exchange})
+            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold:
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
                 plumed_output_script=textwrap.dedent(
                         '''
-                 RESTART
                  ene: ENERGY
                  METAD ...
+                 RESTART=yes
                  LABEL=METADPT
                  ARG=ene
                  SIGMA={}
@@ -571,7 +588,6 @@ line and creates the class simulation.
                  FILE=HILLS_PTWTE
                  BIASFACTOR={}
                  ... METAD
-                 PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE_OUTPUT
                         '''.format(sigma,hill_height,temps,bias_factor))
                 break
             else:
