@@ -25,4 +25,4 @@ def main():
 if __name__ == "__main__":
     main()
 else:
-    from peptidesim.peptidesim import *
+    from peptidesim.peptidesim import SimulationInfo, PeptideSim

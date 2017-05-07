@@ -165,8 +165,26 @@ class TestPeptideStability(TestCase):
             p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
             shutil.rmtree('dipeptide')
 
+class TestPTE(TestCase):
+    def test_pte(self):
+        #run a pte to get plumed output
+        p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
+        p.mdrun_driver='gmx_mpi'
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
+        p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
+        pte_result = p.pte_replica(mpi_np=2, max_tries=3, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05)
+        #make the plumed input file
+        with open('plumed.dat', 'w') as f:
+            f.write(pte_result['plumed'])
+        p.add_file('plumed.dat')
 
-
+        #now try running it with PTE
+        p.run(tag='pte_check', mdpfile='peptidesim_nvt.mdp', mpi_np=2,
+              mdp_kwargs=[{'nsteps': 100, 'ref_t': ti} for ti in pte_result['temperatures']],
+              run_kwargs={'plumed': 'plumed.dat', 'replex': 25} )
+        
 
 class TestPeptideEmin(TestCase):
     def setUp(self):

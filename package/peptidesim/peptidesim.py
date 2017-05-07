@@ -14,7 +14,7 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
 from __future__  import division, print_function
 import numpy as np
-import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal, PeptideBuilder, Bio.PDB
+import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal, PeptideBuilder, Bio.PDB, glob
 from math import *
 from .utilities import *
 import dill
@@ -468,7 +468,10 @@ line and creates the class simulation.
 
 
 
-    def pte_replica(self, mpi_np=None,hill_height=1.2,hot_temperatures=400.0,sigma=140.0,replicas=8,bias_factor=10,final_time=int(500*5*10**2), debug=False,pte_temperature=278.0,replica_exchange=25,alarm_time=20):
+    def pte_replica(self, tag='pte_tune', mpi_np=None, max_tries=30, mdp_kwargs=dict(),
+                    cold = 300.0, hot = 400.0, eff_threshold = 0.3,
+                    hill_height=1.2,sigma=140.0,replicas=8,bias_factor=10,
+                    replica_exchange=25):
         '''Runs NVT tuning with plumed PTE and Replica exchange to obtain high replica efficiency
  and returns the absolute path of the hills bias file and logs name of the plumed input scripts and other outputs
                 Parameters
@@ -495,34 +498,34 @@ line and creates the class simulation.
         pte_temperature: float
             temperature for pt-wte
         '''
-        # replica temperatures
-        with self._put_in_dir('pte_nvt_tune'):
-            def make_ladder(N,hot=hot_temperatures, cold=pte_temperature):
-                return [cold * (hot / cold) ** (float(i) / N) for i in range(N)]
+        
+
             
-            def get_replex_e(self, replica_number):
-                print(self.sims[-1].location)
-                with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
-                    p1 = re.compile('Repl  average probabilities:')
-                    p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
-                    ready = False
-                    for line in f:
-                        if not ready and p1.findall(line):
-                            ready = True
-                        elif ready:
-                            match = p2.match(line)
-                            if match:
-                                return [float(s) for s in match.groups()]
+        def get_replex_e(self, replica_number):
+            print(self.sims[-1].location)
+            with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
+                p1 = re.compile('Repl  average probabilities:')
+                p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
+                ready = False
+                for line in f:
+                    if not ready and p1.findall(line):
+                        ready = True
+                    elif ready:
+                        match = p2.match(line)
+                        if match:
+                            return [float(s) for s in match.groups()]
+            raise RuntimeError('Unable to parse replica exchange efficiency. Probably simulation was incomplete')
 
+        # replica temperatures
+        for i in range(max_tries):
 
-        #replex eff initiated
+            #replex eff initiated
             replex_eff = 0
-
-        #if debugging less replicas
-
-            replica_temps=make_ladder(replicas)#creates the replica temps
-        #plumed input for WT-PTE
+            replica_temps = [cold * (hot / cold) ** (float(i) / replicas) for i in range(replicas)]
+            #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
+            plumed_input_name = self._convert_path('plumed_wte.dat')
+            self.add_file(plumed_input_name)
             plumed_input = textwrap.dedent(
                 '''
                 RESTART
@@ -534,40 +537,27 @@ line and creates the class simulation.
                 HEIGHT={}
                 PACE=250
                 TEMP=@replicas:{{{}}}
-                FILE={}/HILLS_PTWTE
+                FILE=HILLS_PTWTE
                 BIASFACTOR={}
                 ... METAD
                 PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
-                '''.format(sigma,hill_height,temps,self.sims[-1].location,bias_factor))
+                '''.format(sigma,hill_height,temps,bias_factor))
         
-            #putting the above text into a file
-        
-            with open('plumed_wte.dat', 'w') as f:
+            #putting the above text into a file        
+            with open(plumed_input_name, 'w') as f:
                 f.write(plumed_input)
             #adding the file to the list of required files
-            self.plumed_file='plumed_wte.dat'
-            plumed_output_script=None
 
-        #arguments for WT-PTE
-            kwargs = [{'nsteps': final_time, 'ref_t': ti} for ti in replica_temps]
-        #take our hill files with us
-        
- #           for i in xrange(replicas):
-#                self.add_file('HILLS_PTWTE.{}'.format(i))
+            #arguments for WT-PTE
+            replica_kwargs = [mdp_kwargs for _ in range(replicas)]
+            for i, ti in enumerate(replica_temps):
+                replica_kwargs[i]['ref_t'] = ti
                 
-            for i in range(30):
-                #old=signal.signal(signal.SIGALRM,handler)
-                signal.alarm(int(60 * alarm_time))
-                try:
-                    self.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs=kwargs, mpi_np=mpi_np,run_kwargs={'plumed':self.plumed_file, 'replex': replica_exchange},dont_put_in_dir=True,dump_signal=signal.SIGALRM)                
-                except KeyboardInterrupt:
-                    pass
-                replex_eff = min(get_replex_e(self, replicas))
-                if replex_eff >= 0.3:
-                    self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
-        
-                #=os.path.abspath('HILLS_PTEWTE.0.dat')
-                    plumed_output_script=textwrap.dedent(
+            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': replica_exchange})
+            replex_eff = min(get_replex_e(self, replicas))
+            if replex_eff >= eff_threshold:
+                self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
+                plumed_output_script=textwrap.dedent(
                         '''
                  RESTART
                  ene: ENERGY
@@ -578,21 +568,21 @@ line and creates the class simulation.
                  HEIGHT={}
                  PACE=99999999
                  TEMP=@replicas:{{{}}}
-                 FILE={}/HILLS_PTWTE
+                 FILE=HILLS_PTWTE
                  BIASFACTOR={}
                  ... METAD
                  PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE_OUTPUT
-                        '''.format(sigma,hill_height,temps,self.sims[-1].location,bias_factor))
-                    break
-                else:
-                    self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
-                    continue
-                    #raise NameError('Did not complete the simulation')
-       
-            if plumed_output_script is None:
-                raise NameError('Did not reach high enough efficiency')
+                        '''.format(sigma,hill_height,temps,bias_factor))
+                break
             else:
-                return plumed_output_script
+                self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
+                continue       
+        if plumed_output_script is None:
+            raise RuntimeError('Did not reach high enough efficiency')
+        else:
+            for f in glob.glob('HILLS_PTWTE*'):
+                p.add_file(f)
+            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
                 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
@@ -1139,7 +1129,6 @@ line and creates the class simulation.
                 self.log.info('Starting simulation...'.format(sinfo.name))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
                 gromacs.mdrun.driver = temp #put back the original command
-                self.log.debug(cmd)
                 self.log.debug(' '.join(map(str, cmd)))
                 #make it run in shell
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
