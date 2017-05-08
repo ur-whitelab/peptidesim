@@ -578,7 +578,7 @@ line and creates the class simulation.
                         '''
                  ene: ENERGY
                  METAD ...
-                 RESTART=yes
+                 RESTART=YES
                  LABEL=METADPT
                  ARG=ene
                  SIGMA={}
