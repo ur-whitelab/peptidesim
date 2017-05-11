@@ -186,7 +186,7 @@ class PeptideSim(Configurable):
         '''
         if(len(self._pdb) == 0):
             return None
-        elif(len(self._gro)!=0  and self._gro[-1][-12:]!='prepared.gro' and self._gro[-1][-13:]!='equil_npt.gro'):
+        elif(len(self._gro)!=0 and self._gro[-1][-19:]=='initialize-emin.gro'):
             output='{}.pdb'.format(self._gro[-1][:-4])
             gromacs.editconf(f=self._gro[-1], o=output)
             self._pdb.append(output)        
@@ -439,7 +439,6 @@ line and creates the class simulation.
 
         #energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps':500})
-
         #Add solvent
         self._solvate()
 
@@ -457,6 +456,7 @@ line and creates the class simulation.
             cmd = Demux()
             result = cmd('{}/md0.log'.format(path_to_replica_dir))
             if result[0] != 0:
+                print(result)
                 self.log.error('Demux failed with retcode {}. Out: {} Err: {} '.format(*result))
             else:
                 self.log.info('Demux succeeded with retcode {}'.format(*result))
