@@ -184,30 +184,53 @@ class PeptideSim(Configurable):
     def pdb_file(self):
         ''' a property that returns the latest generated pdb file
         '''
-        if(len(self._pdb) == 0):
-            return None
-        elif(len(self._gro)!=0  and self._gro[-1][-12:]!='prepared.gro' and self._gro[-1][-13:]!='equil_npt.gro'):
-            output='{}.pdb'.format(self._gro[-1][:-4])
-            gromacs.editconf(f=self._gro[-1], o=output)
-            self._pdb.append(output)
-        return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
+        if(self.gro_file is None):
+            if(len(self._pdb) > 0):
+                return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
+            else:
+                return None
+        
+        output='{}.pdb'.format(os.path.basename(self.gro_file).split('.pdb')[0])
+        gromacs.editconf(f=self.gro_file, o=output)
+        return os.path.normpath(os.path.join(self.rel_dir_name, output))
 
     @pdb_file.setter
     def pdb_file(self, f):
         self._pdb.append(self._convert_path(f))
 
     @property
-    def gro_file(self):
-        '''  a property that returns the latest gro file
+    def gro_file_list(self):
+        ''' The latest gro file(s) as a list
         '''
-        if(len(self._gro) == 0):
+        if len(self._gro) == 0:
             return None
-        return os.path.normpath(os.path.join(self.rel_dir_name, self._gro[-1]))
+        if type(self._gro[-1]) is list:
+            result = self._gro[-1]
+        else:
+            result = [self._gro[-1]]
+        return [os.path.normpath(os.path.join(self.rel_dir_name, ri)) for ri in result]
+
+
+    @property
+    def gro_file(self):
+        '''The latest gro file
+        '''
+        if len(self._gro) == 0:
+            return None
+        if type(self._gro[-1]) is list:
+            result = self._gro[-1][0]
+        else:
+            result = self._gro[-1]
+        return os.path.normpath(os.path.join(self.rel_dir_name, result))
 
 
     @gro_file.setter
     def gro_file(self, f):
-        self._gro.append(self._convert_path(f))
+        if type(f) is list:
+            f = [self._convert_path(fi) for fi in f]
+        else:
+            f = self._convert_path(f)
+        self._gro.append(f)
 
     @property
     def top_file(self):
@@ -693,7 +716,7 @@ line and creates the class simulation.
         signal.signal(dump_signal, handler)
 
         #construct name and add to simulation infos
-        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file + self.pdb_file)
+        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file)
         #the hash is huge. Take the first few chars
         simname = name + '-' + str(file_hash)[:8]
 
@@ -915,12 +938,9 @@ line and creates the class simulation.
         with self._put_in_dir('prep'):
 
             output = 'dry_mixed.gro'
-            output2='template.pdb'
             topology = 'dry_topology.top'
             self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(self.pdb_file, output))
             gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
-            gromacs.pdb2gmx(f=self.pdb_file, o=output2, p=topology, water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
-            self.pdb_file=output2
             self.gro_file = output
             self.top_file = topology
 
@@ -1059,8 +1079,8 @@ line and creates the class simulation.
 
             #make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
-            if isinstance(mdp_kwargs,list):
-                gro = sinfo.short_name + '0.gro'
+            if type(mdp_kwargs) is list:
+                gro = [sinfo.short_name + '{}.gro'.format(i) for i in range(len(mdp_kwargs))]
 
             #check if it's a restart
             if(sinfo.restart_count > 0):
@@ -1084,14 +1104,18 @@ line and creates the class simulation.
                 mdp_base.update(mdp_sim)
                 mdp_sim = mdp_base
                 #check if we're doing multiple mdp files
-                if isinstance(mdp_kwargs,list):
+                if type(mdp_kwargs) is list:
                     assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
                     final_mdp = []
                     mdp_data = []
                     top_dir = 'TOPOL'
                     if not os.path.exists(top_dir):
                         os.mkdir(top_dir)
-                     #make a bunch of tpr files and put them into a subdirectory (TOPOL)
+                    #make a bunch of tpr files and put them into a subdirectory (TOPOL)
+                    #make a note about how we're making the tprs
+                    if( len(self.gro_file_list) == len(mdp_kwargs) ):
+                        self.log.info('Using list of Gro files from previous  \
+                                        run since the number matches the number pf replicas here')
                     for i, mk in enumerate(mdp_kwargs):
                         mdp_temp = gromacs.fileformats.mdp.MDP()
                         mdp_temp.update(mdp_sim)
@@ -1102,7 +1126,11 @@ line and creates the class simulation.
                         mdp.write(final_mdp[i])
                         mdp_data.append(dict(mdp))
                         tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
-                        gromacs.grompp(f=final_mdp[i], c=self.gro_file, p=self.top_file, o=tpr)
+                        #get gro file, which may come from a list of same length
+                        c = self.gro_file
+                        if( len(self.gro_file_list) == len(mdp_kwargs) ):
+                            c = self.gro_file_list[i]
+                        gromacs.grompp(f=final_mdp[i], c=c, p=self.top_file, o=tpr)
                     tpr = os.path.join(top_dir, sinfo.short_name)
                     #keep a reference to current topology. Use 0th since it will exist
                     self.tpr_file = tpr + '0.tpr'
@@ -1154,7 +1182,7 @@ line and creates the class simulation.
 
 
             #check if the output file was created
-            if(not os.path.exists(gro)):
+            if((not os.path.exists(gro[0])) if type(gro) is list else (not os.path.exists(gro))):
                 #open the md log and check for error message
                 with open(sinfo.metadata['md-log']) as f:
                     s = f.read()

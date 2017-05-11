@@ -22,6 +22,11 @@ class TestPeptideSimSimple(TestCase):
         self.p.gro_file = 'b'
         self.assertEqual(len(self.p._gro), 2 + start)
 
+    def test_gro_file_list(self):
+        self.p.gro_file = ['a', 'b']
+        self.assertEqual(self.p.gro_file, 'a')
+        self.assertEqual(self.p.gro_file_list[1], 'b')
+
     def test_logging_started(self):
         log_file = self.p.log_file
         self.assertTrue(os.path.exists(log_file))
@@ -58,6 +63,10 @@ class TestPeptideSimInitialize(TestCase):
         self.assertTrue(os.path.exists(self.p.top_file))
         self.assertTrue(os.path.exists(self.p.gro_file))
         self.assertTrue(os.stat(self.p.gro_file).st_size > 0)
+
+
+    def test_pdbfile(self):
+        self.assertTrue(os.path.exists(self.p.pdb_file))
 
     def test_include_resolution(self):
         if '#include' in open(self.p.top_file).read():
