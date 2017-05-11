@@ -1,7 +1,7 @@
 #python package
 /dist/
 /build/
-/*.egg-info
+*.egg-info
 /*.egg
 .egg*
 

@@ -189,7 +189,7 @@ class PeptideSim(Configurable):
         elif(len(self._gro)!=0  and self._gro[-1][-12:]!='prepared.gro' and self._gro[-1][-13:]!='equil_npt.gro'):
             output='{}.pdb'.format(self._gro[-1][:-4])
             gromacs.editconf(f=self._gro[-1], o=output)
-            self._pdb.append(output)        
+            self._pdb.append(output)
         return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
 
     @pdb_file.setter
@@ -219,7 +219,7 @@ class PeptideSim(Configurable):
 
 
     @top_file.setter
-    def top_file(self, f): 
+    def top_file(self, f):
        self._top.append(self._convert_path(f))
 
     @property
@@ -265,7 +265,7 @@ class PeptideSim(Configurable):
     def sim_dicts(self):
         '''a property that returns a dictionary of simulation names        '''
         return self._sims
-         
+
 
     @ndx.setter
     def ndx(self, n):
@@ -474,12 +474,12 @@ line and creates the class simulation.
                     exchange_period=25):
         '''
         Runs NVT tuning with plumed PTE and teplica exchange to obtain high replica efficiency.
-        
+
         Parameters
         ----------
-        
+
         tag : str
-            name of run        
+            name of run
         mpi_np: int
             number of mpi processes. Must be multiple of replicas
         replicas : int
@@ -487,7 +487,7 @@ line and creates the class simulation.
         max_tries : int
             number of simulations to attempt for achieving eff_threshold
         mdp_kwargs : dict
-            additional gromacs mdp arguments 
+            additional gromacs mdp arguments
         hot : float
             hottest replica temperatrue
         cold : float
@@ -506,7 +506,7 @@ line and creates the class simulation.
         Returns
         ----------
         A dictionary with:
-        
+
         plumed : str
             A plumed input section that will utilzie the PTE bias
         efficiency : float
@@ -515,9 +515,9 @@ line and creates the class simulation.
             The list of temperatures used for the baises
 
         '''
-        
 
-            
+
+
         def get_replex_e(self, replica_number):
             print(self.sims[-1].location)
             with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
@@ -559,17 +559,19 @@ line and creates the class simulation.
                 ... METAD
                 PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
                 '''.format(sigma,hill_height,temps,bias_factor))
-        
-            #putting the above text into a file        
+
+            #putting the above text into a file
             with open(plumed_input_name, 'w') as f:
                 f.write(plumed_input)
             #adding the file to the list of required files
 
             #arguments for WT-PTE
-            replica_kwargs = [mdp_kwargs for _ in range(replicas)]
+            replica_kwargs = [mdp_kwargs.copy() for _ in range(replicas)]
             for i, ti in enumerate(replica_temps):
                 replica_kwargs[i]['ref_t'] = ti
-                
+            print(replica_kwargs)
+
+
             self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold:
@@ -592,14 +594,14 @@ line and creates the class simulation.
                 break
             else:
                 self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
-                continue       
+                continue
         if plumed_output_script is None:
             raise RuntimeError('Did not reach high enough efficiency')
         else:
             for f in glob.glob('HILLS_PTWTE*'):
                 p.add_file(f)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
-                
+
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
@@ -615,7 +617,7 @@ line and creates the class simulation.
             A tag to add onto the simulation.
             Probably good idea if you're adding additional arguments.
         repeat : bool
-            This will prevent the simulation for becoming a new name/hash/directory. Useful for continuing a simulation. 
+            This will prevent the simulation for becoming a new name/hash/directory. Useful for continuing a simulation.
         mdp_kwargs : dict or list
             Additional arguments that will be added to the mdp file. Can be list of dcits, which indicates replica exchange
         run_kwargs : dict
@@ -624,7 +626,7 @@ line and creates the class simulation.
             Metadata which will be saved with the SimulationInfo Object
         dump_signal : signal
             This is the signal that will trigger saving the simulation, the piclkle file, and gracefully shutdown
-        
+
         '''
         if mpi_np is None:
             mpi_np = self.mpi_np
@@ -637,7 +639,7 @@ line and creates the class simulation.
             ec.metadata.update(metadata)
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
 
-            
+
     def analyze(self):
         self.calc_rmsd()
         #self.calc_sham()
@@ -704,7 +706,7 @@ line and creates the class simulation.
             else:
                 si.location = self._convert_path(os.path.join(self.dir_name, si.name))
             self._sims[simname] = si
-            self._sim_list.append(si)            
+            self._sim_list.append(si)
         try:
             yield si
         finally:
@@ -1059,7 +1061,7 @@ line and creates the class simulation.
             gro = sinfo.short_name + '.gro'
             if isinstance(mdp_kwargs,list):
                 gro = sinfo.short_name + '0.gro'
-                
+
             #check if it's a restart
             if(sinfo.restart_count > 0):
                 self.log.info('Found existing information about this simulation. Using restart')
@@ -1120,7 +1122,7 @@ line and creates the class simulation.
                     self.tpr_file = tpr
                     sinfo.metadata['md-log'] = 'md.log'
                     sinfo.metadata['mdp-data'] = mdp_data
-                    
+
                 #update metadata
                 sinfo.metadata['mdp-name'] = mdpfile
                 # store reference to trajectory
@@ -1150,7 +1152,7 @@ line and creates the class simulation.
                 sinfo.run(subprocess.call, {'args': ' '.join(map(str,cmd)), 'shell':True})
                 #sinfo.run(gromacs.mdrun, run_kwargs)
 
-            
+
             #check if the output file was created
             if(not os.path.exists(gro)):
                 #open the md log and check for error message
@@ -1174,7 +1176,7 @@ line and creates the class simulation.
 
 #http://stackoverflow.com/questions/3812849/how-to-check-whether-a-directory-is-a-sub-directory-of-another-directory
 def in_directory(file, directory, allow_symlink = False):
-    #make both absolute    
+    #make both absolute
     directory = os.path.abspath(directory)
     file = os.path.abspath(file)
 
