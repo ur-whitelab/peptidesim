@@ -595,7 +595,7 @@ line and creates the class simulation.
                 replica_kwargs[i]['ref_t'] = ti
             print(replica_kwargs)
 
-
+            plumed_output_script=None
             self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold:
