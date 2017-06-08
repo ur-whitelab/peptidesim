@@ -492,7 +492,7 @@ line and creates the class simulation.
 
 
 
-    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, mdp_kwargs=dict(),
+    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),
                     cold = 300.0, hot = 400.0, eff_threshold = 0.3,
                     hill_height=1.2,sigma=140.0,bias_factor=10,
                     exchange_period=25):
@@ -508,6 +508,8 @@ line and creates the class simulation.
             number of mpi processes. Must be multiple of replicas
         replicas : int
             Number of replicas
+        min_iters: int
+            minimum number of simulations required to run
         max_tries : int
             number of simulations to attempt for achieving eff_threshold
         mdp_kwargs : dict
@@ -556,13 +558,14 @@ line and creates the class simulation.
                         if match:
                             return [float(s) for s in match.groups()]
             raise RuntimeError('Unable to parse replica exchange efficiency. Probably simulation was incomplete')
-
+        if (min_iters>=max_tries):
+            raise ValueError('minimum number of simulations should be greater than the maximum number of iterations')
         # replica temperatures
         for i in range(max_tries):
 
             #replex eff initiated
             replex_eff = 0
-            replica_temps = [cold * (hot / cold) ** (float(i) / replicas) for i in range(replicas)]
+            replica_temps = [cold * (hot / cold) ** (float(m) / replicas) for m in range(replicas)]
             #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
             plumed_input_name = self._convert_path('plumed_wte.dat')
@@ -591,14 +594,15 @@ line and creates the class simulation.
 
             #arguments for WT-PTE
             replica_kwargs = [mdp_kwargs.copy() for _ in range(replicas)]
-            for i, ti in enumerate(replica_temps):
-                replica_kwargs[i]['ref_t'] = ti
+            for k, ti in enumerate(replica_temps):
+                replica_kwargs[k]['ref_t'] = ti
             print(replica_kwargs)
 
             plumed_output_script=None
             self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
             replex_eff = min(get_replex_e(self, replicas))
-            if replex_eff >= eff_threshold:
+            if ((replex_eff >= eff_threshold) and (i>=(min_iters-1))):
+                print(i)
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
                 plumed_output_script=textwrap.dedent(
                         '''
