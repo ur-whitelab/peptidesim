@@ -627,7 +627,7 @@ line and creates the class simulation.
             raise RuntimeError('Did not reach high enough efficiency')
         else:
             for f in glob.glob('HILLS_PTWTE*'):
-                p.add_file(f)
+                self.add_file(f)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
