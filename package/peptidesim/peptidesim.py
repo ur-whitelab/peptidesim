@@ -720,7 +720,7 @@ line and creates the class simulation.
         signal.signal(dump_signal, handler)
 
         #construct name and add to simulation infos
-        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file + self.gro_file)
+        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file)
         #the hash is huge. Take the first few chars
         simname = name + '-' + str(file_hash)[:8]
 
