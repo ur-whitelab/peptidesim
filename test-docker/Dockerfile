@@ -10,7 +10,7 @@ ADD packmol.tar.gz /usr/share
 RUN cd /usr/share/packmol && ./configure && make && ln -s /usr/share/packmol/packmol  /usr/bin/packmol
 
 #Get tools for testing
-RUN apt-get update && apt-get install -y python-tox python-setuptools python-pip python-numpy python-scipy && apt-get clean
+RUN apt-get update && apt-get install -y python-tox python-setuptools python-pip python-numpy python-scipy emacs nano && apt-get clean
 
 ENV USER=whitelab
 USER whitelab

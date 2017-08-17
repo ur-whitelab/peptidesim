@@ -184,16 +184,14 @@ class PeptideSim(Configurable):
     def pdb_file(self):
         ''' a property that returns the latest generated pdb file
         '''
-        if(self.gro_file is None):
-            if(len(self._pdb) > 0):
-                return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
-            else:
-                return None
+        if len(self._pdb) > 0:
+            return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
+        elif self.gro_file is not None:
+            output='{}.pdb'.format(os.path.basename(self.gro_file).split('.pdb')[0])
+            gromacs.editconf(f=self.gro_file, o=output)
+            return os.path.normpath(os.path.join(self.rel_dir_name, output))        
+        return None
         
-        output='{}.pdb'.format(os.path.basename(self.gro_file).split('.pdb')[0])
-        gromacs.editconf(f=self.gro_file, o=output)
-        return os.path.normpath(os.path.join(self.rel_dir_name, output))
-
 
     @pdb_file.setter
     def pdb_file(self, f):
@@ -237,7 +235,7 @@ class PeptideSim(Configurable):
     def top_file(self):
         '''a property that returns the latest topology file
         '''
-        if(len(self._top) == 0):
+        if len(self._top) == 0:
             return None
         return os.path.normpath(os.path.join(self.rel_dir_name, self._top[-1]))
 
@@ -250,7 +248,7 @@ class PeptideSim(Configurable):
     def tpr_file(self):
         ''' a property that returns the latest tpr file
         '''
-        if(len(self._tpr) == 0):
+        if len(self._tpr) == 0:
             return None
         return os.path.normpath(os.path.join(self.rel_dir_name, self._tpr[-1]))
 
@@ -260,9 +258,10 @@ class PeptideSim(Configurable):
 
     @property
     def traj_file(self):
-        if(len(self._trr) == 0):
+        if len(self._trr) == 0:
             return None
         return os.path.normpath(os.path.join(self.rel_dir_name, self._trr[-1]))
+
     @traj_file.setter
     def traj_file(self, f):
         ''' a property that returns the latest trr file
@@ -274,7 +273,7 @@ class PeptideSim(Configurable):
     def ndx(self):
         '''a property that returns the latest ndx file
         '''
-        if(self._ndx_file is None):
+        if self._ndx_file is None:
             return None
         n = gromacs.fileformats.NDX()
         n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
@@ -376,7 +375,7 @@ line and creates the class simulation.
     def _start_logging(self):
         #check if logger is relative
         #split path and see if folder is empty
-        if(self.log_file == os.path.basename(self.log_file)):
+        if self.log_file == os.path.basename(self.log_file):
             self.log_file = os.path.join(self.dir_name, self.log_file)
 
         #don't know how we got here, so we'll just add our logger
@@ -558,7 +557,7 @@ line and creates the class simulation.
                         if match:
                             return [float(s) for s in match.groups()]
             raise RuntimeError('Unable to parse replica exchange efficiency. Probably simulation was incomplete')
-        if (min_iters>=max_tries):
+        if min_iters>=max_tries:
             raise ValueError('minimum number of simulations should be greater than the maximum number of iterations')
         # replica temperatures
         for i in range(max_tries):
@@ -601,7 +600,7 @@ line and creates the class simulation.
             plumed_output_script=None
             self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
             replex_eff = min(get_replex_e(self, replicas))
-            if ((replex_eff >= eff_threshold) and (i>=(min_iters-1))):
+            if replex_eff >= eff_threshold and i >= (min_iters-1):
                 print(i)
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
                 plumed_output_script=textwrap.dedent(
@@ -1205,18 +1204,3 @@ line and creates the class simulation.
             #finished, store any info needed
             self.store_data()
             self.gro_file = gro
-
-
-#http://stackoverflow.com/questions/3812849/how-to-check-whether-a-directory-is-a-sub-directory-of-another-directory
-def in_directory(file, directory, allow_symlink = False):
-    #make both absolute
-    directory = os.path.abspath(directory)
-    file = os.path.abspath(file)
-
-    #check whether file is a symbolic link, if yes, return false if they are not allowed
-    if not allow_symlink and os.path.islink(file):
-        return False
-
-    #return true, if the common prefix of both is equal to directory
-    #e.g. /a/b/c/d.rst and directory is /a/b, the common prefix is /a/b
-    return os.path.commonprefix([file, directory]) == directory

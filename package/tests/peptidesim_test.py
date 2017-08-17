@@ -93,7 +93,8 @@ class TestPeptideSimInitialize(TestCase):
         Assert that we don't repeat the initialization simulations
         and that no errors occur
         '''
-
+        self.p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':50})
+        self.p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
         n = len(self.p.sims)
         import dill as pickle
         from cStringIO import StringIO
@@ -183,7 +184,7 @@ class TestPTE(TestCase):
         p.initialize()
         p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
-        pte_result = p.pte_replica(mpi_np=2, max_tries=3, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05)
+        pte_result = p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05)
         #make the plumed input file
         with open('plumed.dat', 'w') as f:
             f.write(pte_result['plumed'])
