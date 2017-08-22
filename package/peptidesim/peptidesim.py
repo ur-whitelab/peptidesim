@@ -713,6 +713,7 @@ line and creates the class simulation.
             with open(os.path.join(self.rel_dir_name,pickle_name), 'w') as f:
                 dill.dump(self, file=f)
             os.chdir(self.rel_dir_name) #put us cleanly into the correct place
+            self.rel_dir_name = '.'
             raise KeyboardInterrupt() #Make sure we do actually end
         #cache existing
         oh = signal.getsignal(dump_signal)
