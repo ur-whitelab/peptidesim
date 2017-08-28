@@ -567,9 +567,15 @@ line and creates the class simulation.
             replica_temps = [cold * (hot / cold) ** (float(m) / replicas) for m in range(replicas)]
             #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
-            plumed_input_name = self._convert_path('plumed_wte.dat')
-            self.add_file(plumed_input_name)
-            plumed_input = textwrap.dedent(
+            #plumed_input_name='{}/{}'.format(self.sims[-1].location,'plumed_wte.dat')
+            #plumed_input_name = self._convert_path('plumed_wte.dat')
+            plumed_input_name='plumed_wte.dat'#initialize the name
+            print(os.path.abspath(plumed_input_name))
+            if (os.path.isfile(plumed_input_name)==False):
+                plumed_input_name=self._convert_path('plumed_wte.dat')
+                self.add_file(plumed_input_name)
+                
+                plumed_input = textwrap.dedent(
                 '''
                 RESTART
                 ene: ENERGY
@@ -587,8 +593,8 @@ line and creates the class simulation.
                 '''.format(sigma,hill_height,temps,bias_factor))
 
             #putting the above text into a file
-            with open(plumed_input_name, 'w') as f:
-                f.write(plumed_input)
+                with open(plumed_input_name, 'w') as f:
+                    f.write(plumed_input)
             #adding the file to the list of required files
 
             #arguments for WT-PTE
@@ -598,7 +604,7 @@ line and creates the class simulation.
             print(replica_kwargs)
 
             plumed_output_script=None
-            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
+            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period},pickle_name=pickle_name)
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold and i >= (min_iters-1):
                 print(i)
@@ -757,10 +763,10 @@ line and creates the class simulation.
         '''
         #check if the path contains our dir_name already
         if(in_directory(dirname, self.dir_name)):
-           d = dirname
+            d = dirname
         else:
-           d = self._convert_path(os.path.join(self.dir_name, dirname))
-        if not os.path.exists(d):
+            d = self._convert_path(os.path.join(self.dir_name, dirname))
+        if not os.path.exists(d):                                           
             os.mkdir(d)
         #bring files
         for f in self.file_list:
