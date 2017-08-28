@@ -189,9 +189,9 @@ class PeptideSim(Configurable):
         elif self.gro_file is not None:
             output='{}.pdb'.format(os.path.basename(self.gro_file).split('.pdb')[0])
             gromacs.editconf(f=self.gro_file, o=output)
-            return os.path.normpath(os.path.join(self.rel_dir_name, output))        
+            return os.path.normpath(os.path.join(self.rel_dir_name, output))
         return None
-        
+
 
     @pdb_file.setter
     def pdb_file(self, f):
@@ -295,7 +295,7 @@ class PeptideSim(Configurable):
         self._ndx_file = self._convert_path(n)
         self._file_list.append(self._ndx_file)
 
-    def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None):
+    def __init__(self,dir_name,seqs,counts=None,config_file=None, job_name=None, pickle_name=None):
         '''This is an initiator that takes the arguments from the command
 line and creates the class simulation.
 
@@ -348,6 +348,9 @@ line and creates the class simulation.
             else:
                 shutil.copy2(f, self._convert_path(f))
             self._file_list.append(os.path.basename(f))
+
+        if pickle_name is None:
+            self.pickle_name = self.job_name + '.pickle'
 
         self._start_logging()
 
@@ -494,7 +497,7 @@ line and creates the class simulation.
     def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),
                     cold = 300.0, hot = 400.0, eff_threshold = 0.3,
                     hill_height=1.2,sigma=140.0,bias_factor=10,
-                    exchange_period=25):
+                    exchange_period=25, dump_signal=signal.SIGTERM):
         '''
         Runs NVT tuning with plumed PTE and teplica exchange to obtain high replica efficiency.
 
@@ -586,19 +589,25 @@ line and creates the class simulation.
                 PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
                 '''.format(sigma,hill_height,temps,bias_factor))
 
-            #putting the above text into a file
+            # putting the above text into a file
             with open(plumed_input_name, 'w') as f:
                 f.write(plumed_input)
-            #adding the file to the list of required files
+            # adding the file to the list of required files
 
-            #arguments for WT-PTE
+            # arguments for WT-PTE
             replica_kwargs = [mdp_kwargs.copy() for _ in range(replicas)]
             for k, ti in enumerate(replica_temps):
                 replica_kwargs[k]['ref_t'] = ti
             print(replica_kwargs)
 
             plumed_output_script=None
-            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp', mdp_kwargs=replica_kwargs, mpi_np=mpi_np,run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period})
+            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp',
+                    mdp_kwargs=replica_kwargs, mpi_np=mpi_np,
+                    run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period},
+                    dump_signal=dump_signal)
+            # write pickle file
+            with open(os.path.join(self.rel_dir_name,self.pickle_name), 'w') as f:
+                dill.dump(self, file=f)
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold and i >= (min_iters-1):
                 print(i)
@@ -629,7 +638,7 @@ line and creates the class simulation.
                 self.add_file(f)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
 
-    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), pickle_name=None, dump_signal=signal.SIGTERM):
+    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(),dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -657,11 +666,9 @@ line and creates the class simulation.
         '''
         if mpi_np is None:
             mpi_np = self.mpi_np
-        if pickle_name is None:
-            pickle_name = self.job_name + '.pickle'
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
-        with self._simulation_context(tag, pickle_name, dump_signal, repeat=repeat) as ec:
+        with self._simulation_context(tag, self.pickle_name, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
@@ -710,9 +717,11 @@ line and creates the class simulation.
         #construct signal handler
         def handler(signum, frame):
             self.log.warning
-            with open(os.path.join(self.rel_dir_name,pickle_name), 'w') as f:
+            rel_dir_name = self.rel_dir_name
+            self.rel_dir_name = '.' #so that we restart from where we started
+            with open(os.path.join(rel_dir_name,pickle_name), 'w') as f:
                 dill.dump(self, file=f)
-            os.chdir(self.rel_dir_name) #put us cleanly into the correct place
+            os.chdir(rel_dir_name) #put us cleanly into the correct place
             raise KeyboardInterrupt() #Make sure we do actually end
         #cache existing
         oh = signal.getsignal(dump_signal)

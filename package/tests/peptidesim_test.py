@@ -194,7 +194,39 @@ class TestPTE(TestCase):
         p.run(tag='pte_check', mdpfile='peptidesim_nvt.mdp', mpi_np=2,
               mdp_kwargs=[{'nsteps': 100, 'ref_t': ti} for ti in pte_result['temperatures']],
               run_kwargs={'plumed': 'plumed.dat', 'replex': 25} )
-        
+
+    def test_pte_restart(self):
+
+
+        import dill as pickle
+        import time
+        from cStringIO import StringIO
+
+        #run a pte to get plumed output
+        p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
+        p.mdrun_driver='gmx_mpi'
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
+        p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
+        #test pickle on signal
+        signal.alarm(1)
+        try:
+            p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05, dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        del p
+
+        new_p = pickle.load(open('test-pte.pickle'))
+
+        # make sure there is one simulation in history with pte
+        self.assertTrue(new_p.sims[-1].short_name == 'pte_tune_test')
+
+        # try to restart it
+        new_p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05, dump_signal=signal.SIGALRM)
+
+
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
@@ -291,13 +323,13 @@ class TestPeptideEmin(TestCase):
         self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
 
 
-    def test_continue_emin(self):        
+    def test_continue_emin(self):
         #call and interrupt the function
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='repeat', mdp_kwargs={'nsteps':10})
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='repeat-1', mdp_kwargs={'nsteps':10}, repeat=True)
         #check locations are the same
         self.assertEqual(self.p.sims[-1].location, self.p.sims[-2].location)
-        
+
 
 
 
@@ -314,7 +346,8 @@ class TestPeptideEmin(TestCase):
         #test pickle on signal
         signal.alarm(1)
         try:
-            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal', mdp_kwargs={'nsteps':2500}, pickle_name='sigtest.pickle', dump_signal=signal.SIGALRM)
+            self.p.pickle_name = 'sigtest.pickle'
+            self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal', mdp_kwargs={'nsteps':2500}, dump_signal=signal.SIGALRM)
         except KeyboardInterrupt:
             pass
 
