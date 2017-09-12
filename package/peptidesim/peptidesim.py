@@ -187,7 +187,9 @@ class PeptideSim(Configurable):
         if len(self._pdb) > 0:
             return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
         elif self.gro_file is not None:
-            output='{}.pdb'.format(os.path.basename(self.gro_file).split('.pdb')[0])
+            print("grofile is not NONE", os.path.basename(self.gro_file).split('.pdb')[0], "ends in pdb",os.path.basename(self.gro_file).split('.gro')[0], "gro")
+
+            output='{}.pdb'.format(os.path.basename(self.gro_file).split('.gro')[0])
             gromacs.editconf(f=self.gro_file, o=output)
             return os.path.normpath(os.path.join(self.rel_dir_name, output))
         return None
@@ -494,7 +496,7 @@ line and creates the class simulation.
 
 
 
-    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),
+    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),hills_file_location=None,
                     cold = 300.0, hot = 400.0, eff_threshold = 0.3,
                     hill_height=1.2,sigma=140.0,bias_factor=10,
                     exchange_period=25, dump_signal=signal.SIGTERM):
@@ -558,27 +560,25 @@ line and creates the class simulation.
                     elif ready:
                         match = p2.match(line)
                         if match:
-                            return [float(s) for s in match.groups()]
+                            return[float(s) for s in match.groups()]
             raise RuntimeError('Unable to parse replica exchange efficiency. Probably simulation was incomplete')
+        
         if min_iters>=max_tries:
             raise ValueError('minimum number of simulations should be greater than the maximum number of iterations')
+        if (hills_file_location==None):
+            hills_file_location=os.getcwd()
         # replica temperatures
         for i in range(max_tries):
-
+        
             #replex eff initiated
             replex_eff = 0
             replica_temps = [cold * (hot / cold) ** (float(m) / replicas) for m in range(replicas)]
             #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
-            #plumed_input_name='{}/{}'.format(self.sims[-1].location,'plumed_wte.dat')
-            #plumed_input_name = self._convert_path('plumed_wte.dat')
-            plumed_input_name='plumed_wte.dat'#initialize the name
-            print(os.path.abspath(plumed_input_name))
-            if (os.path.isfile(plumed_input_name)==False):
-                plumed_input_name=self._convert_path('plumed_wte.dat')
-                self.add_file(plumed_input_name)
-                
-                plumed_input = textwrap.dedent(
+            plumed_input_name='{}/{}'.format(self.sims[-1].location,'plumed_wte.dat')
+            plumed_input_name = self._convert_path('plumed_wte.dat')
+            plumed_input_name=self._convert_path('plumed_wte.dat')
+            plumed_input = textwrap.dedent(
                 '''
                 RESTART
                 ene: ENERGY
@@ -589,43 +589,36 @@ line and creates the class simulation.
                 HEIGHT={}
                 PACE=250
                 TEMP=@replicas:{{{}}}
-                FILE=HILLS_PTWTE
+                FILE={}/HILLS_PTE
                 BIASFACTOR={}
                 ... METAD
-                PRINT ARG=ene STRIDE=250 FILE=COLVAR_PTWTE
-                '''.format(sigma,hill_height,temps,bias_factor))
-
-
-            #putting the above text into a file
-            #    with open(plumed_input_name, 'w') as f:
-            #        f.write(plumed_input)
-            #adding the file to the list of required files
+                PRINT ARG=ene STRIDE=250 FILE={}/COLVAR_PTWTE
+                '''.format(sigma,hill_height,temps,hills_file_location,bias_factor,hills_file_location))
 
             # putting the above text into a file
-                with open(plumed_input_name, 'w') as f:
-                    f.write(plumed_input)
+            with open(plumed_input_name, 'w') as f:
+                f.write(plumed_input)
             # adding the file to the list of required files
-
+            self.add_file(plumed_input_name)
+                                
 
             # arguments for WT-PTE
             replica_kwargs = [mdp_kwargs.copy() for _ in range(replicas)]
             for k, ti in enumerate(replica_temps):
                 replica_kwargs[k]['ref_t'] = ti
-            print(replica_kwargs)
 
             plumed_output_script=None
 
-            self.run(tag=tag, mdpfile='peptidesim_nvt.mdp',
+            self.run(tag=tag + '-{}'.format(i), mdpfile='peptidesim_nvt.mdp',
                     mdp_kwargs=replica_kwargs, mpi_np=mpi_np,
                     run_kwargs={'plumed':plumed_input_name, 'replex': exchange_period},
                     dump_signal=dump_signal)
-            # write pickle file
+            #write pickle file
             with open(os.path.join(self.rel_dir_name,self.pickle_name), 'w') as f:
                 dill.dump(self, file=f)
 
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold and i >= (min_iters-1):
-                print(i)
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
                 plumed_output_script=textwrap.dedent(
                         '''
@@ -638,19 +631,21 @@ line and creates the class simulation.
                  HEIGHT={}
                  PACE=99999999
                  TEMP=@replicas:{{{}}}
-                 FILE=HILLS_PTWTE
+                 FILE={}/HILLS_PTE
                  BIASFACTOR={}
                  ... METAD
-                        '''.format(sigma,hill_height,temps,bias_factor))
+                        '''.format(sigma,hill_height,temps,hills_file_location,bias_factor))
                 break
             else:
                 self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
                 continue
+        
         if plumed_output_script is None:
             raise RuntimeError('Did not reach high enough efficiency')
         else:
-            for f in glob.glob('HILLS_PTWTE*'):
-                self.add_file(f)
+            if( hills_file_location != os.getcwd() and hills_file_location!=None):
+                for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
+                    self.add_file(f)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(),dump_signal=signal.SIGTERM):
