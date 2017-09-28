@@ -562,17 +562,17 @@ line and creates the class simulation.
                         if match:
                             return[float(s) for s in match.groups()]
             raise RuntimeError('Unable to parse replica exchange efficiency. Probably simulation was incomplete')
-        
+
         if min_iters>=max_tries:
             raise ValueError('minimum number of simulations should be greater than the maximum number of iterations')
         if (hills_file_location==None):
             hills_file_location=os.getcwd()
         # replica temperatures
         for i in range(max_tries):
-        
+
             #replex eff initiated
             replex_eff = 0
-            replica_temps = [cold * (hot / cold) ** (float(m) / replicas) for m in range(replicas)]
+            replica_temps = [cold * (hot / cold) ** (float(m) / replicas) for m in range(replicas + 1)]
             #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
             plumed_input_name='{}/{}'.format(self.sims[-1].location,'plumed_wte.dat')
@@ -600,7 +600,7 @@ line and creates the class simulation.
                 f.write(plumed_input)
             # adding the file to the list of required files
             self.add_file(plumed_input_name)
-                                
+
 
             # arguments for WT-PTE
             replica_kwargs = [mdp_kwargs.copy() for _ in range(replicas)]
@@ -639,7 +639,7 @@ line and creates the class simulation.
             else:
                 self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
                 continue
-        
+
         if plumed_output_script is None:
             raise RuntimeError('Did not reach high enough efficiency')
         else:
@@ -778,7 +778,7 @@ line and creates the class simulation.
             d = dirname
         else:
             d = self._convert_path(os.path.join(self.dir_name, dirname))
-        if not os.path.exists(d):                                           
+        if not os.path.exists(d):
             os.mkdir(d)
         #bring files
         for f in self.file_list:
@@ -916,7 +916,7 @@ line and creates the class simulation.
         #build input text
         input_string = textwrap.dedent(
                 '''
-                tolerance 2.0 
+                tolerance 2.0
                 filetype pdb
                 output {}
                 '''.format(output_file))
