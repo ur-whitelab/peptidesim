@@ -572,7 +572,7 @@ line and creates the class simulation.
 
             #replex eff initiated
             replex_eff = 0
-            replica_temps = [cold * (hot / cold) ** (float(m) / replicas) for m in range(replicas + 1)]
+            replica_temps = [cold * (hot / cold) ** (float(m) / (replicas - 1)) for m in range(replicas)]
             #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
             plumed_input_name='{}/{}'.format(self.sims[-1].location,'plumed_wte.dat')
