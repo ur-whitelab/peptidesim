@@ -549,7 +549,7 @@ line and creates the class simulation.
 
 
         def get_replex_e(self, replica_number):
-            print(self.sims[-1].location)
+            #print(self.sims[-1].location)
             with open(self.sims[-1].location + '/' + self.sims[-1].metadata['md-log']) as f:
                 p1 = re.compile('Repl  average probabilities:')
                 p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
@@ -915,7 +915,8 @@ line and creates the class simulation.
 
         #build input text
         input_string = textwrap.dedent(
-                '''tolerance 2.0
+                '''
+                tolerance 2.0 
                 filetype pdb
                 output {}
                 '''.format(output_file))
