@@ -945,17 +945,14 @@ line and creates the class simulation.
                 f.write(input_string)
 
             #pack up packmol into a gromacs command
-            class Packmol(gromacs.core.Command):
-                command_name = self.packmol_exe
-            cmd = Packmol()
-            result = cmd(input=open(input_file, 'r'))
 
-            if result[0] != 0:
-                self.log.error('Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(*result, input=input_string))
+            result = subprocess.call('{} < {}'.format(self.packmol_exe, input_file), shell=True)
+            if result != 0:
+                self.log.error('Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(result, input=input_string))
             else:
-                self.log.info('Packmol succeeded with retcode {}'.format(*result))
+                self.log.info('Packmol succeeded with retcode {}'.format(result))
 
-            assert os.path.exists(output_file), 'Packmol succeeded with retcode {} but has no output. Out: {} Err: {} Input: {input}'.format(*result, input=input_string)
+            assert os.path.exists(output_file), 'Packmol succeeded with retcode {} but has no output. Input: {input}'.format(*result, input=input_string)
 
     def _pdb2gmx(self):
 
