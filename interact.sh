@@ -1,13 +1,8 @@
 #!/bin/bash
 
-RESULT=$(docker run -d -v "`pwd`:/home/tester/peptidesim" peptidesim/test)
-echo "run the following: "
-echo "[wait until docker container is finished (check logs)]"
-echo "sudo docker logs $RESULT"
-echo "[enter the docker container]"
-echo "sudo docker exec -i -t $RESULT /bin/bash"
-echo "[switch to python 2]"
-echo "source activate python2"
-echo "[make it possible to use text-editor]"
-echo "export TERM=linux"
-echo "after exiting docker, be sure to terminate it!"
+
+echo "In container peptidesim directroy run: pip install -e ."
+echo "Then change to /home/whitelab/scratch and run"
+echo "~/.local/bin/pytest ../peptidesim/package"
+echo "No need to rebuild container or re-install. Just edit code"
+docker run --rm -it -v `pwd`:/home/whitelab/peptidesim peptidesim/test bash

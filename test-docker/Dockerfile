@@ -17,11 +17,12 @@ USER whitelab
 WORKDIR /home/whitelab
 
 #setup gromacswrapper
-RUN pip install --no-cache-dir --user GromacsWrapper && echo "import gromacs; gromacs.config.setup()" | python
-RUN sed -i 's/tools = /tools = gmx gmx_mpi/' /home/whitelab/.gromacswrapper.cfg
+# && echo "import gromacs; gromacs.config.setup()" | python
+RUN pip install --no-cache-dir --user GromacsWrapper
+#RUN sed -i 's/tools = /tools = gmx gmx_mpi/' /home/whitelab/.gromacswrapper.cfg
 
 
-    
+
 
 #set default
 ADD test.sh /home/whitelab
