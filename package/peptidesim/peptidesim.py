@@ -215,7 +215,7 @@ class PeptideSim(Configurable):
     @property
     def gro_file(self):
         '''The latest gro file
-        '''
+xxx        '''
         if len(self._gro) == 0:
             return None
         if type(self._gro[-1]) is list:
@@ -493,15 +493,202 @@ line and creates the class simulation.
         current_dir=os.getcwd()
         return '{}/replica_temp.xvg'.format(current_dir)
 
-
-
-
-    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),hills_file_location=None,
+    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),run_kwargs=dict(),hills_file_location=None,
                     cold = 300.0, hot = 400.0, eff_threshold = 0.3,
                     hill_height=1.2,sigma=140.0,bias_factor=10,
                     exchange_period=25, dump_signal=signal.SIGTERM):
+        '''                                                                                                                                                             
+        Runs NVT tuning with plumed PTE and teplica exchange to obtain high replica efficiency.                                                                         
+                                                                                                                                                                       
+        Parameters                                                                                                                                                     
+        ----------                                                                                                                                                     
+                                                                                                                                                                       
+        tag : str                                                                                                                                                      
+            name of run                                                                                                                                                
+        mpi_np: int                                                                                                                                                    
+            number of mpi processes. Must be multiple of replicas                                                                                                      
+        replicas : int                                                                                                                                                 
+            Number of replicas                                                                                                                                         
+        min_iters: int                                                                                                                                                 
+            minimum number of simulations required to run                                                                                                              
+        max_tries : int                                                                                                                                                
+            number of simulations to attempt for achieving eff_threshold                                                                                               
+        mdp_kwargs : dict                                                                                                                                              
+            additional gromacs mdp arguments                                                                                                                           
+        hot : float                                                                                                                                                    
+            hottest replica temperatrue                                                                                                                                
+        cold : float                                                                                                                                                   
+            coldest replica temperatrue                                                                                                                                
+        eff_threshold : float                                                                                                                                          
+            The target replica exchange efficiency                                                                                                                     
+        hill_height : float                                                                                                                                            
+             hill height for pt-wte                                                                                                                        
+        sigma: float                                                                                                                                                   
+            the width of the gaussian for pte-wte                                                                                                                      
+        bias_factor: int or float                                                                                                                                      
+            biasfactor to add to pte_wte    
+        exchange_period : int                                                                                                                                          
+            the number of steps between exchange attempts                                                                                                              
+                                                                                                                                                                       
+        Returns                                                                                                                                                        
+        ----------                                                                                                                                                     
+        A dictionary with:                                                                                                                                            
+        plumed : str                                                                                                                                                   
+            A plumed input section that will utilzie the PTE bias                                                                                                    
+        efficiency : float                                                                                                                                             
+            The final efficiency                                                                                                                                       
+        temperature : list                              
+            The list of temperatures used for the baises                                                                                                        
         '''
-        Runs NVT tuning with plumed PTE and teplica exchange to obtain high replica efficiency.
+        def get_replex_e(self, replica_number):
+            pte_sims=[]
+            index=0
+            for simulation in self.sims:
+                if simulation.name.startswith(tag):
+                    pte_sims.append(index)
+                index=index+1
+            with open(self.sims[pte_sims[-1]].location + '/' + self.sims[pte_sims[-1]].metadata['md-log']) as f:
+                p1 = re.compile('Repl  average probabilities:')
+                p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
+                ready = False
+                for line in f:
+                    if not ready and p1.findall(line):
+                        ready = True
+                    elif ready:
+                        match = p2.match(line)
+                        if match:
+                            return[float(s) for s in match.groups()]
+            raise RuntimeError('Unable to parse replica exchange efficiency. Probably simulation was incomplete')
+
+        if min_iters>=max_tries:
+            raise ValueError('minimum number of simulations should be greater than the maximum number of iterations')
+        if (hills_file_location==None):
+            hills_file_location=os.getcwd()
+        # replica temperatures                                                                                                                                          
+        for i in range(max_tries):
+
+            #replex eff initiated                                                                                                                                       
+            replex_eff = 0
+            replica_temps = [cold * (hot / cold) ** (float(m) / (replicas - 1)) for m in range(replicas)]
+            #plumed input for WT-PTE                                                                            
+            temps = ','.join(str(e) for e in replica_temps)
+            plumed_input_name='{}/{}'.format(self.sims[-1].location,'plumed_wte.dat')
+            plumed_input_name = self._convert_path('plumed_wte.dat')
+            plumed_input_name=self._convert_path('plumed_wte.dat')
+            plumed_input = textwrap.dedent(
+                '''                                                                                                                                             
+                RESTART                                                                                                                                                
+                ene: ENERGY                                                                                                                                          
+                METAD ...                                                                                                                                              
+                LABEL=METADPT                                                                                                                                          
+                ARG=ene                                                                                                                                                
+                SIGMA={}                                                                                                                                               
+                HEIGHT={}                                                                                                                                              
+                PACE=250                                                                                                                                               
+                TEMP=@replicas:{{{}}}                                                                                                                                  
+                FILE={}/HILLS_PTE                                                                                                                                      
+                BIASFACTOR={}                                                                                                                                          
+                ... METAD                                                                                                                                              
+                PRINT ARG=ene STRIDE=250 FILE={}/COLVAR_PTWTE                                                                                                          
+                '''.format(sigma,hill_height,temps,hills_file_location,bias_factor,hills_file_location))
+            # putting the above text into a file                                                                                                                       
+            with open(plumed_input_name, 'w') as f:
+                f.write(plumed_input)
+            # adding the file to the list of required files                                                                                                            
+            self.add_file(plumed_input_name)
+
+
+            # arguments for WT-PTE                                                                                                                                     
+            replica_kwargs = [mdp_kwargs.copy() for _ in range(replicas)]
+            for k, ti in enumerate(replica_temps):
+                replica_kwargs[k]['ref_t'] = ti
+
+            plumed_output_script=None
+            run_kwargs['plumed'] = plumed_input_name
+            run_kwargs['replex'] = exchange_period
+
+            self.run(tag=tag + '-{}'.format(i), mdpfile='peptidesim_nvt.mdp',
+                    mdp_kwargs=replica_kwargs, mpi_np=mpi_np,
+                     run_kwargs=run_kwargs,
+                    dump_signal=dump_signal)
+
+            #write pickle file                                                                                                                                         
+            with open(os.path.join(self.rel_dir_name,self.pickle_name), 'w') as f:
+                dill.dump(self, file=f)
+
+            replex_eff = min(get_replex_e(self, replicas))
+            if replex_eff >= eff_threshold and i >= (min_iters-1):
+                self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
+                plumed_output_script=textwrap.dedent(
+                        '''                                                                                                                                            
+                 ene: ENERGY                                                                                                                                           
+                 METAD ...                                                                                                                                             
+                 RESTART=YES                                                                                                                                           
+                 LABEL=METADPT                                                                                                                                         
+                 ARG=ene                                                                                                                                               
+                 SIGMA={}                                                                                                                                              
+                 HEIGHT={}                                                                                                                                             
+                 PACE=99999999                                                                                                                                         
+                 TEMP=@replicas:{{{}}}                                                                                                                                 
+                 FILE={}/HILLS_PTE                                                                                                                                     
+                 BIASFACTOR={}                                                                                                                                         
+                 ... METAD                                                                                                                                             
+                        '''.format(sigma,hill_height,temps,hills_file_location,bias_factor))
+                break
+            else:
+                self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
+                continue
+
+        if plumed_output_script is None:
+            raise RuntimeError('Did not reach high enough efficiency')
+        else:
+            if( hills_file_location != os.getcwd() and hills_file_location!=None):
+                for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
+                    self.add_file(f)
+            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
+
+
+
+
+
+
+
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        '''    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30,min_iters=4, mdp_kwargs=dict(),hills_file_location=None,
+                    cold = 300.0, hot = 400.0, eff_threshold = 0.3,
+                    hill_height=1.2,sigma=140.0,bias_factor=10,
+                    exchange_period=25, dump_signal=signal.SIGTERM):
+                Runs NVT tuning with plumed PTE and teplica exchange to obtain high replica efficiency.
 
         Parameters
         ----------
@@ -544,7 +731,7 @@ line and creates the class simulation.
         temperature : list
             The list of temperatures used for the baises
 
-        '''
+        
 
 
 
@@ -579,7 +766,7 @@ line and creates the class simulation.
             plumed_input_name = self._convert_path('plumed_wte.dat')
             plumed_input_name=self._convert_path('plumed_wte.dat')
             plumed_input = textwrap.dedent(
-                '''
+                
                 RESTART
                 ene: ENERGY
                 METAD ...
@@ -593,7 +780,7 @@ line and creates the class simulation.
                 BIASFACTOR={}
                 ... METAD
                 PRINT ARG=ene STRIDE=250 FILE={}/COLVAR_PTWTE
-                '''.format(sigma,hill_height,temps,hills_file_location,bias_factor,hills_file_location))
+                .format(sigma,hill_height,temps,hills_file_location,bias_factor,hills_file_location))
 
             # putting the above text into a file
             with open(plumed_input_name, 'w') as f:
@@ -621,7 +808,7 @@ line and creates the class simulation.
             if replex_eff >= eff_threshold and i >= (min_iters-1):
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
                 plumed_output_script=textwrap.dedent(
-                        '''
+                        
                  ene: ENERGY
                  METAD ...
                  RESTART=YES
@@ -634,7 +821,7 @@ line and creates the class simulation.
                  FILE={}/HILLS_PTE
                  BIASFACTOR={}
                  ... METAD
-                        '''.format(sigma,hill_height,temps,hills_file_location,bias_factor))
+                        .format(sigma,hill_height,temps,hills_file_location,bias_factor))
                 break
             else:
                 self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
@@ -646,7 +833,92 @@ line and creates the class simulation.
             if( hills_file_location != os.getcwd() and hills_file_location!=None):
                 for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
                     self.add_file(f)
-            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
+            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}'''
+    def remove_simulation(self, sim_name, debug=None):
+        ''' method that takes a name of the simulation to be removed and deletes the anything related to that simulation  
+                                                                                                                          
+        Parameters:                                                                                                       
+        sim_name - name of the simulation a.k.a 'tag'                                                                     
+        '''
+        #with open(os.path.join(self.rel_dir_name,self.pickle_name),'w') as f:                                            
+        #    dill.load(f)                                                                                                 
+        sim_index=0
+        full_name=None
+        for sim in self.sims:
+            if sim.name.startswith(sim_name):
+                if( len(self.sims)!=0 and len(self._sims)!=0 and self.sims!=None  and self._sims!=None):
+                    full_name=sim.name
+                    if (debug!=None):
+                        full_name=debug
+                    del self.sims[sim_index]
+                    del self._sims[full_name]
+                    break
+            sim_index=sim_index+1
+        if (debug!=None):
+            full_name=debug
+        all_tpr_file_index=0
+        replica_tpr=0
+        tpr_file_index=[]
+        for tpr_file in self._tpr:
+            if type(tpr_file)==list:
+                #print(tpr_file, 'its is list')
+                file_path=tpr_file[0].split('/')
+                all_tpr_file_index+=1
+                if file_path[1]==full_name:
+                    #print(all_tpr_file_index,'tpr file index, is a list', full_name, 'full_name')
+                    tpr_file_index.append(all_tpr_file_index)
+                    continue
+                elif(file_path[1]!=full_name):
+                    continue
+            else:
+                file_path=tpr_file.split('/')
+                all_tpr_file_index+=1
+                if file_path[1]==full_name:
+                    replica_tpr+=1
+                    #print(all_tpr_file_index,'all tpr file index, not a list', full_name,'full name')
+                    tpr_file_index.append(all_tpr_file_index)
+                    continue
+
+        all_gro_file_index=0
+        replica_gro=0
+        gro_file_index=[]
+        for gro_file in self._gro:
+            if type(gro_file)==list:
+                file_path=gro_file[0].split('/')
+                all_gro_file_index+=1
+                if file_path[1]==full_name:
+                    gro_file_index.append(all_gro_file_index)
+                    replica_gro+=1
+                    continue
+
+                elif(file_path[1]!=full_name):
+                    continue
+            else:
+                file_path=gro_file.split('/')
+                all_gro_file_index+=1
+                if (file_path[1]==full_name):
+                    gro_file_index.append(all_gro_file_index)
+                    continue
+
+        if len(self._gro)<len(gro_file_index):
+            raise ValueError('Gro file index is larger than the array size')
+        if len(self._tpr)<len(tpr_file_index):
+            raise ValueError('Tpr file index is larger than tpr file array')
+        if len(self._sims)<sim_index:
+            raise ValueError('Simulation index is larger than sims array')
+        if type(full_name)!=str and full_name==None:
+            raise ValueError('name of the simulation to be removed should be a string or the simulation does not exist anymore')
+        for i in range(len(gro_file_index)):
+            del self._gro[gro_file_index[i]-i-1]
+
+        for i in range(len(tpr_file_index)):
+            #print(self._tpr[tpr_file_index[i]-i-1],'deleted tpr file')
+            del self._tpr[tpr_file_index[i]-i-1]
+        with open(os.path.join(self.rel_dir_name,self.pickle_name),'w') as f:
+            dill.dump(self,file=f)
+
+
+
 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(),dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile

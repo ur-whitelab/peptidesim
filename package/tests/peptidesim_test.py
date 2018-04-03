@@ -175,6 +175,9 @@ class TestPeptideStability(TestCase):
             p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
             shutil.rmtree('dipeptide')
 
+
+                
+
 class TestPTE(TestCase):
     def test_pte(self):
         #run a pte to get plumed output
@@ -184,8 +187,11 @@ class TestPTE(TestCase):
         p.initialize()
         p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
-        pte_result = p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05)
+        pte_result=''
+        with self.assertRaises(RuntimeError) as cm:
+            p.pte_replica(mpi_np=2, max_tries=2,min_iters=1,mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.99)
         #make the plumed input file
+        pte_result = p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 400}, replicas=2, hot=315, eff_threshold=0.00)
         with open('plumed.dat', 'w') as f:
             f.write(pte_result['plumed'])
         p.add_file('plumed.dat')
@@ -193,7 +199,7 @@ class TestPTE(TestCase):
         #now try running it with PTE
         p.run(tag='pte_check', mdpfile='peptidesim_nvt.mdp', mpi_np=2,
               mdp_kwargs=[{'nsteps': 100, 'ref_t': ti} for ti in pte_result['temperatures']],
-              run_kwargs={'plumed': 'plumed.dat', 'replex': 25} )
+              run_kwargs={'plumed': 'plumed.dat', 'replex': 25})
 
     def test_pte_restart(self):
 
@@ -212,7 +218,7 @@ class TestPTE(TestCase):
         #test pickle on signal
         signal.alarm(1)
         try:
-            p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05, dump_signal=signal.SIGALRM)
+            p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.01, min_iters=1,dump_signal=signal.SIGALRM)
         except KeyboardInterrupt:
             pass
 
@@ -221,12 +227,70 @@ class TestPTE(TestCase):
         new_p = pickle.load(open('test-pte.pickle'))
 
         # make sure there is one simulation in history with pte
-        self.assertTrue(new_p.sims[-1].short_name == 'pte_tune_test')
+        
+        self.assertTrue(new_p.sims[-1].short_name.startswith('pte_tune_test'))
 
         # try to restart it
-        new_p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.05, dump_signal=signal.SIGALRM)
+        new_p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, min_iters=1,eff_threshold=0.01, dump_signal=signal.SIGALRM)
 
 
+
+class TestRemoveSimulation(TestCase):
+    def test_remove(self):
+        #run a pte to get plumed output                                                                                   
+        p = PeptideSim('pte_test', ['AA'], [1], job_name='remove')
+        p.mdrun_driver='gmx_mpi'
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
+        p.run(tag='nvt_check',mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
+        old_gro_files_number=len(p._gro)
+        old_tpr_files_number=len(p._tpr)
+        old_sim_files_number=len(p._sims)
+
+        #now try running it with PTE                                                                                      
+        p.remove_simulation('nvt_check')
+        new_gro_len=len(p._gro)
+        new_tpr_len=len(p._tpr)
+        new_sim_len=len(p._sims)
+        self.assertGreaterEqual(old_gro_files_number,new_gro_len)
+        self.assertGreaterEqual(old_tpr_files_number,new_tpr_len)
+        self.assertGreaterEqual(old_sim_files_number,new_sim_len)
+
+        
+
+    def test_remove_restart(self):
+
+        
+
+        import dill as pickle
+        import time
+        from cStringIO import StringIO
+
+        #run a pte to get plumed output                                                                                   
+        p = PeptideSim('pte_test', ['AA'], [1], job_name='test-remove')
+        p.mdrun_driver='gmx_mpi'
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run(tag='eminiiii',mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
+        p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
+        #test pickle on signal                                                                                            
+       
+        
+
+
+        # make sure there is one simulat 
+
+        # try to restart it                                                                                               
+        p.remove_simulation('eminiiii')
+        with self.assertRaises(ValueError) as cm:
+            p.remove_simulation('wrong_sim_name')
+        with self.assertRaises(TypeError) as cm:
+            p.remove_simulation(None)
+
+
+
+    
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
