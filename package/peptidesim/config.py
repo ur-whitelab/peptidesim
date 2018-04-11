@@ -15,18 +15,16 @@ class PeptideSimConfigurator(Application):
     version = __version__
     classes = List([PeptideSim])
     description = '''The peptidesim application.
-
     Currently, this application only generates a configuration
     '''
-    
 
     #command line flags
     aliases = Dict({'config:':'PeptideSimConfigurator.config_file'})
-    
+
     config_file = Unicode('peptidesim_config.py',
         help="The config file to load",
     ).tag(config=True)
-                   
+
     def write_config_file(self):
         '''Write our default config to a .py config file'''
         if os.path.exists(self.config_file):
@@ -51,12 +49,10 @@ class PeptideSimConfigurator(Application):
         print("Writing default config to: %s" % self.config_file)
         with open(self.config_file, mode='w') as f:
             f.write(config_text)
-            
-
 
 
 def generate_config():
     p = PeptideSimConfigurator.instance()
     p.initialize()
     p.write_config_file()
-    
+
