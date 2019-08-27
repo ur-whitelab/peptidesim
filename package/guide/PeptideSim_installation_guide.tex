@@ -1,0 +1,82 @@
+\documentclass [12pt] {article}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage[caption = false]{subfig}
+\usepackage{multicol}
+\DeclareFixedFont{\ttm}{T1}{txtt}{m}{n}{12}
+\onehalfspacing
+\usepackage{color}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.98}
+\usepackage{listings}
+\lstset{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codegray},
+    basicstyle=\footnotesize\ttfamily,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\fboxsep=0.5mm%padding thickness
+\fboxrule=4pt%border thickness
+ \geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+ }
+\begin{document}
+\noindent	\textbf{PeptideSim Installation Guide} \hfill		
+	\onehalfspacing 
+\\
+
+\noindent	\textbf{Module load:} 
+\\\\ \indent Load the below modules using {\color{blue} \texttt{ \$module load ... }}:
+\begin{multicols}{3}
+\begin{itemize}
+\item anaconda3 
+\item packmol
+\item  libmatheval
+\item gromacs-plumed/2018.3/b2
+\item gromacs-plumed/2018.3/b3
+\item openblas
+\item openmpi 
+\end{itemize}
+\end{multicols}
+
+\noindent	\textbf{Installing PeptideSim} 
+\\\\ \indent First create a virtual environment using { \color{blue} \texttt{  \$conda create -n yourenvname python=2.7}}. Make sure you specify python 2.7 for installing your conda environment as the peptidesim.py code is not compatible with the newer versions of python. Once you have your environment created, you should activate it for the next steps using {\color{blue} \texttt{  \$source activate yourenvname}}.
+\\\\ \textbf{Note:} Avoid using {\color{blue} \texttt{  \$conda activate yourenvname}} as it might cause some problems in installing different python modules using pip. Check on pip and python and make sure they are sourced to your env directory. You can do this using {\color{blue} \texttt{ \$which pip}} or {\color{blue} \texttt{ \$which python}}. The output should be like this: \texttt{ /.conda/envs/yourenvname/bin/pip}
+\\\\ \indent Before installing PeptideSim, you need to install the GromacsWrapper module. You can download the source code for version 0.6.2 from the below link and use the command below: \\ \noindent{\color{blue}\texttt{ \$pip install GromacsWrapper-release-0.6.2.tar.gz}}\\ \texttt{ https://github.com/Becksteinlab/GromacsWrapper/archive/release-0.6.2.tar.gz}.
+\\ Once installed, you should be able to import the module in python. Open python and type in:
+ \\  {\color{blue} \texttt{\indent import  gromacs \\ \indent
+ gromacs.config.setup()}}.
+ \\ With the second command, a .gromacswrapper.cfg file will be created in your home directory. Using any text editor, make the following changes to that file:\\ 
+ {\lstinputlisting[language=python]{.gromacswrapper_example.cfg}}
+ \noindent
+  \textbf{Note:} If you only load one of the gromacs-plumed modeules, you need to create a hyperlink for \texttt{gmx\_mpi}. To do this, type in {\color{blue} \texttt{ \$which gmx\_mpi}}. Use the output directory (gmx\_mpi\_loc) in the below command:\\
+  {\color{blue} \texttt{ \$ln -s gmx\_mpi\_loc ~/.local/bin/gmx}}
+ \\\\For installing PeptideSim, you first need to clone the package from the WhiteLab repo on BlueHound (make sure you have access to BlueHound) . Make a directory on your home and use the below command:\\
+{\color{blue} \texttt{  \$git clone ssh://whitelab@bluehound.circ.rochester.edu:22022/peptide\_simpy2 }}
+\\Go to the directory where you cloned PeptideSim and change directory to \texttt{/package} and use  {\color{blue} \texttt{  \$pip install .}} to install the module.
+\\\\
+\textbf{Note:} You need to downgrade biopython module to the version 1.72. To do that, simply do the following:\\
+
+ {\color{blue} \texttt{\$pip uninstall biopython}} 
+\\ \indent{\color{blue} \texttt{\$pip install biopython==1.72}}
+\end{document}
+

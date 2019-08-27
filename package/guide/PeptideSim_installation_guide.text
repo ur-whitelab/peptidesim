@@ -1,0 +1,88 @@
+**PeptideSim Installation Guide**
+**Module load:**
+
+Load the below modules using ` $module load ... `:
+
+-   anaconda3
+
+-   packmol
+
+-   libmatheval
+
+-   gromacs-plumed/2018.3/b2
+
+-   gromacs-plumed/2018.3/b3
+
+-   openblas
+
+-   openmpi
+
+**Installing PeptideSim**
+
+First create a virtual environment using
+` $conda create -n yourenvname python=2.7`. Make sure you specify python
+2.7 for installing your conda environment as the peptidesim.py code is
+not compatible with the newer versions of python. Once you have your
+environment created, you should activate it for the next steps using
+` $source activate yourenvname`.
+
+**Note:** Avoid using ` $conda activate yourenvname` as it might cause
+some problems in installing different python modules using pip. Check on
+pip and python and make sure they are sourced to your env directory. You
+can do this using ` $which pip` or ` $which python`. The output should
+be like this: ` /.conda/envs/yourenvname/bin/pip`
+
+Before installing PeptideSim, you need to install the GromacsWrapper
+module. You can download the source code for version 0.6.2 from the
+below link and use the command:
+
+` $pip install GromacsWrapper-release-1.6.2.tar.gz
+` https://github.com/Becksteinlab/GromacsWrapper/archive/release-0.6.2.tar.gz`.
+
+Once installed, you should be able to import the module in python. Open
+python and type in:
+
+ `import gromacs`
+` gromacs.config.setup()`
+
+With the second command, a .gromacswrapper.cfg file will be created in
+your home directory. Using any text editor, make the following changes
+to that file:
+
+```
+[DEFAULT]
+qscriptdir = %(configdir)s/qscripts
+templatesdir = %(configdir)s/templates
+configdir = ~/.gromacswrapper
+
+[Gromacs]
+release = 2018.3
+gmxrc = /software/gromacs-plumed/2018.3/b2/bin/GMXRC
+extra =
+tools = gmx gmx_mpi
+groups = tools
+
+[Logging]
+logfilename = gromacs.log
+loglevel_console = INFO
+loglevel_file = DEBUG
+```
+
+**Note:** If you only load one of the gromacs-plumed modeules, you need
+to create a hyperlink for `gmx_mpi`. To do this, type in
+` $which gmx_mpi`. Use the output directory (gmx\_mpi\_loc) in the below
+command:
+ ` $ln -s gmx_mpi_loc  /.local/bin/gmx`
+
+For installing PeptideSim, you first need to clone the package from the
+WhiteLab repo on BlueHound (make sure you have access to BlueHound) .
+Make a directory on your home and use the below command:
+
+` $git clone ssh://whitelab@bluehound.circ.rochester.edu:22022/peptide_simpy2 `
+Go to the directory where you cloned PeptideSim and change directory to
+`/package` and use ` $pip install .` to install the module.
+
+**Note:** You need to downgrade biopython module to the version 1.72. To
+do that, simply do the following:
+ `$pip uninstall biopython`
+ `$pip install biopython==1.72`
