@@ -1,3 +1,4 @@
 dill
 tox
 pytest
+biopython==1.72
