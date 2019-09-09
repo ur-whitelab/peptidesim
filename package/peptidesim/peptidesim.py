@@ -427,8 +427,8 @@ class PeptideSim(Configurable):
           2. Combine the PDB files using packmol
           3. Convert them into gmx files using the pdb2gmx command and configuration parameters
           4. Add water using the editconf/genbox
-          5. Compile our energy-minimization tpr file for purposes of adding ions
-          6. Add ions
+          5. Add ions
+		  6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         #generate pdbs from sequences and store their extents
         self.structure_extents = []
@@ -449,13 +449,14 @@ class PeptideSim(Configurable):
         #center the peptides
         self._center()
 
-        #energy minimize it
-        self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps':500})
-        #Add solvent
+        #add solvent
         self._solvate()
 
         #add ions
         self._add_ions()
+
+        #energy minimize it
+        self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps':500})
 
         self.log.info('Completed Initialization')
 
@@ -1074,7 +1075,8 @@ class PeptideSim(Configurable):
             mdp_sim.update(mdp_base)
             mdp_sim.write(ion_mdp)
 
-            gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr)
+            gromacs.grompp(f=ion_mdp, c=self.gro_file, p=self.top_file, o=ion_tpr, maxwarn=1)
+            #adding max warn because we want to avoid the 'ssytem has net charge' warningbefore output from this grompp command
             self.tpr_file = ion_tpr
 
 
