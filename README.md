@@ -1,7 +1,7 @@
 # PeptideSim
 ​
 ## Goal
----
+
 We want to be able to post-process explore/analyze the data. We need to know the following then:
 
    1. The peptides/amounts, density, etc (traits)
@@ -10,7 +10,7 @@ We want to be able to post-process explore/analyze the data. We need to know the
    4. metadata system of simulations
 
 ## Installation
----
+
 ### Bluehive Install
 
 1. Load required modules
@@ -84,7 +84,7 @@ is only necessary to rebuild the docker script when newer gromacs,
 gromacswrapper packages are available.
 
 ## Contributing
----
+
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 Please make sure to update tests as appropriate when making changes.
 ​
