@@ -83,6 +83,37 @@ the build script. Then, run the test script in the root directory. It
 is only necessary to rebuild the docker script when newer gromacs,
 gromacswrapper packages are available.
 
+## Typical Workflow
+
+### Regular Simulation
+
+1. Create a Python script simple.py and import PeptideSim
+```python
+from pepsidesim import PeptideSim
+```
+2. Specify input condition and initialize
+```python
+seq = 'EKEKEKEKEKEK' #input the sequence in one-letter-code
+name = 'EK6' #naming the sequence
+pep_copies = 1 #specifiy the number of copies
+MPI_NP = 4
+ps = PeptideSim(name, [seq], [pep_copies], job_name='2mer_{}'.format(name)) #input to PeptideSim
+ps.peptide_density = 0.008 #g/mol
+ps.water = 'spce' #specify water model
+ps.mpi_np = MPI_NP
+ps.initialize()
+```
+3. Specify energy minimization, annealing and NVT tuning input parameters
+```python
+ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**5})
+ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
+ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
+```
+4. Run the script
+```python
+python simple.py
+```
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
