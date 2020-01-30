@@ -897,7 +897,7 @@ class PeptideSim(Configurable):
         #now check if it's in our package resource
         if(pkg_resources.resource_exists(__name__, 'templates/' + f)):
             #if so, copy it to here
-            self.log.info('Could not located MDP file {} locally, so using it from package resource.'.format(f))
+            self.log.info('Could not locate MDP file {} locally, so using it from package resource.'.format(f))
             with open(f, 'wb') as newf:
                 newf.write(pkg_resources.resource_string(__name__, 'templates/' + f))
             mdpfile = f
@@ -1190,6 +1190,7 @@ class PeptideSim(Configurable):
                     if( len(self.gro_file_list) == len(mdp_kwargs) ):
                         self.log.info('Using list of Gro files from previous  \
                                         run since the number matches the number pf replicas here')
+                    multidirs = []
                     for i, mk in enumerate(mdp_kwargs):
                         mdp_temp = gromacs.fileformats.mdp.MDP()
                         mdp_temp.update(mdp_sim)
@@ -1199,18 +1200,22 @@ class PeptideSim(Configurable):
                         mdp.update(mdp_temp)
                         mdp.write(final_mdp[i])
                         mdp_data.append(dict(mdp))
-                        tpr = os.path.join(top_dir, sinfo.short_name + str(i) + '.tpr')
+                        tpr = os.path.join(top_dir, '{}-{:04d}.tpr'.format(sinfo.short_name, i))
                         #get gro file, which may come from a list of same length
                         c = self.gro_file
                         if( len(self.gro_file_list) == len(mdp_kwargs) ):
                             c = self.gro_file_list[i]
                         gromacs.grompp(f=final_mdp[i], c=c, p=self.top_file, o=tpr)
-                    tpr = os.path.join(top_dir, sinfo.short_name)
+                        # move to sub-directory
+                        subdir = 'multi-{:04d}'.format(i)
+                        multidirs.append(subdir)
+                        os.mkdir(subdir)
+                        shutil.copy2(tpr, subdir)
                     #keep a reference to current topology. Use 0th since it will exist
-                    self.tpr_file = tpr + '0.tpr'
+                    self.tpr_file = os.path.join(top_dir, '{}-{:04d}.tpr'.format(sinfo.short_name, 0))
                     #add the multi option
-                    run_kwargs.update(dict(multi=len(mdp_kwargs)))
-                    sinfo.metadata['md-log'] = 'md0.log'
+                    run_kwargs.update(dict(multidir=' '.join(multidirs)))
+                    sinfo.metadata['md-log'] = os.path.join(multidirs[0], 'md.log')
                     sinfo.metadata['mdp-data'] = mdp_data
                 else:
                     tpr = sinfo.short_name + '.tpr'
