@@ -1210,13 +1210,14 @@ class PeptideSim(Configurable):
                         subdir = 'multi-{:04d}'.format(i)
                         multidirs.append(subdir)
                         os.mkdir(subdir)
-                        shutil.copy2(tpr, subdir)
+                        shutil.copy2(tpr, os.path.join(subdir, sinfo.short_name + '.tpr'))
                     #keep a reference to current topology. Use 0th since it will exist
                     self.tpr_file = os.path.join(top_dir, '{}-{:04d}.tpr'.format(sinfo.short_name, 0))
                     #add the multi option
                     run_kwargs.update(dict(multidir=' '.join(multidirs)))
                     sinfo.metadata['md-log'] = os.path.join(multidirs[0], 'md.log')
                     sinfo.metadata['mdp-data'] = mdp_data
+                    tpr = sinfo.short_name + '.tpr'
                 else:
                     tpr = sinfo.short_name + '.tpr'
                     mdp = gromacs.fileformats.mdp.MDP()
