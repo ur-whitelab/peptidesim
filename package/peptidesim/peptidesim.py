@@ -11,7 +11,7 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
     p = PeptideSim( dir_name = '.', seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 
-from __future__ import division, print_function
+
 from functools import reduce
 import numpy as np
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal, PeptideBuilder, Bio.PDB, glob, dill
@@ -62,11 +62,11 @@ class PeptideSim(Configurable):
 
     '''
 
-    sim_name           = Unicode(u'peptidesim',
+    sim_name           = Unicode('peptidesim',
                                  help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)',
                                 ).tag(config=True)
 
-    config_file       = Unicode(u'peptidesim_config.py',
+    config_file       = Unicode('peptidesim_config.py',
                                 help='The config file to load',
                                 ).tag(config=True)
 
@@ -86,20 +86,20 @@ class PeptideSim(Configurable):
                               help='The concentration of sodium chloride to add in moles / liter'
                               ).tag(config=True)
 
-    log_file          = Unicode(u'simulation.log',
+    log_file          = Unicode('simulation.log',
                                  help='The location of the log file. If relative path, it will be in simulation directory.',
                                 ).tag(config=True)
-    packmol_exe       = Unicode(u'packmol',
+    packmol_exe       = Unicode('packmol',
                                 help='The command to run the packmol program.'
                                 ).tag(config=True)
-    demux_exe       = Unicode(u'demux',
+    demux_exe       = Unicode('demux',
                                 help='The command to demux the replica temperatures.'
                              ).tag(config=True)
 
-    forcefield        = Unicode(u'charmm27',
+    forcefield        = Unicode('charmm27',
                                 help='The gromacs syntax forcefield',
                                 ).tag(config=True)
-    water             = Unicode(u'tip3p',
+    water             = Unicode('tip3p',
                                help='The water model to use',
                                ).tag(config=True)
 
@@ -107,14 +107,14 @@ class PeptideSim(Configurable):
                              help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
                              ).tag(config=True)
 
-    mdp_directory     = Unicode(u'.',
+    mdp_directory     = Unicode('.',
                                 help='The directory to find gromacs MDP files'
                                ).tag(config=True)
-    mdp_base          = Unicode(u'peptidesim_base.mdp',
+    mdp_base          = Unicode('peptidesim_base.mdp',
                                 help='The MDP file containing basic forcefield parameters'
                                ).tag(config=True)
 
-    mdp_emin          = Unicode(u'peptidesim_emin.mdp',
+    mdp_emin          = Unicode('peptidesim_emin.mdp',
                                 help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                                ).tag(config=True)
 
@@ -123,15 +123,15 @@ class PeptideSim(Configurable):
                            ).tag(config=True)
 
 
-    host              = Unicode(u'http://52.71.14.39',
+    host              = Unicode('http://52.71.14.39',
                                 help='The host address for the Redis database'
                                ).tag(config=True)
 
-    post_address      = Unicode(u'/insert/simulation',
+    post_address      = Unicode('/insert/simulation',
                                 help='The extension to post simulation data'
                                ).tag(config=True)
 
-    mpiexec           = Unicode(u'mpiexec',
+    mpiexec           = Unicode('mpiexec',
                                 help='The MPI executable'
                                 ).tag(config=True)
     mpi_np           = Int(1,
@@ -394,13 +394,13 @@ class PeptideSim(Configurable):
             os.mkdir('data')
         with open('data/simdata.json', 'w' ) as f:
             data = {}
-            for k, v in self.traits().iteritems():
-                if type(v.default_value) not in [unicode, int, float]:
+            for k, v in self.traits().items():
+                if type(v.default_value) not in [str, int, float]:
                     data[k] = ast.literal_eval(v.default_value_repr())
                 else:
                     data[k] = v.default_value
-            for k,v in self.__dict__.iteritems():
-                if k not in data and type(v) in [unicode, int, float, list, dict,tuple, str] and k[0] != '_':
+            for k,v in self.__dict__.items():
+                if k not in data and type(v) in [str, int, float, list, dict,tuple, str] and k[0] != '_':
                     data[k] = v
             f.write(json.dumps(data))
 
