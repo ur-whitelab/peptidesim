@@ -74,7 +74,7 @@ class TestPeptideSimInitialize(TestCase):
 
     def test_pickle(self):
         import dill as pickle
-        from cStringIO import StringIO
+        import StringIO
         phash = self.p.top_file + self.p.gro_file +  self.p.pdb_file
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
@@ -97,7 +97,7 @@ class TestPeptideSimInitialize(TestCase):
         self.p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
         n = len(self.p.sims)
         import dill as pickle
-        from cStringIO import StringIO
+        import StringIO
         string = pickle.dumps(self.p)
         del self.p
         new_p = pickle.load(StringIO(string))
@@ -176,7 +176,7 @@ class TestPeptideStability(TestCase):
             shutil.rmtree('dipeptide')
 
 
-                
+
 
 class TestPTE(TestCase):
     def test_pte(self):
@@ -206,7 +206,7 @@ class TestPTE(TestCase):
 
         import dill as pickle
         import time
-        from cStringIO import StringIO
+        import StringIO
 
         #run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
@@ -227,7 +227,7 @@ class TestPTE(TestCase):
         new_p = pickle.load(open('test-pte.pickle'))
 
         # make sure there is one simulation in history with pte
-        
+
         self.assertTrue(new_p.sims[-1].short_name.startswith('pte_tune_test'))
 
         # try to restart it
@@ -237,7 +237,7 @@ class TestPTE(TestCase):
 
 class TestRemoveSimulation(TestCase):
     def test_remove(self):
-        #run a pte to get plumed output                                                                                   
+        #run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='remove')
         p.mdrun_driver='gmx_mpi'
         p.peptide_density = 0.005
@@ -248,7 +248,7 @@ class TestRemoveSimulation(TestCase):
         old_tpr_files_number=len(p._tpr)
         old_sim_files_number=len(p._sims)
 
-        #now try running it with PTE                                                                                      
+        #now try running it with PTE
         p.remove_simulation('nvt_check')
         new_gro_len=len(p._gro)
         new_tpr_len=len(p._tpr)
@@ -257,31 +257,31 @@ class TestRemoveSimulation(TestCase):
         self.assertGreaterEqual(old_tpr_files_number,new_tpr_len)
         self.assertGreaterEqual(old_sim_files_number,new_sim_len)
 
-        
+
 
     def test_remove_restart(self):
 
-        
+
 
         import dill as pickle
         import time
-        from cStringIO import StringIO
+        import StringIO
 
-        #run a pte to get plumed output                                                                                   
+        #run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-remove')
         p.mdrun_driver='gmx_mpi'
         p.peptide_density = 0.005
         p.initialize()
         p.run(tag='eminiiii',mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps':100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
-        #test pickle on signal                                                                                            
-       
-        
+        #test pickle on signal
 
 
-        # make sure there is one simulat 
 
-        # try to restart it                                                                                               
+
+        # make sure there is one simulat
+
+        # try to restart it
         p.remove_simulation('eminiiii')
         with self.assertRaises(ValueError) as cm:
             p.remove_simulation('wrong_sim_name')
@@ -290,7 +290,7 @@ class TestRemoveSimulation(TestCase):
 
 
 
-    
+
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
@@ -339,7 +339,7 @@ class TestPeptideEmin(TestCase):
 
     def test_emin_metadata_frompickle(self):
         import dill as pickle
-        from cStringIO import StringIO
+        import StringIO
 
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'nsteps':10})
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
@@ -359,7 +359,7 @@ class TestPeptideEmin(TestCase):
 
     def test_pickle_emin(self):
         import dill as pickle
-        from cStringIO import StringIO
+        import StringIO
 
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
 
@@ -405,7 +405,7 @@ class TestPeptideEmin(TestCase):
 
         import dill as pickle
         import time
-        from cStringIO import StringIO
+        import StringIO
 
         #test pickle on signal
         signal.alarm(1)

@@ -4,14 +4,15 @@ Example
 -------
 Here's an example for creating a ``PeptideSim`` object with the peptide AEAE using the default configuration, saving in the current directory. ::
 
-    p = PeptideSim( dir_name = ".", seqs = ['AEAE'], counts = [1] )
+    p = PeptideSim( dir_name = '.', seqs = ['AEAE'], counts = [1] )
 
 Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving in the current directory. ::
 
-    p = PeptideSim( dir_name = ".", seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
+    p = PeptideSim( dir_name = '.', seqs = ['AEAE', 'LGLG'], counts = [1,2]) #counts in order of the list of peptides
 '''
 
 from __future__ import division, print_function
+from functools import reduce
 import numpy as np
 import logging, os, shutil, datetime, subprocess, re, textwrap, sys, pkg_resources, contextlib, uuid, json, ast, requests, signal, PeptideBuilder, Bio.PDB, glob, dill
 from math import *
@@ -66,7 +67,7 @@ class PeptideSim(Configurable):
                                 ).tag(config=True)
 
     config_file       = Unicode(u'peptidesim_config.py',
-                                help="The config file to load",
+                                help='The config file to load',
                                 ).tag(config=True)
 
     req_files         = List(
@@ -180,7 +181,7 @@ class PeptideSim(Configurable):
         if len(self._pdb) > 0:
             return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
         elif self.gro_file is not None:
-            print("grofile is not NONE", os.path.basename(self.gro_file).split('.pdb')[0], "ends in pdb",os.path.basename(self.gro_file).split('.gro')[0], "gro")
+            print('grofile is not NONE', os.path.basename(self.gro_file).split('.pdb')[0], 'ends in pdb',os.path.basename(self.gro_file).split('.gro')[0], 'gro')
 
             output='{}.pdb'.format(os.path.basename(self.gro_file).split('.gro')[0])
             gromacs.editconf(f=self.gro_file, o=output)
@@ -372,7 +373,7 @@ class PeptideSim(Configurable):
         #don't know how we got here, so we'll just add our logger
         file_handler = logging.FileHandler(self.log_file)
         file_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter("%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)s)")
+        formatter = logging.Formatter('%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)s)')
         file_handler.setFormatter(formatter)
 
         self.log = logging.getLogger('peptidesim:{}'.format(self.job_name))
@@ -600,7 +601,7 @@ class PeptideSim(Configurable):
 
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold and i >= (min_iters-1):
-                self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is "plumed_wte.dat". Continuing to production'.format(replex_eff, replica_temps))
+                self.log.info('Completed the simulation. Reached replica exchange efficiency of {}. The replica temperatures were {}. The name of the plumed input scripts is \'plumed_wte.dat\'. Continuing to production'.format(replex_eff, replica_temps))
                 plumed_output_script=textwrap.dedent(
                         '''
                  ene: ENERGY
@@ -618,7 +619,7 @@ class PeptideSim(Configurable):
                         '''.format(sigma,hill_height,temps,hills_file_location,bias_factor))
                 break
             else:
-                self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is "plumed_wte.dat"'.format(replex_eff,replica_temps))
+                self.log.info('Did not complete the simulation. Replica exchange efficiency of {}. The replica tempertures were {}. The name of the plumed input scripts is \'plumed_wte.dat\''.format(replex_eff,replica_temps))
                 continue
 
         if plumed_output_script is None:
@@ -1027,16 +1028,16 @@ class PeptideSim(Configurable):
     def calc_rmsd(self):
         with self._put_in_dir('analysis'):
             self.log.info('Plotting the RMSD of your simulation')
-            noe_data="noe.dat"
-            rmsd_output="distrmsd.xvg"
+            noe_data='noe.dat'
+            rmsd_output='distrmsd.xvg'
             gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['Backbone',4],o=rmsd_output)
             #gromacs.g_rms(f=self.traj_file,s=self.tpr_file,input=['C-alpha',3],o=rmsd_output) #if you have more than one amino acid in a sequence
             return rmsd_output
     def calc_sham(self):
         with self._put_in_dir('analysis'):
             self.log.info('Generating free energy landscape of your simulation by boltzman inversion')
-            gromacs.g_sham(f="distrmsd.xvg", notime=True, bin='bindex.ndx',lp='probability.xpm',ls='gibbs.xpm',histo="histogram.xvg",lsh='enthalpy.xpm',lss="entropy.xpm")
-            return "energy.xvg",'bindex.ndx','probability.xpm', "entropy.xpm",'enthalpy.xpm','gibbs.xpm', "histogram.xvg"
+            gromacs.g_sham(f='distrmsd.xvg', notime=True, bin='bindex.ndx',lp='probability.xpm',ls='gibbs.xpm',histo='histogram.xvg',lsh='enthalpy.xpm',lss='entropy.xpm')
+            return 'energy.xvg','bindex.ndx','probability.xpm', 'entropy.xpm','enthalpy.xpm','gibbs.xpm', 'histogram.xvg'
 
     def _center(self):
         with self._put_in_dir('prep'):
@@ -1099,7 +1100,7 @@ class PeptideSim(Configurable):
                 reduce(                                                                \
                     lambda x,y: x + y,                                                 \
                     [                                                                  \
-                        [si for _ in xrange(ni)]                                       \
+                        [si for _ in range(ni)]                                       \
                         for si, ni in zip(self.sequences,self.counts)                  \
                     ]                                                                  \
                     )):
@@ -1139,8 +1140,7 @@ class PeptideSim(Configurable):
 
             #now we need to remove all the include stuff so we can actually pass the file around if needed
             self.log.info('Resovling include statements via GromacsWrapper...')
-            output = self.top_file = gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
-            self.top_file = output
+            self.top_file = gromacs.cbook.create_portable_topology(self.top_file, ion_gro)
             self.log.info('...OK')
 
             self.gro_file = ion_gro
