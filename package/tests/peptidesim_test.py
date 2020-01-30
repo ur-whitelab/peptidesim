@@ -6,6 +6,8 @@ import os.path, time
 from peptidesim import *
 import shutil, os, textwrap
 
+from io import BytesIO
+
 import json, requests
 import signal
 
@@ -74,12 +76,11 @@ class TestPeptideSimInitialize(TestCase):
 
     def test_pickle(self):
         import dill as pickle
-        import StringIO
         phash = self.p.top_file + self.p.gro_file +  self.p.pdb_file
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
-        new_p = pickle.load(StringIO(string))
+        new_p = pickle.load(BytesIO(string))
         self.assertEqual(phash, new_p.top_file + new_p.gro_file +  new_p.pdb_file)
 
     def test_ndx(self):
@@ -97,10 +98,9 @@ class TestPeptideSimInitialize(TestCase):
         self.p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
         n = len(self.p.sims)
         import dill as pickle
-        import StringIO
         string = pickle.dumps(self.p)
         del self.p
-        new_p = pickle.load(StringIO(string))
+        new_p = pickle.load(BytesIO(string))
         #make sure on pickling we still have our history intact
         self.assertEqual(len(new_p.sims), n)
         #now actually ensure that we don't repeat the initialization
@@ -206,7 +206,6 @@ class TestPTE(TestCase):
 
         import dill as pickle
         import time
-        import StringIO
 
         #run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
@@ -265,7 +264,6 @@ class TestRemoveSimulation(TestCase):
 
         import dill as pickle
         import time
-        import StringIO
 
         #run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-remove')
@@ -320,56 +318,54 @@ class TestPeptideEmin(TestCase):
 
     def test_emin_mdp_kwargs(self):
         self.p.run(mdpfile='peptidesim_nvt.mdp', tag='test-mdp',  mdp_kwargs={'nsteps':7})
-        self.assertEquals(str(self.p.sims[-1].metadata['mdp-data']['nsteps']), '7')
+        self.assertEqual(str(self.p.sims[-1].metadata['mdp-data']['nsteps']), '7')
 
 
     def test_emin_metadata(self):
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
-        self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+        self.assertTrue('md-log' in self.p.sims[-1].metadata)
 
 
 
     def test_emin_metadata_multiple(self):
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test2', mdp_kwargs={'nsteps':10})
-        self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+        self.assertTrue('md-log' in self.p.sims[-1].metadata)
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'nsteps':10})
-        self.assertTrue(self.p.sims[0].metadata.has_key('md-log'))
-        self.assertTrue(self.p.sims[1].metadata.has_key('md-log'))
+        self.assertTrue('md-log' in self.p.sims[0].metadata)
+        self.assertTrue('md-log' in self.p.sims[1].metadata)
 
 
     def test_emin_metadata_frompickle(self):
         import dill as pickle
-        import StringIO
 
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test1', mdp_kwargs={'nsteps':10})
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
-        new_p = pickle.load(StringIO(string))
+        new_p = pickle.load(BytesIO(string))
         string = pickle.dumps(new_p)
         del new_p
-        new_p = pickle.load(StringIO(string))
+        new_p = pickle.load(BytesIO(string))
         #I do it twice because I'm paranoid
 
-        self.assertTrue(new_p.sims[0].metadata.has_key('md-log'))
-        self.assertTrue(new_p.sims[1].metadata.has_key('md-log'))
+        self.assertTrue('md-log' in new_p.sims[0].metadata)
+        self.assertTrue('md-log' in new_p.sims[1].metadata)
 
 
 
     def test_pickle_emin(self):
         import dill as pickle
-        import StringIO
 
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='test', mdp_kwargs={'nsteps':10})
 
         string = pickle.dumps(self.p)
         #need to delete old object so we don't get duplicate logging
         del self.p
-        new_p = pickle.load(StringIO(string))
+        new_p = pickle.load(BytesIO(string))
         string = pickle.dumps(new_p)
         del new_p
-        new_p = pickle.load(StringIO(string))
+        new_p = pickle.load(BytesIO(string))
 
         self.assertTrue(len(new_p.sims) > 0)
 
@@ -379,12 +375,12 @@ class TestPeptideEmin(TestCase):
 
         #call and interrupt the function
         self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout', mdp_kwargs={'nsteps':10})
-        for k,v in self.p._sims.iteritems():
+        for k,v in self.p._sims.items():
             if(k.startswith('emin-timeout')):
                 self.assertTrue(v.restart_count == 2)
 
         #check metadata is intact
-        self.assertTrue(self.p.sims[-1].metadata.has_key('md-log'))
+        self.assertTrue('md-log' in self.p.sims[-1].metadata)
 
 
     def test_continue_emin(self):
@@ -405,7 +401,6 @@ class TestPeptideEmin(TestCase):
 
         import dill as pickle
         import time
-        import StringIO
 
         #test pickle on signal
         signal.alarm(1)
@@ -418,12 +413,12 @@ class TestPeptideEmin(TestCase):
         del self.p
         new_p = pickle.load(open('sigtest.pickle'))
 
-        for k,v in new_p._sims.iteritems():
+        for k,v in new_p._sims.items():
             if(k.startswith('emin-timeout')):
                 self.assertTrue(v.restart_count == 2)
 
         #check metadata is intact
-        self.assertTrue(new_p.sims[-1].metadata.has_key('md-log'))
+        self.assertTrue('md-log' in new_p.sims[-1].metadata)
 
         os.remove('sigtest.pickle')
 
