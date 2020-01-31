@@ -15,7 +15,7 @@ We want to be able to post-process explore/analyze the data. We need to know the
 
 1. Load required modules
 ```bash
-module load anaconda3 packmol libmatheval gromacs-plumed/2018.3/b4 openblas openmpi
+module load anaconda3 packmol libmatheval gromacs-plumed/2018.3/b4 openblas git
 ```
 
 2. Create a virtual environment
@@ -24,27 +24,34 @@ conda create -n yourenvname python=3.7
 ```
 Peptidesim is no longer available for python2 versions. Once you create your environment, you should activate it for the next steps:
 ```bash
-source activate yourenvname
+conda activate yourenvname
 ```
-**Note**: Avoid using `conda activate yourenvname` as it might cause some problems in installing different python modules using pip. Check on pip and python and make sure they are sourced to your environment directory:
+Check on pip and python and make sure they are sourced to your environment directory:
 ```bash
 which pip #or which python
 # The output should look like this:
 # /.conda/envs/yourenvname/bin/pip
 ```
 
-3. You will need to install the GromacsWrapper module:
+3. You will need to install the GromacsWrapper module separately due to a pending bug fix.
 ```bash
 pip install --no-cache-dir git+https://github.com/whitead/GromacsWrapper
 ```
 
-4. Setup a config file for Gromacswrapper to be able to find the gromacs installation. Use interactive python to do this:
-```python
-import gromacs
-gromacs.config.setup()
+4. For installing PeptideSim, you need to clone the package from github.
+```bash
+git clone https://github.com/ur-whitelab/peptidesim.git
 ```
-This will create a `.gromacswrapper.cfg` file in your home directory.
-Using any text editor, make the changes to that file and add the GMXRC location. Your file should look like this:
+Change directory to `package` and install the requirements and the module:
+```bash
+cd package
+pip install -e .
+```
+
+5. Setup a config file for Gromacswrapper to be able to find the gromacs installation. You can use the one given below and save it to `~/.gromacswrapper.cfg`
+
+
+`.gromacswrapper.cfg`
 ```text
  [ DEFAULT ]
  qscriptdir = %( configdir )s/qscripts
@@ -64,16 +71,12 @@ Using any text editor, make the changes to that file and add the GMXRC location
  loglevel_file = DEBUG
 ```
 
-5. For installing PeptideSim, you need to clone the package from github.
-```bash
-git clone https://github.com/ur-whitelab/peptidesim.git
+ Alternatively, on **a non-head node** use interactive python to do this:
+```python
+import gromacs
+gromacs.config.setup()
 ```
-Change directory to `package` and install the requirements and the module:
-```bash
-cd package
-pip install -r requirements.txt
-pip install -e .
-```
+
 
 # Developer Test Environment
 
