@@ -76,12 +76,48 @@ pip install -r requirements.txt
 pip install .
 ```
 
-### Developer Environment
+# Developer Test Environment
 
-First, prepare the docker image in the test-docker folder by running
-the build script. Then, run the test script in the root directory. It
-is only necessary to rebuild the docker script when newer gromacs,
-gromacswrapper packages are available.
+## Creating Docker Image
+
+Load the plumed gromacs docker image from dockerhub:
+
+```sh
+[sudo] docker pull whitelab/plumed-gromacs
+```
+
+Now we build the peptidesim testing image
+
+```sh
+cd test-docker
+docker build -t peptidesim/test .
+```
+
+These two steps gather the plumed and gromacs version. Generally,
+you do not need to re-run them.
+
+## Running Unit Tests
+
+From the repo root directory:
+
+```sh
+docker run -it --rm -v "`pwd`:/home/whitelab/peptidesim" peptidesim/test
+```
+
+This will run all tests and clean-up.
+
+## Running Unit Tests Interactively
+
+If you want to leave all test files around and have python access to troubleshoot,
+including an editable install so code you change is reflected, use:
+
+```sh
+docker run --rm -it -v `pwd`:/home/whitelab/peptidesim peptidesim/test bash ../interact.sh
+python -m pytest -x ../peptidesim/package/tests/
+```
+
+After running these two lines, you will be in the docker container and the tests will be run. Use `exit`
+to leave the container.
 
 ## Contributing
 
