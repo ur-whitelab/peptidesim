@@ -1,4 +1,4 @@
-from unittest import TestCase
+from unittest import TestCase, skip
 
 
 import os.path, time
@@ -139,7 +139,7 @@ class TestDataStore(TestCase):
         self.p.remote_log = True
         self.p.initialize()
 
-
+    @skip('Not supporting remote DB currently')
     def test_data_stored(self):
         #tests if the data was correctly written to the json file
         self.p.store_data()
@@ -147,7 +147,7 @@ class TestDataStore(TestCase):
         with open('data/simdata.json', 'r') as f:
             data = json.load(f)
             self.assertEqual(data['sim_name'], self.p.sim_name)
-
+    @skip('Not supporting remote DB currently')
     def test_to_database(self):
         #verifies that data can be properly sent to redis database
         self.p.store_data()
@@ -223,14 +223,14 @@ class TestPTE(TestCase):
 
         del p
 
-        new_p = pickle.load(open('test-pte.pickle'))
+        new_p = pickle.load(open('test-pte.pickle', 'r+b'))
 
         # make sure there is one simulation in history with pte
 
         self.assertTrue(new_p.sims[-1].short_name.startswith('pte_tune_test'))
 
         # try to restart it
-        new_p.pte_replica(mpi_np=2, max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, min_iters=1,eff_threshold=0.01, dump_signal=signal.SIGALRM)
+        new_p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={'nsteps': 250}, replicas=2, hot=315, min_iters=1,eff_threshold=0.01, dump_signal=signal.SIGALRM)
 
 
 
@@ -411,7 +411,7 @@ class TestPeptideEmin(TestCase):
             pass
 
         del self.p
-        new_p = pickle.load(open('sigtest.pickle'))
+        new_p = pickle.load(open('sigtest.pickle', 'r+b'))
 
         for k,v in new_p._sims.items():
             if(k.startswith('emin-timeout')):

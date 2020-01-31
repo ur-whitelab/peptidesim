@@ -166,7 +166,7 @@ class PeptideSim(Configurable):
 
     @property
     def file_list(self):
-        ''' a proeprty that returns the list of files needed for a simulations
+        ''' a property that returns the list of files needed for a simulations
         '''
         result = []
         result.extend(self._file_list)
@@ -596,7 +596,7 @@ class PeptideSim(Configurable):
                     dump_signal=dump_signal)
 
             #write pickle file
-            with open(os.path.join(self.rel_dir_name,self.pickle_name), 'w') as f:
+            with open(os.path.join(self.rel_dir_name,self.pickle_name), 'w+b') as f:
                 dill.dump(self, file=f)
 
             replex_eff = min(get_replex_e(self, replicas))
@@ -710,7 +710,7 @@ class PeptideSim(Configurable):
         for i in range(len(tpr_file_index)):
             #print(self._tpr[tpr_file_index[i]-i-1],'deleted tpr file')
             del self._tpr[tpr_file_index[i]-i-1]
-        with open(os.path.join(self.rel_dir_name,self.pickle_name),'w') as f:
+        with open(os.path.join(self.rel_dir_name,self.pickle_name),'w+b') as f:
             dill.dump(self,file=f)
 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(),dump_signal=signal.SIGTERM):
@@ -791,10 +791,10 @@ class PeptideSim(Configurable):
         '''
         #construct signal handler
         def handler(signum, frame):
-            self.log.warning
+            self.log.warning('Simulation being interrupted by signal {}'.format(signum))
             rel_dir_name = self.rel_dir_name
             self.rel_dir_name = '.' #so that we restart from where we started
-            with open(os.path.join(rel_dir_name,pickle_name), 'w') as f:
+            with open(os.path.join(rel_dir_name,pickle_name), 'w+b') as f:
                 dill.dump(self, file=f)
             os.chdir(rel_dir_name) #put us cleanly into the correct place
             raise KeyboardInterrupt() #Make sure we do actually end
@@ -803,9 +803,12 @@ class PeptideSim(Configurable):
         #set new one
         signal.signal(dump_signal, handler)
 
-        #construct name and add to simulation infos
+        # TODO need something smarter here, like parse gro file or log file
+        # TOP is constant, so repeating a sim type will give collisions
+
+        # construct name and add to simulation infos
         file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file)
-        #the hash is huge. Take the first few chars
+        # the hash is huge. Take the first few chars
         simname = name + '-' + str(file_hash)[:8]
 
         if simname in self._sims:
@@ -1154,7 +1157,7 @@ class PeptideSim(Configurable):
             #make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
             if type(mdp_kwargs) is list:
-                gro = [sinfo.short_name + '{}.gro'.format(i) for i in range(len(mdp_kwargs))]
+                gro = [os.path.join('multi-{:04d}'.format(i), sinfo.short_name + '.gro') for i in range(len(mdp_kwargs))]
 
             #check if it's a restart
             if(sinfo.restart_count > 0):
@@ -1169,7 +1172,7 @@ class PeptideSim(Configurable):
                     sinfo.run()
             else:
                 #need to prepare for simulation
-                #Preparing emin tpr file
+                #Preparing tpr file
                 self.log.info('Compiling TPR file for simulation {}'.format(sinfo.name))
                 final_mdp = sinfo.short_name + '.mdp'
                 mdp_base = gromacs.fileformats.mdp.MDP(self.get_mdpfile(self.mdp_base))
@@ -1179,13 +1182,11 @@ class PeptideSim(Configurable):
                 mdp_sim = mdp_base
                 #check if we're doing multiple mdp files
                 if type(mdp_kwargs) is list:
-                    assert isinstance(mdp_kwargs[0], dict), 'To make multiple tpr files, must pass in list of dicts'
+                    if not isinstance(mdp_kwargs[0], dict):
+                        raise RuntimeError('To make multiple tpr files, must pass in list of dicts')
                     final_mdp = []
                     mdp_data = []
-                    top_dir = 'TOPOL'
-                    if not os.path.exists(top_dir):
-                        os.mkdir(top_dir)
-                    #make a bunch of tpr files and put them into a subdirectory (TOPOL)
+                    #make a bunch of tpr files and put them into a subdirectories
                     #make a note about how we're making the tprs
                     if( len(self.gro_file_list) == len(mdp_kwargs) ):
                         self.log.info('Using list of Gro files from previous  \
@@ -1200,7 +1201,7 @@ class PeptideSim(Configurable):
                         mdp.update(mdp_temp)
                         mdp.write(final_mdp[i])
                         mdp_data.append(dict(mdp))
-                        tpr = os.path.join(top_dir, '{}-{:04d}.tpr'.format(sinfo.short_name, i))
+                        tpr = os.path.join('{}-{:04d}.tpr'.format(sinfo.short_name, i))
                         #get gro file, which may come from a list of same length
                         c = self.gro_file
                         if( len(self.gro_file_list) == len(mdp_kwargs) ):
@@ -1210,9 +1211,19 @@ class PeptideSim(Configurable):
                         subdir = 'multi-{:04d}'.format(i)
                         multidirs.append(subdir)
                         os.mkdir(subdir)
+                        # feels like overkill, but I guess we copy all files
+                        # TPR
                         shutil.copy2(tpr, os.path.join(subdir, sinfo.short_name + '.tpr'))
+                        # copy everything(!) on files list
+                        for f in self.file_list:
+                            #make sure it exists, is not none and needs to be copied
+                            if(f is not None and os.path.exists(f) and not os.path.exists(os.path.join(subdir, os.path.basename(f)))):
+                                if os.path.isdir(f):
+                                    shutil.copytree(f, os.path.join(subdir, os.path.basename(f)))
+                                else:
+                                    shutil.copy2(f, os.path.join(subdir, os.path.basename(f)))
                     #keep a reference to current topology. Use 0th since it will exist
-                    self.tpr_file = os.path.join(top_dir, '{}-{:04d}.tpr'.format(sinfo.short_name, 0))
+                    self.tpr_file = os.path.join('{}-{:04d}.tpr'.format(sinfo.short_name, 0))
                     #add the multi option
                     run_kwargs.update(dict(multidir=' '.join(multidirs)))
                     sinfo.metadata['md-log'] = os.path.join(multidirs[0], 'md.log')
