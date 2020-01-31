@@ -20,9 +20,9 @@ module load anaconda3 packmol libmatheval gromacs-plumed/2018.3/b4 openblas open
 
 2. Create a virtual environment
 ```bash
-conda create -n yourenvname python=2.7
+conda create -n yourenvname python=3.7
 ```
-Make sure you specify _python 2.7_ for installing your conda environment as PeptideSim is not compatible with the newer versions of python. Once you create your environment, you should activate it for the next steps:
+Peptidesim is no longer available for python2 versions. Once you create your environment, you should activate it for the next steps:
 ```bash
 source activate yourenvname
 ```
@@ -33,10 +33,9 @@ which pip #or which python
 # /.conda/envs/yourenvname/bin/pip
 ```
 
-3. You will need to install the GromacsWrapper module. You can
-download the [source code](https://github.com/Becksteinlab/GromacsWrapper/releases) for version 0.8.0 (latest) and install using the following command:
+3. You will need to install the GromacsWrapper module:
 ```bash
-pip install GromacsWrapper-release-0.8.0.tar.gz
+pip install --no-cache-dir git+https://github.com/whitead/GromacsWrapper
 ```
 
 4. Setup a config file for Gromacswrapper to be able to find the gromacs installation. Use interactive python to do this:
@@ -73,7 +72,7 @@ Change directory to `package` and install the requirements and the module:
 ```bash
 cd package
 pip install -r requirements.txt
-pip install .
+pip install -e .
 ```
 
 # Developer Test Environment
