@@ -22,6 +22,7 @@ from peptidesim.config import *
 def main():
     generate_config()
 
+
 if __name__ == '__main__':
     main()
 else:

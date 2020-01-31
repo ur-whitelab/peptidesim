@@ -19,22 +19,24 @@ class PeptideSimConfigurator(Application):
     '''
 
     #command line flags
-    aliases = Dict({'config:':'PeptideSimConfigurator.config_file'})
+    aliases = Dict({'config:': 'PeptideSimConfigurator.config_file'})
 
     config_file = Unicode('peptidesim_config.py',
-        help='The config file to load',
-    ).tag(config=True)
+                          help='The config file to load',
+                          ).tag(config=True)
 
     def write_config_file(self):
         '''Write our default config to a .py config file'''
         if os.path.exists(self.config_file):
             answer = ''
+
             def ask():
-                prompt = 'Overwrite {} with default config? [y/N]'.format(self.config_file)
+                prompt = 'Overwrite {} with default config? [y/N]'.format(
+                    self.config_file)
                 try:
                     return input(prompt).lower() or 'n'
                 except KeyboardInterrupt:
-                    print('') # empty line
+                    print('')  # empty line
                     return 'n'
             answer = ask()
             while not answer.startswith(('y', 'n')):
@@ -55,4 +57,3 @@ def generate_config():
     p = PeptideSimConfigurator.instance()
     p.initialize()
     p.write_config_file()
-
