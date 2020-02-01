@@ -85,7 +85,7 @@ gromacs.config.setup()
 Load the plumed gromacs docker image from dockerhub:
 
 ```sh
-[sudo] docker pull whitelab/plumed-gromacs
+docker pull whitelab/plumed-gromacs
 ```
 
 Now we build the peptidesim testing image
@@ -103,7 +103,7 @@ you do not need to re-run them.
 From the repo root directory:
 
 ```sh
-docker run -it --rm -v "`pwd`:/home/whitelab/peptidesim" peptidesim/test
+docker run -it --rm -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test
 ```
 
 This will run all tests and clean-up.
@@ -114,7 +114,7 @@ If you want to leave all test files around and have python access to troubleshoo
 including an editable install so code you change is reflected, use:
 
 ```sh
-docker run --rm -it -v `pwd`:/home/whitelab/peptidesim peptidesim/test bash ../interact.sh
+docker run --rm -it -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test bash ../interact.sh
 python -m pytest -x ../peptidesim/package/tests/
 ```
 
