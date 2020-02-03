@@ -24,7 +24,7 @@ conda create -n yourenvname python=3.7
 ```
 Peptidesim is no longer available for python2 versions. Once you create your environment, you should activate it for the next steps:
 ```bash
-conda activate yourenvname
+source activate yourenvname
 ```
 Check on pip and python and make sure they are sourced to your environment directory:
 ```bash
