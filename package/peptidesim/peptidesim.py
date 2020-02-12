@@ -15,6 +15,7 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
 from functools import reduce
 import numpy as np
+import filecmp
 import logging
 import os
 import shutil
@@ -68,7 +69,7 @@ class SimulationInfo(object):
             self.run_fxn = run_fxn
             self.run_kwargs = run_kwargs
 
-        # have to add now in case we die
+        # have to -filadd now in case we die
         self.restart_count += 1
         result = self.run_fxn(**self.run_kwargs)
 
@@ -881,8 +882,12 @@ class PeptideSim(Configurable):
                     shutil.copytree(f, os.path.join(d, os.path.basename(f)))
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-
-        # go there
+            if(f.startswith('plumed') and f!='plumed_wte.dat' and os.path.exists(f)):
+                print(f,'printing added file')
+                shutil.copy2(f, os.path.join(d, os.path.basename(f)))
+            elif(f.startswith('plumed') and f!='plumed_wte.dat' and not os.path.exists(f)):
+                shutil.copy2(f, os.path.join(d, os.path.basename(f)))
+                # go there
         curdir = os.getcwd()
         # keep path to original directory
         self.rel_dir_name = os.path.relpath(curdir, d)
@@ -909,6 +914,11 @@ class PeptideSim(Configurable):
     def add_file(self, f):
         if f != self._convert_path(f):
             shutil.copyfile(f, self._convert_path(f))
+        #elif(os.path.exists(f)):
+        #    try:
+        #        shutil.copyfile(f, self._convert_path(f))
+        #    except shutil.SameFileError:
+        #        print(f,'the files are indentical')
         self._file_list.append(os.path.basename(f))
 
     def get_mdpfile(self, f):
@@ -1265,21 +1275,30 @@ class PeptideSim(Configurable):
                         # move to sub-directory
                         subdir = 'multi-{:04d}'.format(i)
                         multidirs.append(subdir)
-                        os.mkdir(subdir)
+                        if not os.path.exists(subdir):
+                            os.mkdir(subdir)
                         # feels like overkill, but I guess we copy all files
                         # TPR
                         shutil.copy2(tpr, os.path.join(
                             subdir, sinfo.short_name + '.tpr'))
                         # copy everything(!) on files list
+                        # make sure it exists, is not none and needs to be copied
                         for f in self.file_list:
-                            # make sure it exists, is not none and needs to be copied
-                            if(f is not None and os.path.exists(f) and not os.path.exists(os.path.join(subdir, os.path.basename(f)))):
+               
+                            if(f is not None and os.path.exists(f) and not 
+                               os.path.exists(os.path.join(subdir, os.path.basename(f)))):
                                 if os.path.isdir(f):
                                     shutil.copytree(f, os.path.join(
                                         subdir, os.path.basename(f)))
                                 else:
                                     shutil.copy2(f, os.path.join(
                                         subdir, os.path.basename(f)))
+                            if f.startswith(run_kwargs['plumed']) and f!='plumed_wte.dat' and os.path.exists(os.path.join(subdir,os.path.basename(f))) and os.path.exists(f):
+                                print(f,'printing added file im subdir')
+                                shutil.copy2(f, os.path.join(subdir, os.path.basename(f)))
+                            elif(f.startswith(run_kwargs['plumed']) and f!='plumed_wte.dat' and not os.path.exists(os.path.join(subdir,os.path.basename(f))) and os.path.exists(f)): 
+                                shutil.copy2(f, os.path.join(subdir, os.path.basename(f)))
+                               
                     # keep a reference to current topology. Use 0th since it will exist
                     self.tpr_file = os.path.join(
                         '{}-{:04d}.tpr'.format(sinfo.short_name, 0))
