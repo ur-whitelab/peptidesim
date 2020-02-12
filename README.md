@@ -15,7 +15,7 @@ We want to be able to post-process explore/analyze the data. We need to know the
 
 1. Load required modules
 ```bash
-module load anaconda3 packmol libmatheval gromacs-plumed/2018.3/b4 openblas git
+module load anaconda3 packmol libmatheval gromacs-plumed/2019.4/b2 openblas git
 ```
 
 2. Create a virtual environment
@@ -59,8 +59,8 @@ pip install -e .
  configdir = ~/.gromacswrapper
 ​
  [ Gromacs ]
- release = 2018.3
- gmxrc = /software/gromacs-plumed/2018.3/b4/bin/GMXRC
+ release = 2019.4
+ gmxrc = /software/gromacs-plumed/2019.4/b2/bin/GMXRC
  extra =
  tools = gmx gmx_mpi
  groups = tools
