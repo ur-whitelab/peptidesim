@@ -18,7 +18,7 @@ peptide_copies=4
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
     print('loading restart')
-    with open(pickle_name, 'r') as f:
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
 else:
     ps = PeptideSim(name, [seq], [peptide_copies], job_name='2mer_{}'.format(name))

@@ -21,7 +21,7 @@ number_chains=0#init
 ps=3#initialize
 if(os.path.exists(pickle_name)):
     print('loading restart')
-    with open(pickle_name, 'r') as f:
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
         #ps.pickle_name=pickle_name
         print(os.getcwd())
@@ -160,7 +160,7 @@ max_iterations=2
 min_iterations=1
 for i in range(max_iterations):
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed_eds_conver_pt_wte_metad.dat', 'replex': remd_exchange_period},mpi_np=MPI_NP)
-    with open(ps.pickle_name, 'w') as f:
+    with open(ps.pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
     
     replex_eff = min(get_replex_e(ps, replicas))
@@ -169,7 +169,7 @@ for i in range(max_iterations):
         break
     elif(replex_eff==-1):
         ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed_eds_conver_pt_wte_metad.dat', 'replex': remd_exchange_period},mpi_np=MPI_NP)
-        with open(ps.pickle_name, 'w') as f:
+        with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
     else:
         print('Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff))
@@ -286,7 +286,7 @@ with open('plumed_eds_colvars_new.dat', 'w') as f:
 ps.add_file('plumed_eds_colvars_new.dat')
 final_time_eds=int(0.040*5*10**5)
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod_eds_colvar',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},run_kwargs={'plumed':'plumed_eds_colvars_new.dat'},mpi_np=MPI_NP)
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 #finally:
   

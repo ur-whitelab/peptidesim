@@ -18,7 +18,7 @@ peptide_copies=1
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
     print('loading restart')
-    with open(pickle_name, 'r') as f:
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
 else:
     ps = PeptideSim(name, [seq], [peptide_copies], job_name='2mer_{}'.format(name))
@@ -208,25 +208,25 @@ ps.add_file(directory)
 
 '''
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**2,'rcoulomb':1}, mpi_np=MPI_NP,pickle_name=pickle_name)
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 ps.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs={'nsteps':int(2000* 5*10**2)},mpi_np=MPI_NP, pickle_name=pickle_name )#change the time step to 2 ns
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(2000 * 5*10**2),'ref_t':278}, mpi_np=MPI_NP, pickle_name=pickle_name)
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 '''
 
 
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**2,'rcoulomb':1}, mpi_np=MPI_NP,pickle_name=pickle_name)
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 ps.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs={'nsteps':int(200* 5*10**2)},mpi_np=MPI_NP, pickle_name=pickle_name )#change the time step to 2 ns
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(200 * 5*10**2),'ref_t':278}, mpi_np=MPI_NP, pickle_name=pickle_name)
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 def get_replex_e(ps, replica_number):
@@ -252,7 +252,7 @@ def get_replex_e(ps, replica_number):
 pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=4,min_iters=2,
                               mdp_kwargs={'nsteps':int(150 * 5*10**2) }, replicas=replicas,
                               hot=400,hill_height=2, eff_threshold=0.3,cold=278,exchange_period=200)
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 pte_plumed_script=pte_result['plumed']
 replica_temps=pte_result['temperatures']
@@ -337,7 +337,7 @@ for kw in kwargs:
 max_iterations=6
 min_iterations=4
 for i in range(max_iterations):
-    with open(pickle_name, 'w') as f:
+    with open(pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed_eds_conver_pt_wte_metad.dat', 'replex': remd_exchange_period}, pickle_name=pickle_name,mpi_np=MPI_NP)
     
@@ -437,7 +437,7 @@ ps.add_file('plumed_eds_colvars.dat')
 final_time_eds=int(0.1*0.05*10**5)#int(40000*0.05*10**5)
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod_eds_colvar',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},run_kwargs={'plumed':'plumed_eds_colvars.dat'},mpi_np=MPI_NP, pickle_name=pickle_name)
 #finally:
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
   
 print(ps.box_size_angstrom, replica_temps)

@@ -19,7 +19,7 @@ peptide_copies=int(sys.argv[3])
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
     print('loading restart')
-    with open(pickle_name, 'r') as f:
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
 else:
     ps = PeptideSim(name, [seq], [peptide_copies], job_name='{}'.format(name))
@@ -229,29 +229,29 @@ filenames=['Cshifts.dat','CAshifts.dat','HAshifts.dat','Hshifts.dat','CBshifts.d
 for i in filenames:
     data_folder(number_chains,i,peptide_copies)
 ps.add_file(directory)
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 print(ps.pickle_name, 'picklename1')
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 8*10**2,'rcoulomb':1}, mpi_np=MPI_NP)
 
 print(ps.pickle_name, 'picklename2')
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs={'nsteps':int(200* 5*10**2)},mpi_np=MPI_NP)#change the time step to 2 ns
 
 print(ps.pickle_name, 'picklename3')
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(200 * 5*10**2),'ref_t':278}, mpi_np=MPI_NP)
 
 print(ps.pickle_name, 'picklename3')
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
             
 

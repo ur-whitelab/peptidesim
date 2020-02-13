@@ -15,7 +15,7 @@ com_data=json.load(open(data_file))
 #try to reload 
 if(os.path.exists(pickle_name)):
     print('loading restart')
-    with open(pickle_name, 'r') as f:
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
 else:
     ps = PeptideSim(name, [seq1,seq2], [1,1], job_name='2mer_{}'.format(name))#,config_file=configure)
@@ -154,7 +154,7 @@ for i in range(replicas):
     ps.add_file('HILLS_PTWTE.{}'.format(i))
 
 for i in range(max_iters):
-    with open(pickle_name, 'w') as f:
+    with open(pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_pte_tune_{}'.format(i),  mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed_wte.dat', 'replex': 25}, pickle_name=pickle_name)
     replex_eff = min(get_replex_e(ps, replicas))
@@ -164,7 +164,7 @@ for i in range(max_iters):
     else:
         print('Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff))
 
-with open(pickle_name, 'w') as f:
+with open(pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 #now do production metadynamics
@@ -175,7 +175,7 @@ for kw in kwargs:
 try:
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed.dat', 'replex': 100}, pickle_name=pickle_name)
 finally:
-    with open(pickle_name, 'w') as f:
+    with open(pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
     
 print(ps.box_size_angstrom)
