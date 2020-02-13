@@ -59,7 +59,7 @@ def total_aa(file1,output_file):
         return int(last_line[1]),int(last_line[4]),output_file
 
 total_no_atoms,number_chains,file0=total_aa(file00,'template.pdb')
-print(total_no_atoms, "total_no_atoms",file0)
+print(total_no_atoms, "total_no_atoms", file0)
 atoms_in_chain=total_no_atoms/peptide_copies
 print(atoms_in_chain, "atoms_in_chain")
 eds_period=250
@@ -90,7 +90,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
             newp pdb file
         '''
     from string import ascii_uppercase
-    print(input_pdbfile,number_of_chains,atoms_in_chain)
+    print(input_pdbfile, number_of_chains, atoms_in_chain)
     #with open(input_pdbfile,'r',buffering=-1)as f:                       #opens the old pdbfile
     with open(input_pdbfile, 'r') as f:
         lines=f.readlines()
@@ -115,7 +115,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
                     
 
                     if(int(i*atoms_in_chain+j)==int((atoms_in_chain*i+atoms_in_chain-1))): #checks whether the atoms is at the end of the chain    
-                        print(int(i*atoms_in_chain+j),int((atoms_in_chain*i+atoms_in_chain-1)))
+                        print(int(i*atoms_in_chain+j), int((atoms_in_chain*i+atoms_in_chain-1)))
                         f.write('TER\n')                    #puts ter at the end of each chain
             f.write('ENDMDL\n')                             #puts finish touches
             f.close()                                       #done
@@ -350,7 +350,7 @@ for i in range(max_iterations):
 
 
 eds_conver_ptwte_folder=ps.sims[-1].location
-print(eds_conver_ptwte_folder,'eds_conver_ptwte_folder')
+print(eds_conver_ptwte_folder, 'eds_conver_ptwte_folder')
 
 
 colvar_file='{}/restart_pt_wte.0.dat'.format(os.path.abspath(eds_conver_ptwte_folder))

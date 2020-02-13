@@ -71,7 +71,7 @@ pte_plumed_script=pte_result['plumed']
 replica_temps=pte_result['temperatures']
 temps = ','.join(str(e) for e in replica_temps)
 kwargs = [ {'ref_t': ti} for ti in replica_temps]
-print(total_no_atoms,number_chains,eds_period,temps)
+print(total_no_atoms, number_chains, eds_period, temps)
 #now reload PTE_WTE hills file and run eds with cs2backbone to generate the eds parameters with multiple replicas
 plumed_input0=textwrap.dedent(
     '''
@@ -174,8 +174,6 @@ for i in range(max_iterations):
     else:
         print('Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff))
 
-
-
 print(ps.sim_dicts)
 nvt_conver_names=[]
 k=0
@@ -185,7 +183,7 @@ for i in ps.sim_dicts:
     if i.startswith("nvt_conver_eds"):
         nvt_conver_names.append(i)
         indeces.append(k)
-        print(i,k)
+        print(i, k)
     k=k+1    
 x=0
 adresses=[]
@@ -195,9 +193,9 @@ for i in  ps.sims:
         print(i.location,x)
     x=x+1
 
-print(indeces[-1],ps.sims[indeces[len(indeces)-1]].location)
+print(indeces[-1], ps.sims[indeces[len(indeces)-1]].location)
 eds_conver_ptwte_folder=ps.sims[adresses[-1]].location
-print(eds_conver_ptwte_folder)        
+print(eds_conver_ptwte_folder)
 colvar_file='{}/restart_pt_wte.0.dat'.format(os.path.abspath(eds_conver_ptwte_folder))
 
 plumed_input=textwrap.dedent(

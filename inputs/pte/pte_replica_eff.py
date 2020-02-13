@@ -33,4 +33,4 @@ ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10*
 ps.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs={'nsteps':int(1 * 5*10**2)},mpi_np=MPI_NP, pickle_name=pickle_name )#change the time step to 2 ns
 ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(1 * 5*10**2)}, mpi_np=MPI_NP, pickle_name=pickle_name)
 filename=ps.pte_replica(mpi_np=MPI_NP,final_time=int(1* 5*10**2),replicas=4)
-print((ps.sim_dicts),filename)
+print((ps.sim_dicts), filename)

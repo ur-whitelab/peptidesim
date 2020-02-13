@@ -34,7 +34,7 @@ file00=ps.pdb_file
 cwd=os.getcwd()
 gromacs.pdb2gmx(f=file00,o="file_pdb_output.pdb",water=ps.water,ff=ps.forcefield)
 file00="{}/{}".format(cwd,"file_pdb_output.pdb")
-print(file00,"file_pdb_output.pdb", cwd)
+print(file00, "file_pdb_output.pdb", cwd)
 def total_aa(file1,output_file):
     print(ps.sims[-1].location)
     output=open(output_file,'w')
@@ -58,7 +58,7 @@ def total_aa(file1,output_file):
             i=i+1
             output.write(old_line)
         last_line=[]
-        print(lines[i-1],lines[i-2], lines[i-3])
+        print(lines[i-1], lines[i-2], lines[i-3])
         if (lines[i-1].startswith('END')==True):
                 
             last_line=lines[i-3].strip()
@@ -74,7 +74,10 @@ def total_aa(file1,output_file):
             return int(last_line[1]),int(last_line[4]),output_file
         else:
             return int(last_line[1]),int(last_line[5]),output_file
-print(total_aa(file00,'template.pdb'))
+
+        
+print(total_aa(file00, 'template.pdb'))
+
 
 def number_all_atoms_chains():
     if (os.path.isdir("{}/".format(os.getcwd)+"data")==True):
@@ -113,8 +116,10 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
            returns:
         
            newp pdb file'''
+
+    
     from string import ascii_uppercase
-    print(input_pdbfile,number_of_chains,atoms_in_chain)
+    print(input_pdbfile, number_of_chains, atoms_in_chain)
     with open(input_pdbfile, 'r') as f:
         lines=f.readlines()
         beginning=lines[:first_atom_index]                  #saves the first useless lines that don't contain conf info
@@ -126,7 +131,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
                 f.write("{}\n".format(beginning[index].strip())) #writes the useless lines into the new file   
             for i in np.arange(number_of_chains):           #iterates through the copies of chains  
                 for j in np.arange(atoms_in_chain):         #itarates through the atoms in the chain
-                    print(i*(atoms_in_chain+1)+j,i*(atoms_in_chain)+j, len(lines), i,j)
+                    print(i*(atoms_in_chain+1)+j, i*(atoms_in_chain)+j, len(lines), i, j)
                     a=lines[i*(atoms_in_chain)+j]             #reads the old pdbfile info pertaining to the atoms of interest  
                     a=list(a)                               #converts the string into a list of characters 
                     if (len(a)>=21):
