@@ -17,7 +17,7 @@ peptide_copies=1
 
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
-    print 'loading restart'
+    print('loading restart')
     with open(pickle_name, 'r') as f:
         ps = pickle.load(f)
 else:
@@ -33,7 +33,7 @@ ps.initialize()
 replicas=16
 file00=ps.pdb_file
 def total_aa(file1,output_file):
-    print ps.sims[-1].location
+    print(ps.sims[-1].location)
     output=open(output_file,'w')
     with open(file1, "r") as f:
         lines=f.readlines()
@@ -59,9 +59,9 @@ def total_aa(file1,output_file):
         return int(last_line[1]),int(last_line[4]),output_file
 
 total_no_atoms,number_chains,file0=total_aa(file00,'template.pdb')
-print total_no_atoms, "total_no_atoms",file0
+print(total_no_atoms, "total_no_atoms",file0)
 atoms_in_chain=total_no_atoms/peptide_copies
-print atoms_in_chain, "atoms_in_chain"
+print(atoms_in_chain, "atoms_in_chain")
 eds_period=250
 remd_exchange_period=300
 with open(file0,'r') as file_read:
@@ -90,7 +90,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
             newp pdb file
         '''
     from string import ascii_uppercase
-    print input_pdbfile,number_of_chains,atoms_in_chain
+    print(input_pdbfile,number_of_chains,atoms_in_chain)
     #with open(input_pdbfile,'r',buffering=-1)as f:                       #opens the old pdbfile
     with open(input_pdbfile, 'r') as f:
         lines=f.readlines()
@@ -115,7 +115,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
                     
 
                     if(int(i*atoms_in_chain+j)==int((atoms_in_chain*i+atoms_in_chain-1))): #checks whether the atoms is at the end of the chain    
-                        print int(i*atoms_in_chain+j),int((atoms_in_chain*i+atoms_in_chain-1))
+                        print(int(i*atoms_in_chain+j),int((atoms_in_chain*i+atoms_in_chain-1)))
                         f.write('TER\n')                    #puts ter at the end of each chain
             f.write('ENDMDL\n')                             #puts finish touches
             f.close()                                       #done
@@ -343,14 +343,14 @@ for i in range(max_iterations):
     
     replex_eff = min(get_replex_e(ps, replicas))
     if (replex_eff >= 0.28 and i>=min_iterations):
-        print 'Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff)
+        print('Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff))
         break
     else:
-        print 'Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff)
+        print('Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff))
 
 
 eds_conver_ptwte_folder=ps.sims[-1].location
-print eds_conver_ptwte_folder,'eds_conver_ptwte_folder'
+print(eds_conver_ptwte_folder,'eds_conver_ptwte_folder')
 
 
 colvar_file='{}/restart_pt_wte.0.dat'.format(os.path.abspath(eds_conver_ptwte_folder))
@@ -440,7 +440,7 @@ ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod_eds_colvar',  mdp_kwargs={'ns
 with open(pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
   
-print ps.box_size_angstrom, replica_temps
+print(ps.box_size_angstrom, replica_temps)
 
-print 'done'
+print('done')
 

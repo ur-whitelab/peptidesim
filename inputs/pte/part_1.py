@@ -18,7 +18,7 @@ peptide_copies=int(sys.argv[3])
 
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
-    print 'loading restart'
+    print('loading restart')
     with open(pickle_name, 'r') as f:
         ps = pickle.load(f)
 else:
@@ -34,9 +34,9 @@ file00=ps.pdb_file
 cwd=os.getcwd()
 gromacs.pdb2gmx(f=file00,o="file_pdb_output.pdb",water=ps.water,ff=ps.forcefield)
 file00="{}/{}".format(cwd,"file_pdb_output.pdb")
-print file00,"file_pdb_output.pdb", cwd
+print(file00,"file_pdb_output.pdb", cwd)
 def total_aa(file1,output_file):
-    print ps.sims[-1].location
+    print(ps.sims[-1].location)
     output=open(output_file,'w')
     with open(file1, "r") as f:
         lines=f.readlines()
@@ -58,14 +58,14 @@ def total_aa(file1,output_file):
             i=i+1
             output.write(old_line)
         last_line=[]
-        print lines[i-1],lines[i-2], lines[i-3]
+        print(lines[i-1],lines[i-2], lines[i-3])
         if (lines[i-1].startswith('END')==True):
                 
             last_line=lines[i-3].strip()
-            print "ends with END"
+            print("ends with END")
         else:
             last_line=lines[i-1].strip()
-            print "doesnt end with END"
+            print("doesnt end with END")
 
         last_line=last_line.split()
 
@@ -74,7 +74,7 @@ def total_aa(file1,output_file):
             return int(last_line[1]),int(last_line[4]),output_file
         else:
             return int(last_line[1]),int(last_line[5]),output_file
-print total_aa(file00,'template.pdb')
+print(total_aa(file00,'template.pdb'))
 
 def number_all_atoms_chains():
     if (os.path.isdir("{}/".format(os.getcwd)+"data")==True):
@@ -114,7 +114,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
         
            newp pdb file'''
     from string import ascii_uppercase
-    print input_pdbfile,number_of_chains,atoms_in_chain
+    print(input_pdbfile,number_of_chains,atoms_in_chain)
     with open(input_pdbfile, 'r') as f:
         lines=f.readlines()
         beginning=lines[:first_atom_index]                  #saves the first useless lines that don't contain conf info
@@ -126,7 +126,7 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
                 f.write("{}\n".format(beginning[index].strip())) #writes the useless lines into the new file   
             for i in np.arange(number_of_chains):           #iterates through the copies of chains  
                 for j in np.arange(atoms_in_chain):         #itarates through the atoms in the chain
-                    print i*(atoms_in_chain+1)+j,i*(atoms_in_chain)+j, len(lines), i,j
+                    print(i*(atoms_in_chain+1)+j,i*(atoms_in_chain)+j, len(lines), i,j)
                     a=lines[i*(atoms_in_chain)+j]             #reads the old pdbfile info pertaining to the atoms of interest  
                     a=list(a)                               #converts the string into a list of characters 
                     if (len(a)>=21):
@@ -232,25 +232,25 @@ ps.add_file(directory)
 with open(ps.pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
 
-print ps.pickle_name, 'picklename1'
+print(ps.pickle_name, 'picklename1')
 with open(ps.pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 8*10**2,'rcoulomb':1}, mpi_np=MPI_NP)
 
-print ps.pickle_name, 'picklename2'
+print(ps.pickle_name, 'picklename2')
 with open(ps.pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs={'nsteps':int(200* 5*10**2)},mpi_np=MPI_NP)#change the time step to 2 ns
 
-print ps.pickle_name, 'picklename3'
+print(ps.pickle_name, 'picklename3')
 with open(ps.pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(200 * 5*10**2),'ref_t':278}, mpi_np=MPI_NP)
 
-print ps.pickle_name, 'picklename3'
+print(ps.pickle_name, 'picklename3')
 with open(ps.pickle_name, 'w') as f:
     pickle.dump(ps, file=f)
             
