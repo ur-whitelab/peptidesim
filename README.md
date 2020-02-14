@@ -32,6 +32,7 @@ which pip #or which python
 # The output should look like this:
 # /.conda/envs/yourenvname/bin/pip
 ```
+**Note**: In case the environment is not properly activated, i.e., `which pip` outputs a path not as mentioned above, try `conda init`. Close and reopen a new terminal and do `conda activate <yourenvname>`.
 
 3. You will need to install the GromacsWrapper module. You can
 download the [source code](https://github.com/Becksteinlab/GromacsWrapper/releases) for version 0.8.0 (latest) and install using the following command:
@@ -86,8 +87,8 @@ gromacswrapper packages are available.
 ## Typical Workflow
 
 ### Regular Simulation
-
-1. Create a Python script simple.py and import PeptideSim
+Refer to the scripts under peptidesim/inputs/simple/ as an example.
+1. Create a Python script simple.py and import required module.
 ```python
 from pepsidesim import PeptideSim
 ```
@@ -109,10 +110,58 @@ ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10*
 ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
 ```
-4. Run the script
-```python
+4. Create a bash script and run it
+```bash
+#!/bin/sh
+#SBATCH --partition=standard --time=120:00:00 --output=EK6.txt
+#SBATCH --mail-type ALL
+#SBATCH -N 2
+#SBATCH --ntasks-per-node=16
+#SBATCH --mem=24gb
+
+export OMP_NUM_THREADS=2
 python simple.py
 ```
+5. Adding pickle
+
+Simluation may takes a long time depending on the number of steps inputed and resource requrested and it may be the case that the job won't be able to finish even with the upper limit time of Bluehive. You can use pickle module to help resuming the job. Firs step is to  add if statement before initializing:
+```python
+if(os.path.exists(pickle_name)):
+    print('loading restart')
+    with open(pickle_name, 'rb') as f:
+        ps = pickle.load(f)
+else:	
+    #step 2.
+```
+It is recommended to dump information into pickle after each step for example:
+```python
+ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**5})
+print(ps.pickle_name, 'picklename1')
+with open(ps.pickle_name, 'wb') as f:
+    pickle.dump(ps, file=f)
+
+ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
+print(ps.pickle_name, 'picklename2')
+with open(ps.pickle_name, 'wb') as f:
+    pickle.dump(ps, file=f)
+
+ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
+print(ps.pickle_name, 'picklename3')
+with open(ps.pickle_name, 'wb') as f:
+    pickle.dump(ps, file=f)
+
+```
+Note that for Python3, pickle opened with binary mode must be specified. Otherwise error will occur.
+
+### PT-WTE
+Refer to the scripts under peptidesim/inputs/pte/ as example
+1. Preparation
+
+Create a Python script for the preparation step. It is almost identical to the regular simulation except the last step is changed to 'equil_npt'. (Check the part1.py)
+
+2. PT-WTE
+
+Create a second script
 
 ## Contributing
 
