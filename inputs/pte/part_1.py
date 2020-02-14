@@ -75,6 +75,7 @@ def total_aa(file1,output_file):
         else:
             return int(last_line[1]),int(last_line[5]),output_file
 
+
 print(total_aa(file00, 'template.pdb'))
 
 
