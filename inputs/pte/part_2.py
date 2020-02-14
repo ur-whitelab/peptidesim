@@ -190,7 +190,7 @@ adresses=[]
 for i in  ps.sims:
     if ("nvt_conver_eds"  in "{}".format(i.location)):
         adresses.append(x)
-        print(i.location,x)
+        print(i.location, x)
     x=x+1
 
 print(indeces[-1], ps.sims[indeces[len(indeces)-1]].location)

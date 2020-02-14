@@ -75,7 +75,6 @@ def total_aa(file1,output_file):
         else:
             return int(last_line[1]),int(last_line[5]),output_file
 
-        
 print(total_aa(file00, 'template.pdb'))
 
 
@@ -117,7 +116,6 @@ def pdbfile_generator_w_chain_id(number_of_chains,atoms_in_chain,first_atom_inde
         
            newp pdb file'''
 
-    
     from string import ascii_uppercase
     print(input_pdbfile, number_of_chains, atoms_in_chain)
     with open(input_pdbfile, 'r') as f:
