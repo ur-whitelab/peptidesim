@@ -15,7 +15,6 @@ Here's an example showing **one** AEAE peptide and **two** LGLG peptides, saving
 
 from functools import reduce
 import numpy as np
-import filecmp
 import logging
 import os
 import shutil
@@ -62,7 +61,8 @@ class SimulationInfo(object):
 
     def run(self, run_fxn=None, run_kwargs=None):
         if(self.restart_count > 0):
-            if (run_fxn is not None and run_fxn != self.run_fxn) or (run_kwargs is not None and run_kwargs != self.run_kwargs):
+            if (run_fxn is not None and run_fxn != self.run_fxn) or (
+                    run_kwargs is not None and run_kwargs != self.run_kwargs):
                 raise ValueError(
                     'Name collision in simulation. You tried to repeat a non-identical simulation')
         else:
@@ -82,9 +82,11 @@ class PeptideSim(Configurable):
 
     '''
 
-    sim_name = Unicode('peptidesim',
-                       help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)',
-                       ).tag(config=True)
+    sim_name = Unicode(
+        'peptidesim',
+        help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)',
+    ).tag(
+        config=True)
 
     config_file = Unicode('peptidesim_config.py',
                           help='The config file to load',
@@ -98,17 +100,21 @@ class PeptideSim(Configurable):
                      help='Barostat pressure. Ignored if not doing NPT'
                      ).tag(config=True)
 
-    peptide_density = Float(0.02,
-                            help='The density of the peptides in milligrams / milliliter',
-                            ).tag(config=True)
+    peptide_density = Float(
+        0.02,
+        help='The density of the peptides in milligrams / milliliter',
+    ).tag(
+        config=True)
 
     ion_concentration = Float(0.002,
                               help='The concentration of sodium chloride to add in moles / liter'
                               ).tag(config=True)
 
-    log_file = Unicode('simulation.log',
-                       help='The location of the log file. If relative path, it will be in simulation directory.',
-                       ).tag(config=True)
+    log_file = Unicode(
+        'simulation.log',
+        help='The location of the log file. If relative path, it will be in simulation directory.',
+    ).tag(
+        config=True)
     packmol_exe = Unicode('packmol',
                           help='The command to run the packmol program.'
                           ).tag(config=True)
@@ -123,24 +129,30 @@ class PeptideSim(Configurable):
                     help='The water model to use',
                     ).tag(config=True)
 
-    pdb2gmx_args = Dict(dict(ignh=True),
-                        help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
-                        ).tag(config=True)
+    pdb2gmx_args = Dict(
+        dict(
+            ignh=True),
+        help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
+    ).tag(
+        config=True)
 
     mdp_directory = Unicode('.',
                             help='The directory to find gromacs MDP files'
                             ).tag(config=True)
-    mdp_base = Unicode('peptidesim_base.mdp',
-                       help='The MDP file containing basic forcefield parameters'
-                       ).tag(config=True)
+    mdp_base = Unicode(
+        'peptidesim_base.mdp',
+        help='The MDP file containing basic forcefield parameters').tag(
+        config=True)
 
-    mdp_emin = Unicode('peptidesim_emin.mdp',
-                       help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
-                       ).tag(config=True)
+    mdp_emin = Unicode(
+        'peptidesim_emin.mdp',
+        help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions').tag(
+        config=True)
 
-    remote_log = Bool(False,
-                      help='Whether or not to log the simulations in the Redis database'
-                      ).tag(config=True)
+    remote_log = Bool(
+        False,
+        help='Whether or not to log the simulations in the Redis database').tag(
+        config=True)
 
     host = Unicode('http://52.71.14.39',
                    help='The host address for the Redis database'
@@ -156,10 +168,11 @@ class PeptideSim(Configurable):
     mpi_np = Int(1,
                  help='Number of mpi processes'
                  ).tag(config=True)
-    mdrun_driver = Unicode(None,
-                           allow_none=True,
-                           help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)'
-                           ).tag(config=True)
+    mdrun_driver = Unicode(
+        None,
+        allow_none=True,
+        help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)').tag(
+        config=True)
 
     @property
     def box_size_angstrom(self):
@@ -198,10 +211,13 @@ class PeptideSim(Configurable):
         ''' a property that returns the latest generated pdb file
         '''
         if len(self._pdb) > 0:
-            return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
+            return os.path.normpath(os.path.join(
+                self.rel_dir_name, self._pdb[-1]))
         elif self.gro_file is not None:
-            print('grofile is not NONE', os.path.basename(self.gro_file).split('.pdb')[
-                  0], 'ends in pdb', os.path.basename(self.gro_file).split('.gro')[0], 'gro')
+            print(
+                'grofile is not NONE', os.path.basename(
+                    self.gro_file).split('.pdb')[0], 'ends in pdb', os.path.basename(
+                    self.gro_file).split('.gro')[0], 'gro')
 
             output = '{}.pdb'.format(os.path.basename(
                 self.gro_file).split('.gro')[0])
@@ -219,11 +235,15 @@ class PeptideSim(Configurable):
         '''
         if len(self._gro) == 0:
             return None
-        if type(self._gro[-1]) is list:
+        if isinstance(self._gro[-1], list):
             result = self._gro[-1]
         else:
             result = [self._gro[-1]]
-        return [os.path.normpath(os.path.join(self.rel_dir_name, ri)) for ri in result]
+        return [
+            os.path.normpath(
+                os.path.join(
+                    self.rel_dir_name,
+                    ri)) for ri in result]
 
     @property
     def gro_file(self):
@@ -231,7 +251,7 @@ class PeptideSim(Configurable):
         '''
         if len(self._gro) == 0:
             return None
-        if type(self._gro[-1]) is list:
+        if isinstance(self._gro[-1], list):
             result = self._gro[-1][0]
         else:
             result = self._gro[-1]
@@ -239,7 +259,7 @@ class PeptideSim(Configurable):
 
     @gro_file.setter
     def gro_file(self, f):
-        if type(f) is list:
+        if isinstance(f, list):
             f = [self._convert_path(fi) for fi in f]
         else:
             f = self._convert_path(f)
@@ -255,7 +275,7 @@ class PeptideSim(Configurable):
 
     @top_file.setter
     def top_file(self, f):
-       self._top.append(self._convert_path(f))
+        self._top.append(self._convert_path(f))
 
     @property
     def tpr_file(self):
@@ -289,7 +309,11 @@ class PeptideSim(Configurable):
         if self._ndx_file is None:
             return None
         n = gromacs.fileformats.NDX()
-        n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
+        n.read(
+            os.path.normpath(
+                os.path.join(
+                    self.rel_dir_name,
+                    self._ndx_file)))
         return n
 
     @property
@@ -307,7 +331,14 @@ class PeptideSim(Configurable):
         self._ndx_file = self._convert_path(n)
         self._file_list.append(self._ndx_file)
 
-    def __init__(self, dir_name, seqs, counts=None, config_file=None, job_name=None, pickle_name=None):
+    def __init__(
+            self,
+            dir_name,
+            seqs,
+            counts=None,
+            config_file=None,
+            job_name=None,
+            pickle_name=None):
         '''This is an initiator that takes the arguments from the command
         line and creates the class simulation.
 
@@ -422,7 +453,8 @@ class PeptideSim(Configurable):
                 else:
                     data[k] = v.default_value
             for k, v in self.__dict__.items():
-                if k not in data and type(v) in [str, int, float, list, dict, tuple, str] and k[0] != '_':
+                if k not in data and type(v) in [
+                        str, int, float, list, dict, tuple, str] and k[0] != '_':
                     data[k] = v
             f.write(json.dumps(data))
 
@@ -452,7 +484,7 @@ class PeptideSim(Configurable):
           3. Convert them into gmx files using the pdb2gmx command and configuration parameters
           4. Add water using the editconf/genbox
           5. Add ions
-		  6. Compile our energy-minimization tpr file for purposes of adding ions
+                  6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         # generate pdbs from sequences and store their extents
         self.structure_extents = []
@@ -496,7 +528,8 @@ class PeptideSim(Configurable):
             if result[0] != 0:
                 print(result)
                 self.log.error(
-                    'Demux failed with retcode {}. Out: {} Err: {} '.format(*result))
+                    'Demux failed with retcode {}. Out: {} Err: {} '.format(
+                        *result))
             else:
                 self.log.info(
                     'Demux succeeded with retcode {}'.format(*result))
@@ -506,10 +539,24 @@ class PeptideSim(Configurable):
         current_dir = os.getcwd()
         return '{}/replica_temp.xvg'.format(current_dir)
 
-    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4, mdp_kwargs=dict(), run_kwargs=dict(), hills_file_location=None,
-                    cold=300.0, hot=400.0, eff_threshold=0.3,
-                    hill_height=1.2, sigma=140.0, bias_factor=10,
-                    exchange_period=25, dump_signal=signal.SIGTERM):
+    def pte_replica(
+            self,
+            tag='pte_tune',
+            mpi_np=None,
+            replicas=8,
+            max_tries=30,
+            min_iters=4,
+            mdp_kwargs=dict(),
+            run_kwargs=dict(),
+            hills_file_location=None,
+            cold=300.0,
+            hot=400.0,
+            eff_threshold=0.3,
+            hill_height=1.2,
+            sigma=140.0,
+            bias_factor=10,
+            exchange_period=25,
+            dump_signal=signal.SIGTERM):
         '''
         Runs NVT tuning with plumed PTE and replica exchange to obtain high replica efficiency.
 
@@ -559,7 +606,7 @@ class PeptideSim(Configurable):
             for simulation in self.sims:
                 if simulation.name.startswith(tag):
                     pte_sims.append(index)
-                index = index+1
+                index = index + 1
             with open(self.sims[pte_sims[-1]].location + '/' + self.sims[pte_sims[-1]].metadata['md-log']) as f:
                 p1 = re.compile('Repl  average probabilities:')
                 p2 = re.compile(
@@ -583,11 +630,11 @@ class PeptideSim(Configurable):
         # replica temperatures
         for i in range(max_tries):
 
-            #replex eff initiated
+            # replex eff initiated
             replex_eff = 0
             replica_temps = [
                 cold * (hot / cold) ** (float(m) / (replicas - 1)) for m in range(replicas)]
-            #plumed input for WT-PTE
+            # plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
             plumed_input_name = '{}/{}'.format(
                 self.sims[-1].location, 'plumed_wte.dat')
@@ -629,15 +676,17 @@ class PeptideSim(Configurable):
                      run_kwargs=run_kwargs,
                      dump_signal=dump_signal)
 
-            #write pickle file
+            # write pickle file
             with open(os.path.join(self.rel_dir_name, self.pickle_name), 'w+b') as f:
                 dill.dump(self, file=f)
 
             replex_eff = min(get_replex_e(self, replicas))
-            if replex_eff >= eff_threshold and i >= (min_iters-1):
-                self.log.info('Completed the simulation. Reached replica exchange efficiency of {}.'
-                              ' The replica temperatures were {}. The name of the plumed input scripts is'
-                              '\'plumed_wte.dat\'. Continuing to production'.format(replex_eff, replica_temps))
+            if replex_eff >= eff_threshold and i >= (min_iters - 1):
+                self.log.info(
+                    'Completed the simulation. Reached replica exchange efficiency of {}.'
+                    ' The replica temperatures were {}. The name of the plumed input scripts is'
+                    '\'plumed_wte.dat\'. Continuing to production'.format(
+                        replex_eff, replica_temps))
                 plumed_output_script = textwrap.dedent(
                     '''
                  ene: ENERGY
@@ -655,18 +704,24 @@ class PeptideSim(Configurable):
                         '''.format(sigma, hill_height, temps, hills_file_location, bias_factor))
                 break
             else:
-                self.log.info('Did not complete the simulation. Replica exchange efficiency of {}.'
-                              ' The replica temperatures were {}. The name of the plumed input scripts'
-                              ' is \'plumed_wte.dat\''.format(replex_eff, replica_temps))
+                self.log.info(
+                    'Did not complete the simulation. Replica exchange efficiency of {}.'
+                    ' The replica temperatures were {}. The name of the plumed input scripts'
+                    ' is \'plumed_wte.dat\''.format(
+                        replex_eff, replica_temps))
                 continue
 
         if plumed_output_script is None:
             raise RuntimeError('Did not reach high enough efficiency')
         else:
             if(hills_file_location != os.getcwd() and hills_file_location is not None):
-                for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
+                for f in glob.glob(
+                        '{}/HILLS_PTE*'.format(hills_file_location)):
                     self.add_file(f)
-            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
+            return {
+                'plumed': plumed_output_script,
+                'efficiency': replex_eff,
+                'temperatures': replica_temps}
 
     def remove_simulation(self, sim_name, debug=None):
         ''' method that takes a name of the simulation to be removed and deletes the anything related to that simulation
@@ -685,14 +740,14 @@ class PeptideSim(Configurable):
                     del self.sims[sim_index]
                     del self._sims[full_name]
                     break
-            sim_index = sim_index+1
+            sim_index = sim_index + 1
         if (debug is not None):
             full_name = debug
         all_tpr_file_index = 0
         replica_tpr = 0
         tpr_file_index = []
         for tpr_file in self._tpr:
-            if type(tpr_file) == list:
+            if isinstance(tpr_file, list):
                 file_path = tpr_file[0].split('/')
                 all_tpr_file_index += 1
                 if file_path[1] == full_name:
@@ -712,7 +767,7 @@ class PeptideSim(Configurable):
         replica_gro = 0
         gro_file_index = []
         for gro_file in self._gro:
-            if type(gro_file) == list:
+            if isinstance(gro_file, list):
                 file_path = gro_file[0].split('/')
                 all_gro_file_index += 1
                 if file_path[1] == full_name:
@@ -735,18 +790,27 @@ class PeptideSim(Configurable):
             raise ValueError('Tpr file index is larger than tpr file array')
         if len(self._sims) < sim_index:
             raise ValueError('Simulation index is larger than sims array')
-        if type(full_name) != str and full_name is None:
+        if not isinstance(full_name, str) and full_name is None:
             raise ValueError(
                 'name of the simulation to be removed should be a string or the simulation does not exist anymore')
         for i in range(len(gro_file_index)):
-            del self._gro[gro_file_index[i]-i-1]
+            del self._gro[gro_file_index[i] - i - 1]
 
         for i in range(len(tpr_file_index)):
-            del self._tpr[tpr_file_index[i]-i-1]
+            del self._tpr[tpr_file_index[i] - i - 1]
         with open(os.path.join(self.rel_dir_name, self.pickle_name), 'w+b') as f:
             dill.dump(self, file=f)
 
-    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), dump_signal=signal.SIGTERM):
+    def run(
+            self,
+            mdpfile,
+            tag='',
+            repeat=False,
+            mpi_np=None,
+            mdp_kwargs=dict(),
+            run_kwargs=dict(),
+            metadata=dict(),
+            dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -806,10 +870,18 @@ class PeptideSim(Configurable):
     def _convert_path(self, p):
         '''Converts path to be local to our working directory'''
         if(os.path.exists(p)):
-            return os.path.relpath(os.path.abspath(p), os.path.abspath(self.rel_dir_name))
+            return os.path.relpath(
+                os.path.abspath(p), os.path.abspath(
+                    self.rel_dir_name))
         else:
             # join(where you are relative to root, filename)
-            return os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), os.path.abspath(self.rel_dir_name)), p))
+            return os.path.normpath(
+                os.path.join(
+                    os.path.relpath(
+                        os.getcwd(),
+                        os.path.abspath(
+                            self.rel_dir_name)),
+                    p))
 
     @contextlib.contextmanager
     def _simulation_context(self, name, pickle_name, dump_signal, repeat):
@@ -854,7 +926,7 @@ class PeptideSim(Configurable):
         try:
             yield si
         finally:
-            #reset signal handler
+            # reset signal handler
             signal.signal(dump_signal, oh)
 
     @contextlib.contextmanager
@@ -882,10 +954,10 @@ class PeptideSim(Configurable):
                     shutil.copytree(f, os.path.join(d, os.path.basename(f)))
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-            if(f.startswith('plumed') and f!='plumed_wte.dat' and os.path.exists(f)):
-                print(f,'printing added file')
+            if(f.startswith('plumed') and f != 'plumed_wte.dat' and os.path.exists(f)):
+
                 shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-            elif(f.startswith('plumed') and f!='plumed_wte.dat' and not os.path.exists(f)):
+            elif(f.startswith('plumed') and f != 'plumed_wte.dat' and not os.path.exists(f)):
                 shutil.copy2(f, os.path.join(d, os.path.basename(f)))
                 # go there
         curdir = os.getcwd()
@@ -914,18 +986,14 @@ class PeptideSim(Configurable):
     def add_file(self, f):
         if f != self._convert_path(f):
             shutil.copyfile(f, self._convert_path(f))
-        #elif(os.path.exists(f)):
-        #    try:
-        #        shutil.copyfile(f, self._convert_path(f))
-        #    except shutil.SameFileError:
-        #        print(f,'the files are indentical')
         self._file_list.append(os.path.basename(f))
 
     def get_mdpfile(self, f):
 
         mdpfile = None
 
-        # check if mdp file exist in current directory, on the file list or in dir_name, or in parent of dir_name
+        # check if mdp file exist in current directory, on the file list or in
+        # dir_name, or in parent of dir_name
         for d in ['.', self.dir_name, os.path.join('..', self.dir_name)]:
             if(os.path.exists(os.path.join(d, f))):
                 mdpfile = os.path.join(d, f)
@@ -967,7 +1035,7 @@ class PeptideSim(Configurable):
         from Bio.PDB import PDBIO
         from Bio.SeqUtils.ProtParam import ProteinAnalysis
         # sets the pdbfilename after the sequence
-        pdbfile = name+'.pdb'
+        pdbfile = name + '.pdb'
         structure = PeptideBuilder.initialize_res(sequence[0])
         for s in sequence[1:]:
             structure = PeptideBuilder.add_residue(structure, s)
@@ -1007,18 +1075,22 @@ class PeptideSim(Configurable):
             diff = [smax - smin for smax, smin in zip(e[0], e[1])]
             long_dim = max(max(diff), long_dim)
 
-        proposed_box_dim = vol**(1/3.)
+        proposed_box_dim = vol**(1 / 3.)
         proposed_box_dim = max(long_dim, proposed_box_dim)
         self.box_size_angstrom = [proposed_box_dim, sqrt(
             vol / proposed_box_dim), sqrt(vol / proposed_box_dim)]
 
         if min(self.box_size_angstrom) / 2 < 10.0:
-            raise ValueError('The boxsize is too small ({}) to conduct a simulation.'
-                             ' Try decreasing the peptide density. Half the shortest box'
-                             ' length must be greater than cutoff.'.format(self.box_size_angstrom))
+            raise ValueError(
+                'The boxsize is too small ({}) to conduct a simulation.'
+                ' Try decreasing the peptide density. Half the shortest box'
+                ' length must be greater than cutoff.'.format(
+                    self.box_size_angstrom))
 
-        self.log.info('Final box size to achieve density {} mg/mL: {} Angstrom'.format(
-                        self.peptide_density, self.box_size_angstrom))
+        self.log.info(
+            'Final box size to achieve density {} mg/mL: {} Angstrom'.format(
+                self.peptide_density,
+                self.box_size_angstrom))
 
         # build input text
         input_string = textwrap.dedent(
@@ -1055,8 +1127,9 @@ class PeptideSim(Configurable):
             result = subprocess.call('{} < {}'.format(
                 self.packmol_exe, input_file), shell=True)
             if result != 0:
-                self.log.error('Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(
-                    result, input=input_string))
+                self.log.error(
+                    'Packmol failed with retcode {}. Out: {} Err: {} Input: {input}'.format(
+                        result, input=input_string))
             else:
                 self.log.info(
                     'Packmol succeeded with retcode {}'.format(result))
@@ -1072,8 +1145,13 @@ class PeptideSim(Configurable):
             topology = 'dry_topology.top'
             self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(
                 self.pdb_file, output))
-            gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology,
-                            water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            gromacs.pdb2gmx(
+                f=self.pdb_file,
+                o=output,
+                p=topology,
+                water=self.water,
+                ff=self.forcefield,
+                **self.pdb2gmx_args)
             self.gro_file = output
             self.top_file = topology
 
@@ -1090,8 +1168,15 @@ class PeptideSim(Configurable):
         with self._put_in_dir('analysis'):
             self.log.info(
                 'Generating free energy landscape of your simulation by boltzman inversion')
-            gromacs.g_sham(f='distrmsd.xvg', notime=True, bin='bindex.ndx', lp='probability.xpm',
-                           ls='gibbs.xpm', histo='histogram.xvg', lsh='enthalpy.xpm', lss='entropy.xpm')
+            gromacs.g_sham(
+                f='distrmsd.xvg',
+                notime=True,
+                bin='bindex.ndx',
+                lp='probability.xpm',
+                ls='gibbs.xpm',
+                histo='histogram.xvg',
+                lsh='enthalpy.xpm',
+                lss='entropy.xpm')
             return 'energy.xvg', 'bindex.ndx', 'probability.xpm', 'entropy.xpm', 'enthalpy.xpm', 'gibbs.xpm', 'histogram.xvg'
 
     def _center(self):
@@ -1135,7 +1220,8 @@ class PeptideSim(Configurable):
 
             gromacs.grompp(f=ion_mdp, c=self.gro_file,
                            p=self.top_file, o=ion_tpr, maxwarn=1)
-            # adding max warn because we want to avoid the 'ssytem has net charge' warningbefore output from this grompp command
+            # adding max warn because we want to avoid the 'ssytem has net
+            # charge' warningbefore output from this grompp command
             self.tpr_file = ion_tpr
 
             self.log.info('Preparing NDX file')
@@ -1193,11 +1279,19 @@ class PeptideSim(Configurable):
                 'Identified {} as the solvent group'.format(solvent_index))
 
             self.log.info('Adding Ions...')
-            gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True,
-                           o=ion_gro, p=self.top_file, input=('', solvent_index))
+            gromacs.genion(
+                s=ion_tpr,
+                conc=self.ion_concentration,
+                neutral=True,
+                o=ion_gro,
+                p=self.top_file,
+                input=(
+                    '',
+                    solvent_index))
             self.log.info('...OK')
 
-            # now we need to remove all the include stuff so we can actually pass the file around if needed
+            # now we need to remove all the include stuff so we can actually
+            # pass the file around if needed
             self.log.info('Resovling include statements via GromacsWrapper...')
             self.top_file = gromacs.cbook.create_portable_topology(
                 self.top_file, ion_gro)
@@ -1211,11 +1305,16 @@ class PeptideSim(Configurable):
 
         with self._put_in_dir(sinfo.location):
 
-            # make this out of restart/no restart logic so we can check for success
+            # make this out of restart/no restart logic so we can check for
+            # success
             gro = sinfo.short_name + '.gro'
-            if type(mdp_kwargs) is list:
-                gro = [os.path.join(
-                    'multi-{:04d}'.format(i), sinfo.short_name + '.gro') for i in range(len(mdp_kwargs))]
+            if isinstance(mdp_kwargs, list):
+                gro = [
+                    os.path.join(
+                        'multi-{:04d}'.format(i),
+                        sinfo.short_name +
+                        '.gro') for i in range(
+                        len(mdp_kwargs))]
 
             # check if it's a restart
             if(sinfo.restart_count > 0):
@@ -1243,7 +1342,7 @@ class PeptideSim(Configurable):
                 mdp_base.update(mdp_sim)
                 mdp_sim = mdp_base
                 # check if we're doing multiple mdp files
-                if type(mdp_kwargs) is list:
+                if isinstance(mdp_kwargs, list):
                     if not isinstance(mdp_kwargs[0], dict):
                         raise RuntimeError(
                             'To make multiple tpr files, must pass in list of dicts')
@@ -1266,7 +1365,8 @@ class PeptideSim(Configurable):
                         mdp_data.append(dict(mdp))
                         tpr = os.path.join(
                             '{}-{:04d}.tpr'.format(sinfo.short_name, i))
-                        # get gro file, which may come from a list of same length
+                        # get gro file, which may come from a list of same
+                        # length
                         c = self.gro_file
                         if(len(self.gro_file_list) == len(mdp_kwargs)):
                             c = self.gro_file_list[i]
@@ -1282,10 +1382,11 @@ class PeptideSim(Configurable):
                         shutil.copy2(tpr, os.path.join(
                             subdir, sinfo.short_name + '.tpr'))
                         # copy everything(!) on files list
-                        # make sure it exists, is not none and needs to be copied
+                        # make sure it exists, is not none and needs to be
+                        # copied
                         for f in self.file_list:
-               
-                            if(f is not None and os.path.exists(f) and not 
+
+                            if(f is not None and os.path.exists(f) and not
                                os.path.exists(os.path.join(subdir, os.path.basename(f)))):
                                 if os.path.isdir(f):
                                     shutil.copytree(f, os.path.join(
@@ -1293,13 +1394,21 @@ class PeptideSim(Configurable):
                                 else:
                                     shutil.copy2(f, os.path.join(
                                         subdir, os.path.basename(f)))
-                            if f.startswith(run_kwargs['plumed']) and f!='plumed_wte.dat' and os.path.exists(os.path.join(subdir,os.path.basename(f))) and os.path.exists(f):
-                                print(f,'printing added file im subdir')
-                                shutil.copy2(f, os.path.join(subdir, os.path.basename(f)))
-                            elif(f.startswith(run_kwargs['plumed']) and f!='plumed_wte.dat' and not os.path.exists(os.path.join(subdir,os.path.basename(f))) and os.path.exists(f)): 
-                                shutil.copy2(f, os.path.join(subdir, os.path.basename(f)))
-                               
-                    # keep a reference to current topology. Use 0th since it will exist
+                            if f.startswith(
+                                run_kwargs['plumed']) and f != 'plumed_wte.dat' and os.path.exists(
+                                os.path.join(
+                                    subdir,
+                                    os.path.basename(f))) and os.path.exists(f):
+                                shutil.copy2(
+                                    f, os.path.join(
+                                        subdir, os.path.basename(f)))
+                            elif(f.startswith(run_kwargs['plumed']) and f != 'plumed_wte.dat' and not os.path.exists(os.path.join(subdir, os.path.basename(f))) and os.path.exists(f)):
+                                shutil.copy2(
+                                    f, os.path.join(
+                                        subdir, os.path.basename(f)))
+
+                    # keep a reference to current topology. Use 0th since it
+                    # will exist
                     self.tpr_file = os.path.join(
                         '{}-{:04d}.tpr'.format(sinfo.short_name, 0))
                     # add the multi option
@@ -1345,8 +1454,9 @@ class PeptideSim(Configurable):
                 else:
                     gromacs.mdrun.driver = ' '.join(
                         [self.mpiexec, '-np {}'.format(mpi_np), temp])
-                self.log.info('Starting simulation {} in directory {}...'.format(
-                    sinfo.name, os.getcwd()))
+                self.log.info(
+                    'Starting simulation {} in directory {}...'.format(
+                        sinfo.name, os.getcwd()))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
                 gromacs.mdrun.driver = temp  # put back the original command
                 self.log.debug(' '.join(map(str, cmd)))
@@ -1355,7 +1465,7 @@ class PeptideSim(Configurable):
                           'args': ' '.join(map(str, cmd)), 'shell': True})
 
             # check if the output file was created
-            if((not os.path.exists(gro[0])) if type(gro) is list else (not os.path.exists(gro))):
+            if((not os.path.exists(gro[0])) if isinstance(gro, list) else (not os.path.exists(gro))):
                 # open the md log and check for error message
                 with open(sinfo.metadata['md-log']) as f:
                     s = f.read()
