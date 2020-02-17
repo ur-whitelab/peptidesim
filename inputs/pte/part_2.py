@@ -20,11 +20,11 @@ total_no_atoms=0#init
 number_chains=0#init
 ps=3#initialize
 if(os.path.exists(pickle_name)):
-    print 'loading restart'
-    with open(pickle_name, 'r') as f:
+    print('loading restart')
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
         #ps.pickle_name=pickle_name
-        print os.getcwd()
+        print(os.getcwd())
         ps.rel_dir_name='.'
 def number_all_atoms_chains():
     if (os.path.isdir("{}/data/".format(os.getcwd()))==True):
@@ -33,10 +33,10 @@ def number_all_atoms_chains():
             lines=f.readlines()
             lines=lines[-3].strip()
             lines=lines.split()
-            print lines
+            print(lines)
             return lines[1],lines[5]
     else:
-        print "there is no data directory"
+        print("there is no data directory")
 total_no_atoms,number_chains=number_all_atoms_chains()
 
 
@@ -71,7 +71,7 @@ pte_plumed_script=pte_result['plumed']
 replica_temps=pte_result['temperatures']
 temps = ','.join(str(e) for e in replica_temps)
 kwargs = [ {'ref_t': ti} for ti in replica_temps]
-print total_no_atoms,number_chains,eds_period,temps
+print(total_no_atoms, number_chains, eds_period, temps)
 #now reload PTE_WTE hills file and run eds with cs2backbone to generate the eds parameters with multiple replicas
 plumed_input0=textwrap.dedent(
     '''
@@ -160,23 +160,21 @@ max_iterations=2
 min_iterations=1
 for i in range(max_iterations):
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed_eds_conver_pt_wte_metad.dat', 'replex': remd_exchange_period},mpi_np=MPI_NP)
-    with open(ps.pickle_name, 'w') as f:
+    with open(ps.pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
     
     replex_eff = min(get_replex_e(ps, replicas))
     if (replex_eff >= 0.024 and i>=min_iterations):
-        print 'Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff)
+        print('Reached replica exchange efficiency of {}. Continuing to production'.format(replex_eff))
         break
     elif(replex_eff==-1):
         ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,run_kwargs={'plumed':'plumed_eds_conver_pt_wte_metad.dat', 'replex': remd_exchange_period},mpi_np=MPI_NP)
-        with open(ps.pickle_name, 'w') as f:
+        with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
     else:
-        print 'Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff)
+        print('Replica exchange efficiency of {}. Continuing simulation'.format(replex_eff))
 
-
-
-print ps.sim_dicts
+print(ps.sim_dicts)
 nvt_conver_names=[]
 k=0
 indeces=[]
@@ -185,19 +183,19 @@ for i in ps.sim_dicts:
     if i.startswith("nvt_conver_eds"):
         nvt_conver_names.append(i)
         indeces.append(k)
-        print i,k
+        print(i, k)
     k=k+1    
 x=0
 adresses=[]
 for i in  ps.sims:
     if ("nvt_conver_eds"  in "{}".format(i.location)):
         adresses.append(x)
-        print i.location,x
+        print(i.location, x)
     x=x+1
 
-print indeces[-1],ps.sims[indeces[len(indeces)-1]].location
+print(indeces[-1], ps.sims[indeces[len(indeces)-1]].location)
 eds_conver_ptwte_folder=ps.sims[adresses[-1]].location
-print eds_conver_ptwte_folder        
+print(eds_conver_ptwte_folder)
 colvar_file='{}/restart_pt_wte.0.dat'.format(os.path.abspath(eds_conver_ptwte_folder))
 
 plumed_input=textwrap.dedent(
@@ -286,11 +284,11 @@ with open('plumed_eds_colvars_new.dat', 'w') as f:
 ps.add_file('plumed_eds_colvars_new.dat')
 final_time_eds=int(0.040*5*10**5)
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod_eds_colvar',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},run_kwargs={'plumed':'plumed_eds_colvars_new.dat'},mpi_np=MPI_NP)
-with open(ps.pickle_name, 'w') as f:
+with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 #finally:
   
-print ps.box_size_angstrom, replica_temps
+print(ps.box_size_angstrom, replica_temps)
 
-print 'done'
+print('done')
 
