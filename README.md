@@ -161,7 +161,84 @@ Create a Python script for the preparation step. It is almost identical to the r
 
 2. PT-WTE
 
-Create a second script
+Create a second script and import all required modules. 
+Specify input. Note that the name of the job must be consistant with that in part 1.
+```python
+name = nameinpart1
+pickle_name = name + '.pickle'
+MPI_NP = 16
+peptide_cpoies = 1 #number of peptide per replica
+replicas = 16 #number of replicas
+#reload
+ps=3#initialize
+if(os.path.exists(pickle_name)):
+    print 'loading restart'
+    with open(pickle_name, 'r') as f:
+        ps = pickle.load(f)
+        #ps.pickle_name=pickle_name
+        print os.getcwd()
+        ps.rel_dir_name='.'
+```
+
+Write a function for getting replica exchange efficiency, this will be used in determining whether to end the simulation
+```python
+def get_replex_e(ps, replica_number):
+    with open(ps.sims[-1].location + '/' + ps.sims[-1].metadata['md-log']) as f:
+        p1 = re.compile('Repl  average probabilities:')
+        p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
+        ready = False
+        answer=-1
+        for line in f.readlines():
+            if not ready and p1.findall(line):
+                ready = True
+            elif ready:
+                match = p2.match(line)
+                
+                if match:
+                    answer= [float(s) for s in match.groups()]
+                    break
+            
+        return answer
+```
+
+Specify PTE inputs
+```python
+pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=3,min_iters=1, mdp_kwargs={'nsteps':int(400* 5*10**2), }, replicas=replicas,hills_file_location=os.getcwd(),hot=400,hill_height=0.6,sigma=250,bias_factor=16, eff_threshold=0.20,cold=278,exchange_period=200)
+replica_temps=pte_result['temperatures']
+temps = ','.join(str(e) for e in replica_temps)
+kwargs = [ {'ref_t': ti} for ti in replica_temps]
+time_ns=5.0 
+replex_eff = 0.2
+for kw in kwargs:
+    kw['nsteps']=  int(time_ns * 5 * 10 ** 5)
+max_iterations=20
+min_iterations=10
+```
+
+Write code for running simulation.
+```python
+for i in range(max_iterations):
+    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  
+           mdp_kwargs=kwargs,mpi_np=MPI_NP)
+    with open(ps.pickle_name, 'w') as f:
+        pickle.dump(ps, file=f)
+
+    rep_eff_1 = get_replex_e(ps, replicas)
+    if rep_eff_1 ==-1:
+        ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP)
+        with open(ps.pickle_name, 'w') as f:
+            pickle.dump(ps, file=f)
+        
+    elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
+        print 'Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1)
+        break
+
+        with open(ps.pickle_name, 'w') as f:
+            pickle.dump(ps, file=f)
+    else:
+        print 'Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1)
+```
+
 
 ## Contributing
 
