@@ -157,7 +157,9 @@ Note that for Python3, pickle opened with binary mode must be specified. Otherwi
 Refer to the scripts under peptidesim/inputs/pte/ as example
 1. Preparation
 
-Create a Python script for the preparation step. It is almost identical to the regular simulation except the last step is changed to 'equil_npt'. (Check the part1.py)
+Create a Python script for the preparation step. It is almost identical to the regular simulation. (Check the part1.py)
+
+If you wish to add EDS, you will need additional code for the preparation. Check part1.py as well as https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html.
 
 2. PT-WTE
 
@@ -203,10 +205,14 @@ def get_replex_e(ps, replica_number):
         return answer
 ```
 
-Specify PTE inputs
+Specify PTE inputs and generate plumed file
 ```python
 pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=3,min_iters=1, mdp_kwargs={'nsteps':int(400* 5*10**2), }, replicas=replicas,hills_file_location=os.getcwd(),hot=400,hill_height=0.6,sigma=250,bias_factor=16, eff_threshold=0.20,cold=278,exchange_period=200)
+pte_plumed_script=pte_result['plumed']
 replica_temps=pte_result['temperatures']
+with open('plumed_pte.dat', 'w') as f:
+    f.write(pte_plumed_script)
+ps.add_file('plumed_pte.dat')
 temps = ','.join(str(e) for e in replica_temps)
 kwargs = [ {'ref_t': ti} for ti in replica_temps]
 time_ns=5.0 
@@ -217,17 +223,29 @@ max_iterations=20
 min_iterations=10
 ```
 
-Write code for running simulation.
+If you are running EDS or require additional output from plumed, you can add additional plumed script by
+```python
+plumed_input0=textwrap.dedent(
+    '''
+    plumed script
+    ''')
+plumed_input=pte_plumed_script+plumed_input0
+with open('plumed_eds_conver_pt_wte_metad.dat', 'w') as f:
+    f.write(plumed_input)
+ps.add_file('plumed_eds_conver_pt_wte_metad.dat')
+```
+
+Code for running simulation.
 ```python
 for i in range(max_iterations):
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  
-           mdp_kwargs=kwargs, run_kwargs={'replex':remd_exhcange_period}, mpi_np=MPI_NP)
+           mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period}, mpi_np=MPI_NP)
     with open(ps.pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
 
     rep_eff_1 = get_replex_e(ps, replicas)
     if rep_eff_1 ==-1:
-        ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'replex':remd_exhcange_period},mpi_np=MPI_NP)
+        ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period},mpi_np=MPI_NP)
         with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
         
@@ -239,6 +257,14 @@ for i in range(max_iterations):
             pickle.dump(ps, file=f)
     else:
         print 'Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1)
+
+
+final_time_eds=int(0.040*5*10**5)
+ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},mpi_np=MPI_NP)
+with open(ps.pickle_name, 'wb') as f:
+    pickle.dump(ps, file=f)
+#finally:
+print('done')
 ```
 
 Write a bash script and run.
