@@ -86,7 +86,7 @@ gromacswrapper packages are available.
 
 ## Typical Workflow
 
-### Regular Simulation
+### Regular Simulation/Multi_chain
 Refer to the scripts under peptidesim/inputs/simple/ as an example.
 1. Create a Python script simple.py and import required module.
 ```python
@@ -96,7 +96,7 @@ from pepsidesim import PeptideSim
 ```python
 seq = 'EKEKEKEKEKEK' #input the sequence in one-letter-code
 name = 'EK6' #naming the sequence
-pep_copies = 1 #specifiy the number of copies
+pep_copies = 1 #specifiy the number of copies, increase the number if running multiple chains to study self assembly and etc.
 MPI_NP = 4
 ps = PeptideSim(name, [seq], [pep_copies], job_name='2mer_{}'.format(name)) #input to PeptideSim
 ps.peptide_density = 0.008 #g/mol
@@ -153,7 +153,7 @@ with open(ps.pickle_name, 'wb') as f:
 ```
 Note that for Python3, pickle opened with binary mode must be specified. Otherwise error will occur.
 
-### PT-WTE
+### PT-WTE/EDS
 Refer to the scripts under peptidesim/inputs/pte/ as example
 1. Preparation
 
@@ -163,12 +163,14 @@ Create a Python script for the preparation step. It is almost identical to the r
 
 Create a second script and import all required modules. 
 Specify input. Note that the name of the job must be consistant with that in part 1.
+
 ```python
 name = nameinpart1
 pickle_name = name + '.pickle'
 MPI_NP = 16
 peptide_cpoies = 1 #number of peptide per replica
 replicas = 16 #number of replicas
+remd_exhcange_period = 250
 #reload
 ps=3#initialize
 if(os.path.exists(pickle_name)):
@@ -218,26 +220,30 @@ min_iterations=10
 Write code for running simulation.
 ```python
 for i in range(max_iterations):
-    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  
-           mdp_kwargs=kwargs,mpi_np=MPI_NP)
-    with open(ps.pickle_name, 'w') as f:
+    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  
+           mdp_kwargs=kwargs, run_kwargs={'replex':remd_exhcange_period}, mpi_np=MPI_NP)
+    with open(ps.pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
 
     rep_eff_1 = get_replex_e(ps, replicas)
     if rep_eff_1 ==-1:
-        ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_eds_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP)
-        with open(ps.pickle_name, 'w') as f:
+        ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'replex':remd_exhcange_period},mpi_np=MPI_NP)
+        with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
         
     elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
         print 'Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1)
         break
 
-        with open(ps.pickle_name, 'w') as f:
+        with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
     else:
         print 'Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1)
 ```
+
+Write a bash script and run.
+
+**Note**:MPI_NP must be consistant with Ntask in bash script. Restarts should also have the same number of MPI processes otherwise it will result in PTE tuning log file missing error.
 
 
 ## Contributing
