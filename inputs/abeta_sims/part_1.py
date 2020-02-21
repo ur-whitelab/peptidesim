@@ -39,7 +39,7 @@ file00 = ps.pdb_file
 cwd = os.getcwd()
 # gromacs.pdb2gmx(f=file00,o="file_pdb_output.pdb",water=ps.water,ff=ps.forcefield)
 # file00="{}/{}".format(cwd,"file_pdb_output.pdb")
-#print(file00,"file_pdb_output.pdb", cwd)
+# print(file00,"file_pdb_output.pdb", cwd)
 
 
 def total_aa(file1, output_file):
@@ -225,7 +225,9 @@ peptide_copies = int(peptide_copies)
 
 
 def data_folder(number_amino_acids, name, copies_chains):
-    ''' a function that takes total number of amino acids in the pdbfile,name of the chemical shifts file and how many copies of a peptide are present and puts chemical shifta file into the data folder
+    ''' a function that takes total number of amino acids in the pdbfile, 
+    name of the chemical shifts file and how many copies of a peptide are 
+    present and puts chemical shifta file into the data folder
     Var:
        number_amino_acids-total number of amino acids in the pdbfile
        name-name of the chemical shifts file
@@ -288,17 +290,15 @@ def data_folder(number_amino_acids, name, copies_chains):
                     # or ending of the chain
                     if (j in beg_end_chains):
                         # print
-                        # i,j,number_chains*i+j,chemical_shifts[j-1][1],'a'
+                        # i,j,number_chains*i+j,chemical_shifts[j-1][1],a
                         # puts a hash sign for beginning and amino acid indeces
                         # in the chain
-                        f.write('#{} {}\n'.format(number_chains * \
-                                i + j, chemical_shifts[j - 1][1]))
+                        f.write('#{} {}\n'.format(number_chains * i + j, chemical_shifts[j - 1][1]))
                     else:
                         # print i,j,number_chains*i+j,chemical_shifts[j-1][1]
                         # copies the chem shifts from file with chemical shifts
                         # for the correspoding amino acid
-                        f.write('{} {}\n'.format(number_chains * \
-                                i + j, chemical_shifts[j - 1][1]))
+                        f.write('{} {}\n'.format(number_chains * i + j, chemical_shifts[j - 1][1]))
 
 
 filenames = [
@@ -358,7 +358,7 @@ ps.run(
     run_kwargs={
         'cpt': 5},
     mpi_np=MPI_NP)
-#ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(2000 * 5*10**2),'ref_t':278},run_kwargs={'cpt':5},mpi_np=MPI_NP)
+# ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(2000 * 5*10**2),'ref_t':278},run_kwargs={'cpt':5},mpi_np=MPI_NP)
 
 print(ps.pickle_name, 'picklename3')
 with open(ps.pickle_name, 'wb') as f:
