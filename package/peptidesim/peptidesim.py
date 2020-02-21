@@ -881,8 +881,12 @@ class PeptideSim(Configurable):
                     shutil.copytree(f, os.path.join(d, os.path.basename(f)))
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-
-        # go there
+            if(f.startswith('plumed') and f != 'plumed_wte.dat' and os.path.exists(f)):
+            
+                shutil.copy2(f, os.path.join(d, os.path.basename(f)))
+            elif(f.startswith('plumed') and f != 'plumed_wte.dat' and not os.path.exists(f)):
+                shutil.copy2(f, os.path.join(d, os.path.basename(f)))
+                # go there
         curdir = os.getcwd()
         # keep path to original directory
         self.rel_dir_name = os.path.relpath(curdir, d)
@@ -1265,7 +1269,8 @@ class PeptideSim(Configurable):
                         # move to sub-directory
                         subdir = 'multi-{:04d}'.format(i)
                         multidirs.append(subdir)
-                        os.mkdir(subdir)
+                        if not os.path.exists(subdir):
+                            os.mkdir(subdir)
                         # feels like overkill, but I guess we copy all files
                         # TPR
                         shutil.copy2(tpr, os.path.join(
@@ -1279,6 +1284,19 @@ class PeptideSim(Configurable):
                                         subdir, os.path.basename(f)))
                                 else:
                                     shutil.copy2(f, os.path.join(
+                                        subdir, os.path.basename(f)))
+
+                            if f.startswith(
+                                    run_kwargs['plumed']) and f != 'plumed_wte.dat' and os.path.exists(
+                                        os.path.join(
+                                            subdir,
+                                            os.path.basename(f))) and os.path.exists(f):
+                                shutil.copy2(
+                                    f, os.path.join(
+                                        subdir, os.path.basename(f)))
+                            elif(f.startswith(run_kwargs['plumed']) and f != 'plumed_wte.dat' and not os.path.exists(os.path.join(subdir, os.path.basename(f))) and os.path.exists(f)):
+                                shutil.copy2(
+                                    f, os.path.join(
                                         subdir, os.path.basename(f)))
                     # keep a reference to current topology. Use 0th since it will exist
                     self.tpr_file = os.path.join(

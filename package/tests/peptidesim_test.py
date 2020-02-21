@@ -243,6 +243,70 @@ class TestPTE(TestCase):
         # try to restart it
         new_p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={
                           'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
+    
+    def test_plumed_restart(self):
+
+        import dill as pickle
+        import time
+        # run a pte to get plumed output
+        p = PeptideSim('plumed_test', ['AA'], [1], job_name='test-plumed')
+        p.mdrun_driver = 'gmx_mpi'
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
+        p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 50})
+        # the name of the plumed file should always start with a plumed string
+        # and end with .dat
+        plumed_test_name = 'plumed_test.dat'
+
+        # plumed input file contents
+        text_old = textwrap.dedent('''
+        DISTANCE ATOMS=1,2 LABEL=d1
+        PRINT ARG=d1 FILE=colvar STRIDE=10
+        ''')
+
+        f0 = open(plumed_test_name, 'w')
+        f0.write(text_old)
+        f0.close()
+        p.add_file(plumed_test_name)
+        # the new content of the plumed file
+        signal.alarm(1)
+        try:
+            p.run(
+                mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
+                    'nsteps': 250}, run_kwargs={
+                        'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        del p
+
+        new_p = pickle.load(open('test-plumed.pickle', 'r+b'))
+
+        # now we modify the content of the same plumed file and add it to the
+        # list of required files
+        text_new = textwrap.dedent('''
+        DISTANCE ATOMS=1,3 LABEL=d1
+        PRINT ARG=d1 FILE=colvar STRIDE=10
+        ''')
+        # test pickle on signal
+        f1 = open(plumed_test_name, 'w')
+        f1.write(text_new)
+        f1.close()
+        new_p.add_file(plumed_test_name)
+        signal.alarm(1)
+        try:
+            new_p.run(
+                mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
+                    'nsteps': 250}, run_kwargs={
+                    'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        reloaded_plumed = open(
+            './' + new_p.sims[-1].location + '/' + plumed_test_name, 'r')
+        f2 = open('./' + plumed_test_name, 'r')
+        self.assertEqual(reloaded_plumed.readlines(), f2.readlines())
 
 
 class TestRemoveSimulation(TestCase):
