@@ -882,7 +882,6 @@ class PeptideSim(Configurable):
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
             if(f.startswith('plumed') and f != 'plumed_wte.dat' and os.path.exists(f)):
-            
                 shutil.copy2(f, os.path.join(d, os.path.basename(f)))
             elif(f.startswith('plumed') and f != 'plumed_wte.dat' and not os.path.exists(f)):
                 shutil.copy2(f, os.path.join(d, os.path.basename(f)))

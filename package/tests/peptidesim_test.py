@@ -243,7 +243,7 @@ class TestPTE(TestCase):
         # try to restart it
         new_p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={
                           'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
-    
+
     def test_plumed_restart(self):
 
         import dill as pickle
