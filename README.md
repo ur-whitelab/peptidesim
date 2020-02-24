@@ -116,15 +116,12 @@ ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3
 #SBATCH --partition=standard --time=120:00:00 --output=EK6.txt
 #SBATCH --mail-type ALL
 #SBATCH -N 2
-#SBATCH --ntasks-per-node=16
-#SBATCH --mem=24gb
 
-export OMP_NUM_THREADS=2
 python simple.py
 ```
 5. Adding pickle
 
-Simluation may takes a long time depending on the number of steps inputed and resource requrested and it may be the case that the job won't be able to finish even with the upper limit time of Bluehive. You can use pickle module to help resuming the job. Firs step is to  add if statement before initializing:
+Simulation may takes a long time depending on the number of steps inputted and resource requested and it may be the case that the job won't be able to finish even with the upper limit time of Bluehive. You can use pickle module to help resuming the job. First step is to add if statement before initializing:
 ```python
 if(os.path.exists(pickle_name)):
     print('loading restart')
@@ -159,7 +156,7 @@ Refer to the scripts under peptidesim/inputs/pte/ as example
 
 Create a Python script for the preparation step. It is almost identical to the regular simulation. (Check the part1.py)
 
-If you wish to add EDS, you will need additional code for the preparation. Check part1.py as well as https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html.
+If you wish to add EDS, you will need additional code for the preparation. Check part1.py, [plumed METAD documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html) and [plumed EDS documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_e_d_s.html).
 
 2. PT-WTE
 
@@ -263,13 +260,11 @@ final_time_eds=int(0.040*5*10**5)
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},mpi_np=MPI_NP)
 with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
-#finally:
-print('done')
 ```
 
 Write a bash script and run.
 
-**Note**:MPI_NP must be consistant with Ntask in bash script. Restarts should also have the same number of MPI processes otherwise it will result in PTE tuning log file missing error.
+**Note**: During replica exchange simulations, MPI_NP must be consistant with N (number of nodes), ntask_per_node and c (cpus_per_task) in bash script. Restarts should also have the same number of MPI processes otherwise it will result in PTE tuning log file missing error.
 
 
 ## Contributing
