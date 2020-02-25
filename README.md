@@ -223,11 +223,11 @@ remd_exhcange_period = 250
 #reload
 ps=3#initialize
 if(os.path.exists(pickle_name)):
-    print 'loading restart'
-    with open(pickle_name, 'r') as f:
+    print('loading restart')
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
         #ps.pickle_name=pickle_name
-        print os.getcwd()
+        print(os.getcwd())
         ps.rel_dir_name='.'
 ```
 
@@ -298,13 +298,13 @@ for i in range(max_iterations):
             pickle.dump(ps, file=f)
 
     elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
-        print 'Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1)
+        print('Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1))
         break
 
         with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
     else:
-        print 'Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1)
+        print('Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1))
 
 
 final_time_eds=int(0.040*5*10**5)
