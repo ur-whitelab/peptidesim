@@ -17,8 +17,8 @@ peptide_copies=3
 
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
-    print 'loading restart'
-    with open(pickle_name, 'r') as f:
+    print('loading restart')
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
 else:
     ps = PeptideSim(name, [seq], [peptide_copies], job_name='2mer_{}'.format(name))
@@ -33,4 +33,4 @@ ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10*
 ps.run(mdpfile='peptidesim_anneal.mdp',tag='annealing',mdp_kwargs={'nsteps':int(1 * 5*10**2)},mpi_np=MPI_NP, pickle_name=pickle_name )#change the time step to 2 ns
 ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(1 * 5*10**2)}, mpi_np=MPI_NP, pickle_name=pickle_name)
 filename=ps.pte_replica(mpi_np=MPI_NP,final_time=int(1* 5*10**2),replicas=4)
-print(ps.sim_dicts),filename
+print((ps.sim_dicts), filename)

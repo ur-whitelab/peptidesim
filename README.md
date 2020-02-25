@@ -15,18 +15,18 @@ We want to be able to post-process explore/analyze the data. We need to know the
 
 1. Load required modules
 ```bash
-module load anaconda3 packmol libmatheval gromacs-plumed/2018.3/b4 openblas openmpi
+module load anaconda3 packmol libmatheval gromacs-plumed/2019.4/b2 openblas git
 ```
 
 2. Create a virtual environment
 ```bash
-conda create -n yourenvname python=2.7
+conda create -n yourenvname python=3.7
 ```
-Make sure you specify _python 2.7_ for installing your conda environment as PeptideSim is not compatible with the newer versions of python. Once you create your environment, you should activate it for the next steps:
+Peptidesim is no longer available for python2 versions. Once you create your environment, you should activate it for the next steps:
 ```bash
 source activate yourenvname
 ```
-**Note**: Avoid using `conda activate yourenvname` as it might cause some problems in installing different python modules using pip. Check on pip and python and make sure they are sourced to your environment directory:
+Check on pip and python and make sure they are sourced to your environment directory:
 ```bash
 which pip #or which python
 # The output should look like this:
@@ -34,19 +34,25 @@ which pip #or which python
 ```
 **Note**: In case the environment is not properly activated, i.e., `which pip` outputs a path not as mentioned above, try `conda init`. Close and reopen a new terminal and do `conda activate <yourenvname>`.
 
-3. You will need to install the GromacsWrapper module. You can
-download the [source code](https://github.com/Becksteinlab/GromacsWrapper/releases) for version 0.8.0 (latest) and install using the following command:
+3. You will need to install the GromacsWrapper module separately due to a pending bug fix.
 ```bash
-pip install GromacsWrapper-release-0.8.0.tar.gz
+pip install --no-cache-dir git+https://github.com/whitead/GromacsWrapper
 ```
 
-4. Setup a config file for Gromacswrapper to be able to find the gromacs installation. Use interactive python to do this:
-```python
-import gromacs
-gromacs.config.setup()
+4. For installing PeptideSim, you need to clone the package from github.
+```bash
+git clone https://github.com/ur-whitelab/peptidesim.git
 ```
-This will create a `.gromacswrapper.cfg` file in your home directory.
-Using any text editor, make the changes to that file and add the GMXRC location. Your file should look like this:
+Change directory to `package` and install the requirements and the module:
+```bash
+cd package
+pip install -e .
+```
+
+5. Setup a config file for Gromacswrapper to be able to find the gromacs installation. You can use the one given below and save it to `~/.gromacswrapper.cfg`
+
+
+`.gromacswrapper.cfg`
 ```text
  [ DEFAULT ]
  qscriptdir = %( configdir )s/qscripts
@@ -54,8 +60,8 @@ Using any text editor, make the changes to that file and add the GMXRC location
  configdir = ~/.gromacswrapper
 ​
  [ Gromacs ]
- release = 2018.3
- gmxrc = /software/gromacs-plumed/2018.3/b4/bin/GMXRC
+ release = 2019.4
+ gmxrc = /software/gromacs-plumed/2019.4/b2/bin/GMXRC
  extra =
  tools = gmx gmx_mpi
  groups = tools
@@ -66,18 +72,52 @@ Using any text editor, make the changes to that file and add the GMXRC location
  loglevel_file = DEBUG
 ```
 
-5. For installing PeptideSim, you need to clone the package from github.
-```bash
-git clone https://github.com/ur-whitelab/peptidesim.git
-```
-Change directory to `package` and install the requirements and the module:
-```bash
-cd package
-pip install -r requirements.txt
-pip install .
+ Alternatively, on **a non-head node** use interactive python to do this:
+```python
+import gromacs
+gromacs.config.setup()
 ```
 
-### Developer Environment
+
+# Developer Test Environment
+
+## Creating Docker Image
+
+Load the plumed gromacs docker image from dockerhub:
+
+```sh
+docker pull whitelab/plumed-gromacs
+```
+
+Now we build the peptidesim testing image
+
+```sh
+cd test-docker
+docker build -t peptidesim/test .
+```
+
+These two steps gather the plumed and gromacs version. Generally,
+you do not need to re-run them.
+
+## Running Unit Tests
+
+From the repo root directory:
+
+```sh
+docker run -it --rm -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test
+```
+
+This will run all tests and clean-up.
+
+## Running Unit Tests Interactively
+
+If you want to leave all test files around and have python access to troubleshoot,
+including an editable install so code you change is reflected, use:
+
+```sh
+docker run --rm -it -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test bash ../interact.sh
+python -m pytest -x ../peptidesim/package/tests/
+```
 
 Prepare the docker image in the test-docker folder by running
 the build script. You may need to have `sudo` depending on your docker configuration.
@@ -87,6 +127,7 @@ cd test-docker && [sudo] ./build.sh
 ```
 It is only necessary to rebuild the docker script when newer gromacs,
 gromacswrapper packages are available.
+
 
 #### Running Tests with Docker
 

@@ -17,8 +17,8 @@ peptide_copies=4
 
 #try to reload                                                                                
 if(os.path.exists(pickle_name)):
-    print 'loading restart'
-    with open(pickle_name, 'r') as f:
+    print('loading restart')
+    with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
 else:
     ps = PeptideSim(name, [seq], [peptide_copies], job_name='2mer_{}'.format(name))
@@ -42,11 +42,11 @@ def total_aa(file1):
             i=i+1
         last_line=lines[i-2].strip()
         last_line=last_line.split()
-        print last_line
+        print(last_line)
         return int(last_line[1])+1,int(last_line[5])
 total_no_atoms,number_chains=total_aa(file0)
 atoms_in_chain=total_no_atoms/peptide_copies
-print atoms_in_chain
+print(atoms_in_chain)
 with open(file0,'r') as file_read:
     file_data=file_read.read()
 file_data=file_data.replace('HIS','HIE')
@@ -209,7 +209,7 @@ ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_tune',  mdp_kwargs={'nsteps':final
 #ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_tune',  mdp_kwargs={'nsteps':final_time,'ref_t':278 }, mpi_np=MPI_NP, pickle_name=pickle_name)#                                                                                       
 #short simulation                                                                                                  
 #ps.analyze()                                                                                                      
-print ps.box_size_angstrom
+print(ps.box_size_angstrom)
 
 
 
