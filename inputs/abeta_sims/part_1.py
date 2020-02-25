@@ -18,6 +18,7 @@ debug = False
 pickle_name = name + '.pickle'
 MPI_NP = 4
 peptide_copies = int(sys.argv[3])
+data_folder = sys.argv[4]
 
 # try to reload
 if(os.path.exists(pickle_name)):
@@ -115,9 +116,10 @@ def pdbfile_generator_w_chain_id(
         first_atom_index,
         output_pdbfile,
         input_pdbfile):
-    '''a funtion that takes an old pdbfile that has all hydrogens but without unique chain IDs
-            and without terminii of chains indicated and generates a new pdbfile with uniqe chain id's
-            and terminii indicated.
+    '''a funtion that takes an old pdbfile that has all hydrogens
+    but without unique chain IDs and without terminii of chains
+    indicated and generates a new pdbfile with uniqe chain id's
+    and terminii indicated.
 
             var:
 
@@ -146,10 +148,10 @@ def pdbfile_generator_w_chain_id(
                     len(beginning)):  # iterates through useless lines
                 # writes the useless lines into the new file
                 f.write("{}\n".format(beginning[index].strip()))
-            for i in np.arange(
-                    number_of_chains):  # iterates through the copies of chains
-                for j in np.arange(
-                        atoms_in_chain):  # itarates through the atoms in the chain
+            # iterates through the copies of chains
+            for i in np.arange(number_of_chains):
+                # itarates through the atoms in the chain
+                for j in np.arange(atoms_in_chain):
                     print(i * (atoms_in_chain + 1) + j, i *
                           (atoms_in_chain) + j, len(lines), i, j)
                     # reads the old pdbfile info pertaining to the atoms of
@@ -161,9 +163,9 @@ def pdbfile_generator_w_chain_id(
                         # replaces the repetittive chain ID with unique chain
                         # ID chosen from
                         a[21] = ascii_uppercase[i]
-
+                    # puts the list of characters back to a
+                    # string that contains line info
                     a = "".join(a)
-                    # puts the list of characters back to a string that contains line info
                     # writes the line into the new pdbfile
                     f.write('{}'.format(a))
 
@@ -191,14 +193,14 @@ if not os.path.exists(directory):
     os.mkdir(directory)
 template_pdb = os.path.join(directory, file3)
 
-camshift_src = '/scratch/awhite38_lab/amyloid_eds/jobs/simulation_software/simulations/amyloid_example/data/camshift.db'
-gromacs_a03_mdb_src = '/scratch/awhite38_lab/amyloid_eds/jobs/simulation_software/simulations/amyloid_example/data/a03_gromacs.mdb'
-h_src = '/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid_21_30/data/Hshifts.dat'
-ha_src = '/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid_21_30/data/HAshifts.dat'
-# c_src='/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid/data_old/Cshifts.dat'
-# ca_src='/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid/data_old/CAshifts.dat'
-# cb_src='/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid/data_old/CBshifts.dat'
-# n_src='/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid/data_old/Nshifts.dat'
+camshift_src = os.path.join(data_folder + 'camshift.db')
+gromacs_a03_mdb_src = os.path.join(data_folder + 'a03_gromacs.mdb')
+h_src = os.path.join(data_folder + 'Hshifts.dat')
+ha_src = os.path.join(data_folder + 'HAshifts.dat')
+# c_src=os.path.join(data_folder + 'Cshifts.dat')
+# ca_src=os.path.join(data_folder + 'CAshifts.dat')
+# cb_src=os.path.join(data_folder + 'CBshifts.dat')
+# n_src=os.path.join(data_folder + 'Nshifts.dat')
 gromacs_a03_mdb_dst = os.path.join(directory, 'a03_gromacs.mdb')
 camshift_dst = os.path.join(directory, 'camshift.db')
 template_pdb = os.path.join(directory, file3)
@@ -225,8 +227,8 @@ peptide_copies = int(peptide_copies)
 
 
 def data_folder(number_amino_acids, name, copies_chains):
-    ''' a function that takes total number of amino acids in the pdbfile, 
-    name of the chemical shifts file and how many copies of a peptide are 
+    ''' a function that takes total number of amino acids in the pdbfile,
+    name of the chemical shifts file and how many copies of a peptide are
     present and puts chemical shifta file into the data folder
     Var:
        number_amino_acids-total number of amino acids in the pdbfile
@@ -240,9 +242,10 @@ def data_folder(number_amino_acids, name, copies_chains):
     # available
     if (name != 'HAshifts.dat' and name != 'Hshifts.dat'):
 
-        with open(new_file, 'w') as f:  # creates a new file to copy over the chemical shufts
-            # amino acid residue indeces for beginning and end of each chain of
-            # peptides
+        # creates a new file to copy over the chemical shifts
+        with open(new_file, 'w') as f:
+            # amino acid residue indeces for beginning and end of
+            # each chain of peptides
             beg_end_chains = []
             # number of amino acids in one chain
             number_chains = int(number_amino_acids / copies_chains)
@@ -253,8 +256,8 @@ def data_folder(number_amino_acids, name, copies_chains):
                 beg_end_chains.append(i * number_chains + 1)
                 # adds the amino acid ending index of the chain
                 beg_end_chains.append(i * number_chains + number_chains)
-                for j in range(
-                        int(number_chains)):  # iterates through the amino acid indeces in the chain
+                # iterates through the amino acid indeces in the chain
+                for j in range(int(number_chains)):
                     j = j + 1  # amino acid index also starts at 1
                     # checks whether the amino acid index is at the beginning
                     # or ending of the chain
@@ -273,7 +276,7 @@ def data_folder(number_amino_acids, name, copies_chains):
             # number of amino acids in one chain
             number_chains = int(number_amino_acids / copies_chains)
             chemical_shifts = np.genfromtxt(
-                '/scratch/damirkul/pep_simulations/sequences_amyloid/amyloid_21_30/data/{}'.format(name),
+                os.path.join(data_folder, '{}'.format(name)),
                 comments='!#')
 #            print chemical_shifts
             for i in range(copies_chains):
@@ -283,22 +286,26 @@ def data_folder(number_amino_acids, name, copies_chains):
                 # adds the amino acid ending index of the chain
                 beg_end_chains.append(i * number_chains + number_chains)
                 # print beg_end_chains
-                for j in range(
-                        number_chains):  # iterates through the amino acid indeces in the chain
+                # iterates through the amino acid indeces in the chain
+                for j in range(number_chains):
                     j = j + 1  # amino acid index also starts at 1
-                    # checks whether the amino acid index is at the beginning
-                    # or ending of the chain
+                    # checks whether the amino acid index is at
+                    # the beginning or ending of the chain
                     if (j in beg_end_chains):
                         # print
                         # i,j,number_chains*i+j,chemical_shifts[j-1][1],a
                         # puts a hash sign for beginning and amino acid indeces
                         # in the chain
-                        f.write('#{} {}\n'.format(number_chains * i + j, chemical_shifts[j - 1][1]))
+                        f.write('#{} {}\n'.format(
+                            number_chains * i + j,
+                            chemical_shifts[j - 1][1]))
                     else:
                         # print i,j,number_chains*i+j,chemical_shifts[j-1][1]
                         # copies the chem shifts from file with chemical shifts
                         # for the correspoding amino acid
-                        f.write('{} {}\n'.format(number_chains * i + j, chemical_shifts[j - 1][1]))
+                        f.write('{} {}\n'.format(
+                            number_chains * i + j,
+                            chemical_shifts[j - 1][1]))
 
 
 filenames = [
@@ -358,7 +365,6 @@ ps.run(
     run_kwargs={
         'cpt': 5},
     mpi_np=MPI_NP)
-# ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': int(2000 * 5*10**2),'ref_t':278},run_kwargs={'cpt':5},mpi_np=MPI_NP)
 
 print(ps.pickle_name, 'picklename3')
 with open(ps.pickle_name, 'wb') as f:
