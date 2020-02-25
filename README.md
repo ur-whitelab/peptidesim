@@ -79,38 +79,82 @@ pip install .
 
 ### Developer Environment
 
-First, prepare the docker image in the test-docker folder by running
-the build script. Then, run the test script in the root directory. It
-is only necessary to rebuild the docker script when newer gromacs,
+Prepare the docker image in the test-docker folder by running
+the build script. You may need to have `sudo` depending on your docker configuration.
+
+```bash
+cd test-docker && [sudo] ./build.sh
+```
+It is only necessary to rebuild the docker script when newer gromacs,
 gromacswrapper packages are available.
 
-## Typical Workflow
+#### Running Tests with Docker
 
-### Regular Simulation/Multi_chain
-Refer to the scripts under peptidesim/inputs/simple/ as an example.
-1. Create a Python script simple.py and import required module.
+From the repo root directory:
+
+```bash
+[sudo] ./test.sh
+```
+
+ You may need to have `sudo` depending on your docker configuration.
+
+ #### Interacting with Environment
+
+ To have access to the docker environment with the built package
+ so you can debug/develop, execute this commend from the repo
+ root directory:
+
+ ```bash
+[sudo] ./interact.sh
+ ```
+
+You may need to have `sudo` depending on your docker configuration.
+Type `exit` to leave the docker environment. See instructions that are printed after
+running the command for how to interact/use the environment.
+
+## Example Workflows
+
+### NVT simulations with multiple peptides
+A complete example can be found in `peptidesim/inputs/simple`.
+
+#### 1. Imports
+Create a Python script simple.py and import the PeptideSim class
 ```python
 from pepsidesim import PeptideSim
 ```
-2. Specify input condition and initialize
+#### 2. Input Conditions
+Specify peptides, conditions, and initialize. Note
+that all properties of the PeptideSim have defaults,
+so you do not necessarily need to specify a concentration
+or water model.
+
 ```python
-seq = 'EKEKEKEKEKEK' #input the sequence in one-letter-code
-name = 'EK6' #naming the sequence
-pep_copies = 1 #specifiy the number of copies, increase the number if running multiple chains to study self assembly and etc.
-MPI_NP = 4
-ps = PeptideSim(name, [seq], [pep_copies], job_name='2mer_{}'.format(name)) #input to PeptideSim
-ps.peptide_density = 0.008 #g/mol
-ps.water = 'spce' #specify water model
-ps.mpi_np = MPI_NP
+seq = 'EKEKEKEKEKEK' # input the sequence in one-letter-code
+name = 'EK6' # naming the sequence
+pep_copies = 1 # specify the number of copies, increase the number if running multiple chains to study self assembly and etc.
+ps = PeptideSim(name, [seq], [pep_copies], job_name='2mer_{}'.format(name)) # input to PeptideSim
+ps.peptide_density = 0.008 # g/mol
+ps.water = 'spce' # specify water model
+ps.mpi_np = 4 # Number of MPI processes to use
 ps.initialize()
 ```
-3. Specify energy minimization, annealing and NVT tuning input parameters
+
+#### 3. Simulation Steps
+Here we do energy minimization, annealing and NVT equilibration. Note that
+we can pass specific gromacs `mdp` arguments as python objects. The `tag` is
+the short name of the simulation we are doing. The `mdpfile` names used here
+are templates found in the peptidesim package. You can provide your own files
+if desired.
 ```python
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**5})
 ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
 ```
-4. Create a bash script and run it
+
+#### 4. Run the script
+
+If you are using a slurm job script, you
+could use this example:
 ```bash
 #!/bin/sh
 #SBATCH --partition=standard --time=120:00:00 --output=EK6.txt
@@ -119,40 +163,45 @@ ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3
 
 python simple.py
 ```
-5. Adding pickle
 
-Simulation may takes a long time depending on the number of steps inputted and resource requested and it may be the case that the job won't be able to finish even with the upper limit time of Bluehive. You can use pickle module to help resuming the job. First step is to add if statement before initializing:
+#### 5. Saving at intermediate steps
+
+Simulations may takes a long time depending on the number of steps chosen and resource requested. It is a good idea
+to periodically save your python `PeptideSim` object so that you can restart. First, you'll want to check
+in your script if a `pickle` file is found and restart rather than creating a new one.
 ```python
+pickle_name = ...
 if(os.path.exists(pickle_name)):
     print('loading restart')
     with open(pickle_name, 'rb') as f:
         ps = pickle.load(f)
-else:	
-    #step 2.
+else:
+    # ...code from step 2
 ```
-It is recommended to dump information into pickle after each step for example:
+
+It is recommended to save the pickle file after each simulation:
 ```python
 ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**5})
-print(ps.pickle_name, 'picklename1')
+print('Pickled filename': ps.pickle_name)
 with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
-print(ps.pickle_name, 'picklename2')
+print('Pickled filename': ps.pickle_name)
 with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
-print(ps.pickle_name, 'picklename3')
+print('Pickled filename': ps.pickle_name)
 with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 
 ```
-Note that for Python3, pickle opened with binary mode must be specified. Otherwise error will occur.
+Note that for python3 pickle files should always be opened in binary mode.
 
 ### PT-WTE/EDS
-Refer to the scripts under peptidesim/inputs/pte/ as example
-1. Preparation
+A complete example can be found in `peptidesim/inputs/pte`.
+
 
 Create a Python script for the preparation step. It is almost identical to the regular simulation. (Check the part1.py)
 
@@ -160,7 +209,7 @@ If you wish to add EDS, you will need additional code for the preparation. Check
 
 2. PT-WTE
 
-Create a second script and import all required modules. 
+Create a second script and import all required modules.
 Specify input. Note that the name of the job must be consistant with that in part 1.
 
 ```python
@@ -194,11 +243,11 @@ def get_replex_e(ps, replica_number):
                 ready = True
             elif ready:
                 match = p2.match(line)
-                
+
                 if match:
                     answer= [float(s) for s in match.groups()]
                     break
-            
+
         return answer
 ```
 
@@ -212,7 +261,7 @@ with open('plumed_pte.dat', 'w') as f:
 ps.add_file('plumed_pte.dat')
 temps = ','.join(str(e) for e in replica_temps)
 kwargs = [ {'ref_t': ti} for ti in replica_temps]
-time_ns=5.0 
+time_ns=5.0
 replex_eff = 0.2
 for kw in kwargs:
     kw['nsteps']=  int(time_ns * 5 * 10 ** 5)
@@ -235,7 +284,7 @@ ps.add_file('plumed_eds_conver_pt_wte_metad.dat')
 Code for running simulation.
 ```python
 for i in range(max_iterations):
-    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  
+    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),
            mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period}, mpi_np=MPI_NP)
     with open(ps.pickle_name, 'wb') as f:
         pickle.dump(ps, file=f)
@@ -245,7 +294,7 @@ for i in range(max_iterations):
         ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period},mpi_np=MPI_NP)
         with open(ps.pickle_name, 'wb') as f:
             pickle.dump(ps, file=f)
-        
+
     elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
         print 'Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1)
         break
