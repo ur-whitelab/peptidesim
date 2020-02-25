@@ -199,18 +199,19 @@ with open(ps.pickle_name, 'wb') as f:
 ```
 Note that for python3 pickle files should always be opened in binary mode.
 
-### PT-WTE/EDS
+### Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)
+
 A complete example can be found in `peptidesim/inputs/pte`.
 
+#### 1. Preparation
+Create a Python script for the preparation step. It is similiar to NVT simulation script. 
 
-Create a Python script for the preparation step. It is almost identical to the regular simulation. (Check the part1.py)
+If you are using experimental bias, additional code will be needed for the preparation. Check part1.py, [plumed METAD documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html) and [plumed EDS documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_e_d_s.html).
 
-If you wish to add EDS, you will need additional code for the preparation. Check part1.py, [plumed METAD documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html) and [plumed EDS documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_e_d_s.html).
-
-2. PT-WTE
+#### 2. PT-WTE
 
 Create a second script and import all required modules.
-Specify input. Note that the name of the job must be consistant with that in part 1.
+Specify peptides, replica number and exchange period. Note that the name of the job must be consistant with that in part 1.
 
 ```python
 name = nameinpart1
@@ -230,7 +231,7 @@ if(os.path.exists(pickle_name)):
         ps.rel_dir_name='.'
 ```
 
-Write a function for getting replica exchange efficiency, this will be used in determining whether to end the simulation
+We will need a function for getting replica exchange efficiency. The function is used to extract replica exchange efficiency from log files, which will be used as a criteria for ending replica exchange iterations.
 ```python
 def get_replex_e(ps, replica_number):
     with open(ps.sims[-1].location + '/' + ps.sims[-1].metadata['md-log']) as f:
@@ -251,7 +252,8 @@ def get_replex_e(ps, replica_number):
         return answer
 ```
 
-Specify PTE inputs and generate plumed file
+Specify conditions for replica exchange. The `ps.pte_replica` function generates plumed scripts based on the arguments inputted. 
+
 ```python
 pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=3,min_iters=1, mdp_kwargs={'nsteps':int(400* 5*10**2), }, replicas=replicas,hills_file_location=os.getcwd(),hot=400,hill_height=0.6,sigma=250,bias_factor=16, eff_threshold=0.20,cold=278,exchange_period=200)
 pte_plumed_script=pte_result['plumed']
@@ -261,15 +263,15 @@ with open('plumed_pte.dat', 'w') as f:
 ps.add_file('plumed_pte.dat')
 temps = ','.join(str(e) for e in replica_temps)
 kwargs = [ {'ref_t': ti} for ti in replica_temps]
-time_ns=5.0
-replex_eff = 0.2
+time_ns=5.0 # run time for each iteration in ns
+replex_eff = 0.2 # desired replica exchange efficiency
 for kw in kwargs:
     kw['nsteps']=  int(time_ns * 5 * 10 ** 5)
-max_iterations=20
-min_iterations=10
+max_iterations=20 # maximum number of iteration allowed
+min_iterations=10 # minimum number of iteration before ending replica exchange
 ```
 
-If you are running EDS or require additional output from plumed, you can add additional plumed script by
+If you are running EDS or require additional output from plumed, you could add additional plumed script by
 ```python
 plumed_input0=textwrap.dedent(
     '''
@@ -281,7 +283,7 @@ with open('plumed_eds_conver_pt_wte_metad.dat', 'w') as f:
 ps.add_file('plumed_eds_conver_pt_wte_metad.dat')
 ```
 
-Code for running simulation.
+We can now start replica exchange. Iteration will break if the replica exchange efficiency reaches desired value and minimum number of iteration is reached. Proceed to NVT_production step after replica exchange.
 ```python
 for i in range(max_iterations):
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),
