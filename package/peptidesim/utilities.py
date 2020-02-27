@@ -1,6 +1,7 @@
 import signal
 import functools
 import os
+import pandas as pd
 
 
 class TimeoutError(Exception):
@@ -55,11 +56,10 @@ def validity_check(df, shifts):
 
 
 def cs_validity(plumed_dat, exec_dir):
-    """plumed_dat = The path to the plumed file (include the plumed data filename and extension)
-       exec_dir = The path to the cs_shifts data files)"""
-    file_plumed = open(plumed_dat, 'r')
-    shifts_plumed = parser(file_plumed)
-    file_plumed.close()
+    '''plumed_dat = The path to the plumed file (include the plumed data filename and extension)
+       exec_dir = The path to the cs_shifts dat files)'''
+    with open(plumed_dat, 'r') as file_plumed:
+        shifts_plumed = parser(file_plumed)
     keys = ['CAshifts', 'CBshifts', 'Cshifts',
             'HAshifts', 'Hshifts', 'Nshifts']
     shifts_plumed_dict = dict.fromkeys(keys)
@@ -74,7 +74,7 @@ def cs_validity(plumed_dat, exec_dir):
             if count != 0:
                 raise ValueError('Simulation uses data {} for {}. Invalid EDS chemical shift found for data {}!'.format(
                     Shifts_index, keys[i], Invalid_index))
-    print('All chemical shifts are valid'.)
+    return True
 
 
 def parser(plumed_file):
@@ -95,16 +95,16 @@ def parser(plumed_file):
     ha_shifts = []
     for i in range(len(txt_list)):
         cs_type = txt_list[i][0:5]
-        if cs_type == "cs.hn":
+        if cs_type == 'cs.hn':
             hn_shifts.append(int(txt_list[i][6:])-1)
-        elif cs_type == "cs.nh":
+        elif cs_type == 'cs.nh':
             nh_shifts.append(int(txt_list[i][6:])-1)
-        elif cs_type == "cs.ca":
+        elif cs_type == 'cs.ca':
             ca_shifts.append(int(txt_list[i][6:])-1)
-        elif cs_type == "cs.cb":
+        elif cs_type == 'cs.cb':
             cb_shifts.append(int(txt_list[i][6:])-1)
-        elif cs_type == "cs.c_":
+        elif cs_type == 'cs.c_':
             c_shifts.append(int(txt_list[i][5:])-1)
-        elif cs_type == "cs.ha":
+        elif cs_type == 'cs.ha':
             ha_shifts.append(int(txt_list[i][6:])-1)
     return (ca_shifts, cb_shifts, c_shifts, ha_shifts, hn_shifts, nh_shifts)
