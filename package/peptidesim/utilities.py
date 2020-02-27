@@ -66,7 +66,7 @@ def cs_validity(plumed_dat, exec_dir):
     dat_files = [f for f in os.listdir(exec_dir) if f.endswith('.dat')]
     for i in range(len(shifts_plumed)):
         shifts_dat = exec_dir + dat_files[i]
-        df_shifts_dat = pd.read_csv(shifts_dat, sep=" ", header=None)
+        df_shifts_dat = pd.read_csv(shifts_dat, sep=' ', header=None)
         shifts_plumed_dict[keys[i]] = shifts_plumed[i]
         if shifts_plumed[i] != []:
             count, Invalid_index, Shifts_index = validity_check(
@@ -83,7 +83,7 @@ def parser(plumed_file):
     for line in plumed_file:
         if string in line:
             txt = line
-    # Skipping 4 letters to account for "ARG=cs"
+    # Skipping 4 letters to account for 'ARG=cs'
     txt = txt.split(' ')
     txt = txt[2][4:]
     txt_list = txt.split(',')
