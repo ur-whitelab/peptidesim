@@ -20,9 +20,9 @@ from .version import __version__
 from peptidesim.config import *
 from peptidesim.utilities import *
 
+
 def main():
     generate_config()
-
 
 if __name__ == '__main__':
     main()

@@ -2,9 +2,7 @@ import pandas as pd
 import os
 import sys
 import unittest
-sys.path.insert(0, '../peptidesim/')
-from utilities import *
-
+from peptidesim import utilities
 
 
 class Test(unittest.TestCase):
@@ -39,7 +37,7 @@ class Test(unittest.TestCase):
                          index_label=False, sep=' ', header=False)
 
         with open(plumed_dat, 'r') as file_plumed:
-            shifts_plumed = parser(file_plumed)
+            shifts_plumed = utilities.parser(file_plumed)
         os.remove(plumed_dat)
         exec_dir = os.getcwd()
         dat_files = [f for f in os.listdir(exec_dir) if f.endswith('.dat')]
@@ -50,7 +48,7 @@ class Test(unittest.TestCase):
             os.remove(shifts_dat)
             shifts_plumed_dict[keys[i]] = shifts_plumed[i]
             if shifts_plumed[i] != []:
-                count, Invalid_index, Shifts_index = validity_check(
+                count, Invalid_index, Shifts_index = utilities.validity_check(
                     df_shifts_dat, shifts_plumed_dict[keys[i]])
                 #print (df_shifts_dat.values[4][1],shifts_plumed_dict[keys[0]],count)
                 self.assertTrue(count == 0, msg=(
