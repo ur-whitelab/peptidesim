@@ -19,9 +19,9 @@ class Test(unittest.TestCase):
         keys = ['CAshifts', 'CBshifts', 'Cshifts',
                 'HAshifts', 'Hshifts', 'Nshifts']
         df_ca = pd.DataFrame({'0': ['#1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '#12', '#13', '14', '15', '16', '17', '18',
-                                    '19', '20', '21', '22', '23', '#24'], '1': [1.5, 11.5, 1, 1, 1.5, 1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]})
+                                    '19', '20', '21', '22', '23', '#24'], '1': [1, 11.5, 1, 1, 1.5, 1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]})
         df_cb = pd.DataFrame({'0': ['#1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '#12', '#13', '14', '15', '16', '17', '18',
-                                    '19', '20', '21', '22', '23', '#24'], '1': [1.5, 1, 1.5, 1, 1.5, 1, 1.5, 1, 1, 1, 1.2, 1, 1, 1, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1]})
+                                    '19', '20', '21', '22', '23', '#24'], '1': [1.5, 1, 1.5, 1, 1.5, 1, 1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1.2, 1, 1, 1, 1, 1, 1, 1, 1]})
         df_c = pd.DataFrame({'0': ['#1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '#12', '#13', '14', '15', '16', '17', '18',
                                    '19', '20', '21', '22', '23', '#24'], '1': [1, 1, 1.5, 1.5, 1.2, 1, 1.6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]})
         df_ha = pd.DataFrame({'0': ['#1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '#12', '#13', '14', '15', '16', '17', '18',
@@ -50,9 +50,10 @@ class Test(unittest.TestCase):
             if shifts_plumed[i] != []:
                 count, Invalid_index, Shifts_index = utilities.validity_check(
                     df_shifts_dat, shifts_plumed_dict[keys[i]])
-                #print (df_shifts_dat.values[4][1],shifts_plumed_dict[keys[0]],count)
-                self.assertTrue(count == 0, msg=(
-                    'Simulation uses data {} for {}. Invalid EDS chemical shift found for data {}!'.format(Shifts_index, keys[i], Invalid_index)))
+                if count != 0:
+                    with self.assertRaises(AssertionError):
+                        print ('Simulation uses data {} for {}. Invalid EDS chemical shift found for data {}!'.format(Shifts_index, keys[i], Invalid_index))
+                        self.assertTrue(count == 0) 
 
 
 if __name__ == '__main__':
