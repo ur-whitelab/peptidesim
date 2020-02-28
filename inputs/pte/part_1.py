@@ -4,6 +4,7 @@ import sys
 import gromacs
 import dill as pickle
 from shutil import copyfile, move
+from peptidesim import utilities
 
 import matplotlib
 matplotlib.use('Agg')
@@ -232,6 +233,10 @@ def data_folder(number_amino_acids,name,copies_chains):
 filenames=['Cshifts.dat','CAshifts.dat','HAshifts.dat','Hshifts.dat','CBshifts.dat', 'Nshifts.dat']
 for i in filenames:
     data_folder(number_chains,i,peptide_copies)
+plumed = 'plumed_eds_conver_pt_wte_metad.dat'
+exec_dir = os.getcwd()
+cs_shifts_dat_path = exec_dir +'\\data\\'
+utilities.cs_validity(plumed, cs_shifts_dat_path)
 ps.add_file(directory)
 with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
