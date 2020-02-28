@@ -245,7 +245,7 @@ Note that for python3 pickle files should always be opened in binary mode.
 A complete example can be found in `peptidesim/inputs/pte`.
 
 #### 1. Preparation
-Create a Python script for the preparation step. It is similiar to NVT simulation script. 
+Create a Python script for the preparation step. It is similiar to NVT simulation script.
 
 If you are using experimental bias, additional code will be needed for the preparation. Check part1.py, [plumed METAD documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html) and [plumed EDS documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_e_d_s.html).
 
@@ -293,7 +293,7 @@ def get_replex_e(ps, replica_number):
         return answer
 ```
 
-Specify conditions for replica exchange. The `ps.pte_replica` function generates plumed scripts based on the arguments inputted. 
+Specify conditions for replica exchange. The `ps.pte_replica` function generates plumed scripts based on the arguments inputted.
 
 ```python
 pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=3,min_iters=1, mdp_kwargs={'nsteps':int(400* 5*10**2), }, replicas=replicas,hills_file_location=os.getcwd(),hot=400,hill_height=0.6,sigma=250,bias_factor=16, eff_threshold=0.20,cold=278,exchange_period=200)
@@ -358,6 +358,12 @@ Write a bash script and run.
 
 **Note**: During replica exchange simulations, MPI_NP must be consistant with N (number of nodes), ntask_per_node and c (cpus_per_task) in bash script. Restarts should also have the same number of MPI processes otherwise it will result in PTE tuning log file missing error.
 
+
+# Restarting Simulations
+
+Restarting is handled via the built-in gromacs restarts combined with python pickle objects. After each modification of the simulation (e.g., initialization or running a simulation), a current pickle file is saved in the peptidesim root directory. Its name matches your job name. Additionally, previous pickle files are saved in a directory called `restarts` that can be used to resume from previous stages. Your current pickle is always saved there too, so that you can simply move a pickle file from this directory to your root directory to restart from a different step. Pickle files are automatically used to restart your simulation in a script and simulations that have already completed will be skipped so that you need not edit your script if restarting.
+
+You can disable restarting by passing the `restartable=False` argument to the `PeptideSim` initialization. If the `restartable` flag is not set but there are existing pickle objects, an error will occur to prevent you from accidentally overwriting a previous simulation.
 
 ## Contributing
 
