@@ -272,84 +272,25 @@ if(os.path.exists(pickle_name)):
         ps.rel_dir_name='.'
 ```
 
-We will need a function for getting replica exchange efficiency. The function is used to extract replica exchange efficiency from log files, which will be used as a criteria for ending replica exchange iterations.
-```python
-def get_replex_e(ps, replica_number):
-    with open(ps.sims[-1].location + '/' + ps.sims[-1].metadata['md-log']) as f:
-        p1 = re.compile('Repl  average probabilities:')
-        p2 = re.compile('Repl\s*' + ''.join(['([0-9\.]+\s*)' for _ in range(replica_number - 1)]) + '$')
-        ready = False
-        answer=-1
-        for line in f.readlines():
-            if not ready and p1.findall(line):
-                ready = True
-            elif ready:
-                match = p2.match(line)
-
-                if match:
-                    answer= [float(s) for s in match.groups()]
-                    break
-
-        return answer
-```
-
-Specify conditions for replica exchange. The `ps.pte_replica` function generates plumed scripts based on the arguments inputted. 
+Specify conditions for replica exchange. The `ps.pte_replica` function automatically generates plumed scripts based on the arguments inputted and run NVT tuning with PTE. Note the function has default input, you don't have to specify all of the inputs.
 
 ```python
-pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=3,min_iters=1, mdp_kwargs={'nsteps':int(400* 5*10**2), }, replicas=replicas,hills_file_location=os.getcwd(),hot=400,hill_height=0.6,sigma=250,bias_factor=16, eff_threshold=0.20,cold=278,exchange_period=200)
-pte_plumed_script=pte_result['plumed']
-replica_temps=pte_result['temperatures']
-with open('plumed_pte.dat', 'w') as f:
-    f.write(pte_plumed_script)
-ps.add_file('plumed_pte.dat')
-temps = ','.join(str(e) for e in replica_temps)
-kwargs = [ {'ref_t': ti} for ti in replica_temps]
-time_ns=5.0 # run time for each iteration in ns
-replex_eff = 0.2 # desired replica exchange efficiency
-for kw in kwargs:
-    kw['nsteps']=  int(time_ns * 5 * 10 ** 5)
-max_iterations=20 # maximum number of iteration allowed
-min_iterations=10 # minimum number of iteration before ending replica exchange
+pte_result = ps.pte_replica(tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4, mdp_kwargs=dict(), run_kwargs=dict(), hills_file_location=None,cold=300.0, hot=400.0, eff_threshold=0.3,hill_height=1.2, sigma=140.0, bias_factor=10,exchange_period=25,dump_signal=signal.SIGTERM)
 ```
 
-If you are running EDS or require additional output from plumed, you could add additional plumed script by
+
+Proceed to NVT_production step after replica exchange.
 ```python
 plumed_input0=textwrap.dedent(
     '''
     plumed script
     ''')
-plumed_input=pte_plumed_script+plumed_input0
-with open('plumed_eds_conver_pt_wte_metad.dat', 'w') as f:
-    f.write(plumed_input)
-ps.add_file('plumed_eds_conver_pt_wte_metad.dat')
-```
 
-We can now start replica exchange. Iteration will break if the replica exchange efficiency reaches desired value and minimum number of iteration is reached. Proceed to NVT_production step after replica exchange.
-```python
-for i in range(max_iterations):
-    ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),
-           mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period}, mpi_np=MPI_NP)
-    with open(ps.pickle_name, 'wb') as f:
-        pickle.dump(ps, file=f)
-
-    rep_eff_1 = get_replex_e(ps, replicas)
-    if rep_eff_1 ==-1:
-        ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period},mpi_np=MPI_NP)
-        with open(ps.pickle_name, 'wb') as f:
-            pickle.dump(ps, file=f)
-
-    elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
-        print('Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1))
-        break
-
-        with open(ps.pickle_name, 'wb') as f:
-            pickle.dump(ps, file=f)
-    else:
-        print('Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1))
-
-
+with open('plumed_prod', 'wb') as f:
+    f.write(plumed_input0)
+ps.add_file('plumed_prod.dat')
 final_time_eds=int(0.040*5*10**5)
-ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},mpi_np=MPI_NP)
+ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},run_kwargs={'plumed':'plumed_prod.dat'},mpi_np=MPI_NP)
 with open(ps.pickle_name, 'wb') as f:
     pickle.dump(ps, file=f)
 ```
