@@ -1,17 +1,33 @@
-# PeptideSim
-​
-## Goal
+# 1. PeptideSim <!-- omit in toc -->
 
-We want to be able to post-process explore/analyze the data. We need to know the following then:
 
-   1. The peptides/amounts, density, etc (traits)
-   2. The mdp parameters
-   3. the trajectory locations
-   4. metadata system of simulations
+- [1. Release Notes](#1-release-notes)
+- [2. Installation](#2-installation)
+  - [2.1. Bluehive Install](#21-bluehive-install)
+- [3. Developer Test Environment](#3-developer-test-environment)
+  - [3.1. Creating Docker Image](#31-creating-docker-image)
+  - [3.2. Running Unit Tests](#32-running-unit-tests)
+  - [3.3. Running Unit Tests Interactively](#33-running-unit-tests-interactively)
+  - [3.4. Running Tests with Docker](#34-running-tests-with-docker)
+  - [Interacting with Environment](#interacting-with-environment)
+- [4. Example Workflows](#4-example-workflows)
+  - [4.1. NVT simulations with multiple peptides](#41-nvt-simulations-with-multiple-peptides)
+    - [4.1.1. Imports](#411-imports)
+    - [4.1.2. Input Conditions](#412-input-conditions)
+    - [4.1.3. Simulation Steps](#413-simulation-steps)
+    - [4.1.4. Run the script](#414-run-the-script)
+    - [4.1.5. Saving at intermediate steps](#415-saving-at-intermediate-steps)
+  - [4.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)](#42-enhanced-sampling-pt-wte-experiment-directed-simulation-eds)
+    - [4.2.1. Preparation](#421-preparation)
+    - [4.2.2. PT-WTE](#422-pt-wte)
 
-## Installation
+# 1. Release Notes
 
-### Bluehive Install
+See [Changelog](Changelog.rst)
+
+# 2. Installation
+
+## 2.1. Bluehive Install
 
 1. Load required modules
 ```bash
@@ -79,9 +95,9 @@ gromacs.config.setup()
 ```
 
 
-# Developer Test Environment
+# 3. Developer Test Environment
 
-## Creating Docker Image
+## 3.1. Creating Docker Image
 
 Load the plumed gromacs docker image from dockerhub:
 
@@ -99,7 +115,7 @@ docker build -t peptidesim/test .
 These two steps gather the plumed and gromacs version. Generally,
 you do not need to re-run them.
 
-## Running Unit Tests
+## 3.2. Running Unit Tests
 
 From the repo root directory:
 
@@ -109,7 +125,7 @@ docker run -it --rm -v [path_to_peptidesim_root]:/home/whitelab/peptidesim pepti
 
 This will run all tests and clean-up.
 
-## Running Unit Tests Interactively
+## 3.3. Running Unit Tests Interactively
 
 If you want to leave all test files around and have python access to troubleshoot,
 including an editable install so code you change is reflected, use:
@@ -129,7 +145,7 @@ It is only necessary to rebuild the docker script when newer gromacs,
 gromacswrapper packages are available.
 
 
-#### Running Tests with Docker
+## 3.4. Running Tests with Docker
 
 From the repo root directory:
 
@@ -139,7 +155,7 @@ From the repo root directory:
 
  You may need to have `sudo` depending on your docker configuration.
 
- #### Interacting with Environment
+ ## Interacting with Environment
 
  To have access to the docker environment with the built package
  so you can debug/develop, execute this commend from the repo
@@ -153,17 +169,17 @@ You may need to have `sudo` depending on your docker configuration.
 Type `exit` to leave the docker environment. See instructions that are printed after
 running the command for how to interact/use the environment.
 
-## Example Workflows
+# 4. Example Workflows
 
-### NVT simulations with multiple peptides
+## 4.1. NVT simulations with multiple peptides
 A complete example can be found in `peptidesim/inputs/simple`.
 
-#### 1. Imports
+### 4.1.1. Imports
 Create a Python script simple.py and import the PeptideSim class
 ```python
 from pepsidesim import PeptideSim
 ```
-#### 2. Input Conditions
+### 4.1.2. Input Conditions
 Specify peptides, conditions, and initialize. Note
 that all properties of the PeptideSim have defaults,
 so you do not necessarily need to specify a concentration
@@ -180,7 +196,7 @@ ps.mpi_np = 4 # Number of MPI processes to use
 ps.initialize()
 ```
 
-#### 3. Simulation Steps
+### 4.1.3. Simulation Steps
 Here we do energy minimization, annealing and NVT equilibration. Note that
 we can pass specific gromacs `mdp` arguments as python objects. The `tag` is
 the short name of the simulation we are doing. The `mdpfile` names used here
@@ -192,7 +208,7 @@ ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
 ```
 
-#### 4. Run the script
+### 4.1.4. Run the script
 
 If you are using a slurm job script, you
 could use this example:
@@ -205,7 +221,7 @@ could use this example:
 python simple.py
 ```
 
-#### 5. Saving at intermediate steps
+### 4.1.5. Saving at intermediate steps
 
 Simulations may takes a long time depending on the number of steps chosen and resource requested. It is a good idea
 to periodically save your python `PeptideSim` object so that you can restart. First, you'll want to check
@@ -240,16 +256,16 @@ with open(ps.pickle_name, 'wb') as f:
 ```
 Note that for python3 pickle files should always be opened in binary mode.
 
-### Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)
+## 4.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)
 
 A complete example can be found in `peptidesim/inputs/pte`.
 
-#### 1. Preparation
-Create a Python script for the preparation step. It is similiar to NVT simulation script. 
+### 4.2.1. Preparation
+Create a Python script for the preparation step. It is similiar to NVT simulation script.
 
 If you are using experimental bias, additional code will be needed for the preparation. Check part1.py, [plumed METAD documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html) and [plumed EDS documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_e_d_s.html).
 
-#### 2. PT-WTE
+### 4.2.2. PT-WTE
 
 Create a second script and import all required modules.
 Specify peptides, replica number and exchange period. Note that the name of the job must be consistant with that in part 1.
@@ -293,7 +309,7 @@ def get_replex_e(ps, replica_number):
         return answer
 ```
 
-Specify conditions for replica exchange. The `ps.pte_replica` function generates plumed scripts based on the arguments inputted. 
+Specify conditions for replica exchange. The `ps.pte_replica` function generates plumed scripts based on the arguments inputted.
 
 ```python
 pte_result = ps.pte_replica(mpi_np=MPI_NP, max_tries=3,min_iters=1, mdp_kwargs={'nsteps':int(400* 5*10**2), }, replicas=replicas,hills_file_location=os.getcwd(),hot=400,hill_height=0.6,sigma=250,bias_factor=16, eff_threshold=0.20,cold=278,exchange_period=200)
@@ -357,12 +373,6 @@ with open(ps.pickle_name, 'wb') as f:
 Write a bash script and run.
 
 **Note**: During replica exchange simulations, MPI_NP must be consistant with N (number of nodes), ntask_per_node and c (cpus_per_task) in bash script. Restarts should also have the same number of MPI processes otherwise it will result in PTE tuning log file missing error.
-
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-Please make sure to update tests as appropriate when making changes.
 ​
 
 &copy; Andrew White at University of Rochester
