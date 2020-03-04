@@ -749,16 +749,15 @@ class PeptideSim(Configurable):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
-        plus the tag name plus a hash of the current gro/top file. If
-        the tag/mdp file are the same then the simulation will be restarted
+        and the tag if given. If the name is identical to a previous name,
+        a restart will be attempted.
 
         Parameters
         ----------
         mdpfile : str
             name of the mdp file
         tag : str
-            A tag to add onto the simulation.
-            Probably good idea if you're adding additional arguments.
+            A tag to add onto the simulation name
         repeat : bool
             This will prevent the simulation for becoming a new name/hash/directory. Useful for continuing a simulation.
         mdp_kwargs : dict or list
@@ -775,6 +774,8 @@ class PeptideSim(Configurable):
             mpi_np = self.mpi_np
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
+        else:
+            tag = os.path.basename(mdpfile).split('.')[0] + ':tag'
         with self._simulation_context(tag, self.pickle_name, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
@@ -830,13 +831,7 @@ class PeptideSim(Configurable):
         # set new one
         signal.signal(dump_signal, handler)
 
-        # TODO need something smarter here, like parse gro file or log file
-        # TOP is constant, so repeating a sim type will give collisions
-
-        # construct name and add to simulation infos
-        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file)
-        # the hash is huge. Take the first few chars
-        simname = name + '-' + str(file_hash)[:8]
+        simname = name
 
         if simname in self._sims:
             si = self._sims[simname]
