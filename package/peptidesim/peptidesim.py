@@ -152,8 +152,10 @@ class PeptideSim(Configurable):
     mpiexec = Unicode('mpiexec',
                       help='The MPI executable'
                       ).tag(config=True)
-    mpi_np = Int(1,
-                 help='Number of mpi processes'
+    
+    mpi_np = Int(None,
+                 allow_none=True,
+                 help='Number of mpi processes. If not set, it is not specified'
                  ).tag(config=True)
     mdrun_driver = Unicode(None,
                            allow_none=True,
@@ -442,7 +444,7 @@ class PeptideSim(Configurable):
                 r = requests.put(url, payload)
                 i += 1
 
-    def initialize(self):
+    def initialize(self, run_kwargs={}):
         '''Build PDB files, pack them, convert to gmx, add water and ions
 
         This method accomplishes the following steps:
@@ -481,7 +483,7 @@ class PeptideSim(Configurable):
 
         # energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp',
-                 tag='initialize-emin', mdp_kwargs={'nsteps': 500})
+                 tag='initialize-emin', mdp_kwargs={'nsteps': 500}, run_kwargs=run_kwargs)
 
         self.log.info('Completed Initialization')
 
@@ -1334,15 +1336,16 @@ class PeptideSim(Configurable):
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
                 sinfo.metadata['run-kwargs'] = run_kwargs
                 # add mpiexec to command
+                np_str = '' if mpi_np is None else '-np {}'.format(mpi_np)
                 # store original driver and prepend mpiexec to it
                 temp = gromacs.mdrun.driver
                 # also add custom mdrun executable if necessary
                 if(self.mdrun_driver is not None):
                     gromacs.mdrun.driver = ' '.join(
-                        [self.mpiexec, '-np {}'.format(mpi_np), self.mdrun_driver])
+                        [self.mpiexec, np_str, self.mdrun_driver])
                 else:
                     gromacs.mdrun.driver = ' '.join(
-                        [self.mpiexec, '-np {}'.format(mpi_np), temp])
+                        [self.mpiexec, np_str, temp])
                 self.log.info('Starting simulation {} in directory {}...'.format(
                     sinfo.name, os.getcwd()))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
