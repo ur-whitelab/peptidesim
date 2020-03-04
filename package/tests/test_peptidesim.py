@@ -140,40 +140,31 @@ class TestFileTransfer(TestCase):
         shutil.rmtree('data')
 
 
-class TestDataStore(TestCase):
+class TestPeptideRestart(TestCase):
 
-    def setUp(self):
-        self.p = PeptideSim('data_test', ['AA', 'REE'], [
-                            3, 1], job_name='dtesting')
-        self.p.remote_log = True
-        self.p.initialize()
+    def test_can_save(self):
+        p = PeptideSim('can-save-test', ['AA'], [2])
+        p.marker = True
+        p.save('foo')
+        g = PeptideSim('can-save-test', ['AA'], [2])
+        self.assertTrue(
+            g.marker, msg='Failed to reload all attributes in restarting from pickle')
 
-    @skip('Not supporting remote DB currently')
-    def test_data_stored(self):
-        # tests if the data was correctly written to the json file
-        self.p.store_data()
-        self.assertTrue(os.path.exists('data/simdata.json'))
-        with open('data/simdata.json', 'r') as f:
-            data = json.load(f)
-            self.assertEqual(data['sim_name'], self.p.sim_name)
-
-    @skip('Not supporting remote DB currently')
-    def test_to_database(self):
-        # verifies that data can be properly sent to redis database
-        self.p.store_data()
-        with open('data/simdata.json', 'r') as f:
-            data = json.load(f)
-            prop = 'peptide_density'
-            url = 'http://52.71.14.39/insert/simulation'
-            payload = {'sim_name': data['sim_name'],
-                       'property': prop, 'property_value': data[prop]}
-            r = requests.put(url, payload)
-            self.assertEqual(r.status_code, 200)
+    def test_can_skip(self):
+        p = PeptideSim('can-skip-test', ['AA'], [2])
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp',
+              tag='restart-test', mdp_kwargs={'nsteps': 25})
+        g = PeptideSim('can-skip-test', ['AA'], [2])
+        self.assertEqual(len(p.sims), len(g.sims))
+        g.initialize()
+        g.run(mdpfile='peptidesim_emin.mdp',
+              tag='restart-test', mdp_kwargs={'nsteps': 25})
+        self.assertEqual(len(p.sims), len(g.sims))
 
     def tearDown(self):
-        shutil.rmtree('data_test')
-        shutil.rmtree('data')
-
+        shutil.rmtree('can-skip-test', ignore_errors=True)
+        shutil.rmtree('can-save-test', ignore_errors=True)
 
 class TestPeptideStability(TestCase):
     def test_dipeptides(self):
@@ -211,6 +202,7 @@ class TestPTE(TestCase):
               mdp_kwargs=[{'nsteps': 100, 'ref_t': ti}
                           for ti in pte_result['temperatures']],
               run_kwargs={'plumed': 'plumed.dat', 'replex': 25})
+        shutil.rmtree('pte_test')
 
     def test_pte_restart(self):
 
@@ -234,7 +226,7 @@ class TestPTE(TestCase):
 
         del p
 
-        new_p = pickle.load(open('test-pte.pickle', 'r+b'))
+        new_p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
 
         # make sure there is one simulation in history with pte
 
@@ -243,6 +235,7 @@ class TestPTE(TestCase):
         # try to restart it
         new_p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={
                           'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
+        shutil.rmtree('pte_test')
 
     def test_plumed_restart(self):
 
@@ -281,7 +274,7 @@ class TestPTE(TestCase):
 
         del p
 
-        new_p = pickle.load(open('test-plumed.pickle', 'r+b'))
+        new_p = PeptideSim('plumed_test', ['AA'], [1], job_name='test-plumed')
 
         # now we modify the content of the same plumed file and add it to the
         # list of required files
@@ -307,7 +300,7 @@ class TestPTE(TestCase):
             './' + new_p.sims[-1].location + '/' + plumed_test_name, 'r')
         f2 = open('./' + plumed_test_name, 'r')
         self.assertEqual(reloaded_plumed.readlines(), f2.readlines())
-
+        shutil.rmtree('plumed_test')
 
 class TestRemoveSimulation(TestCase):
     def test_remove(self):
@@ -347,7 +340,7 @@ class TestRemoveSimulation(TestCase):
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
         # test pickle on signal
 
-        # make sure there is one simulat
+        # make sure there is one simulation
 
         # try to restart it
         p.remove_simulation('eminiiii')
@@ -355,7 +348,6 @@ class TestRemoveSimulation(TestCase):
             p.remove_simulation('wrong_sim_name')
         with self.assertRaises(TypeError) as cm:
             p.remove_simulation(None)
-
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
@@ -469,14 +461,14 @@ class TestPeptideEmin(TestCase):
         # test pickle on signal
         signal.alarm(1)
         try:
-            self.p.pickle_name = 'sigtest.pickle'
             self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal',
                        mdp_kwargs={'nsteps': 2500}, dump_signal=signal.SIGALRM)
         except KeyboardInterrupt:
             pass
 
         del self.p
-        new_p = pickle.load(open('sigtest.pickle', 'r+b'))
+        # rely on automatic restarting from pickle
+        new_p = PeptideSim('pemin_test', ['VV'], [1], job_name='testing-emin')
 
         for k, v in new_p._sims.items():
             if(k.startswith('emin-timeout')):
@@ -484,8 +476,6 @@ class TestPeptideEmin(TestCase):
 
         # check metadata is intact
         self.assertTrue('md-log' in new_p.sims[-1].metadata)
-
-        os.remove('sigtest.pickle')
 
     def tearDown(self):
         shutil.rmtree('pemin_test')

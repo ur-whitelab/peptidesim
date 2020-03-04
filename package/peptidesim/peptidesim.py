@@ -59,6 +59,16 @@ class SimulationInfo(object):
         self.name = name
         self.short_name = short_name
 
+    def __str__(self):
+        metadata_str = json.dumps(self.metadata, indent=12, sort_keys=True, default=str)
+        return textwrap.dedent(f'''
+        name          : {self.name}
+        location      : {self.location}
+        restart_count : {self.restart_count}
+        run_fxn       : {self.run_fxn}
+        run_kwargs    : {self.run_kwargs}
+        metadata      : {metadata_str}''')[1:]
+
     def run(self, run_fxn=None, run_kwargs=None):
         if(self.restart_count > 0):
             if (run_fxn is not None and run_fxn != self.run_fxn) or (run_kwargs is not None and run_kwargs != self.run_kwargs):
@@ -136,18 +146,6 @@ class PeptideSim(Configurable):
     mdp_emin = Unicode('peptidesim_emin.mdp',
                        help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
                        ).tag(config=True)
-
-    remote_log = Bool(False,
-                      help='Whether or not to log the simulations in the Redis database'
-                      ).tag(config=True)
-
-    host = Unicode('http://52.71.14.39',
-                   help='The host address for the Redis database'
-                   ).tag(config=True)
-
-    post_address = Unicode('/insert/simulation',
-                           help='The extension to post simulation data'
-                           ).tag(config=True)
 
     mpiexec = Unicode('mpiexec',
                       help='The MPI executable'
@@ -291,6 +289,11 @@ class PeptideSim(Configurable):
         n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
         return n
 
+    @ndx.setter
+    def ndx(self, n):
+        self._ndx_file = self._convert_path(n)
+        self._file_list.append(self._ndx_file)
+
     @property
     def sims(self):
         '''a property that returns a list of simulation objects'''
@@ -301,12 +304,32 @@ class PeptideSim(Configurable):
         '''a property that returns a dictionary of simulation names'''
         return self._sims
 
-    @ndx.setter
-    def ndx(self, n):
-        self._ndx_file = self._convert_path(n)
-        self._file_list.append(self._ndx_file)
+    def __new__(cls, dir_name=None, seqs=None, counts=None, config_file=None, job_name=None, *args, **kwargs):
+        if dir_name is not None:
+            if job_name is None:
+                _job_name = os.path.split(dir_name)[-1]
+            else:
+                _job_name = job_name
+            pickle_file = os.path.join(
+                dir_name, '{}-restart.pickle'.format(_job_name))
+            if os.path.exists(pickle_file):
+                with open(pickle_file, 'r+b') as f:
+                    inst = dill.load(f)
+                if not isinstance(inst, cls):
+                    raise TypeError(
+                        'Unpickled object is not of type {}'.format(cls))
+                inst.log.info(
+                    'Successfully loaded from restart pickle {}'.format(pickle_file))
+                inst.log.info('Current state: \n{}'.format(
+                    textwrap.indent(str(inst), '------   ')))
+                inst._pickle_loaded = True
+                return inst
+        inst = super(PeptideSim, cls).__new__(
+            cls, dir_name, seqs, counts, config_file, job_name, *args, **kwargs)
+        inst._pickle_loaded = False
+        return inst
 
-    def __init__(self, dir_name, seqs, counts=None, config_file=None, job_name=None, pickle_name=None):
+    def __init__(self, dir_name, seqs, counts=None, config_file=None, job_name=None):
         '''This is an initiator that takes the arguments from the command
         line and creates the class simulation.
 
@@ -320,6 +343,10 @@ class PeptideSim(Configurable):
             A list of the number of occurrences of each amino acid, in order.
         '''
 
+        # detect if loaded from pickle file
+        if self._pickle_loaded:
+            return
+
         # We have to declare class attributes at the instance level
         # for pickling purposes. Silly, I know.
 
@@ -332,6 +359,11 @@ class PeptideSim(Configurable):
         self._trr = []
         self._file_list = []
         self._ndx_file = None
+
+        # set-up saving
+        self._save_count = 0
+        self._save_directory = os.path.join(os.path.abspath(dir_name), 'restarts')
+        os.makedirs(self._save_directory, exist_ok=True)
 
         # keep track of simulations in case of restart needs
         self._sims = dict()
@@ -357,9 +389,6 @@ class PeptideSim(Configurable):
             else:
                 shutil.copy2(f, self._convert_path(f))
             self._file_list.append(os.path.basename(f))
-
-        if pickle_name is None:
-            self.pickle_name = self.job_name + '.pickle'
 
         self._start_logging()
 
@@ -404,43 +433,31 @@ class PeptideSim(Configurable):
         self.log.setLevel(logging.DEBUG)
         self.log.info('Started logging for PeptideSim...')
 
-    def store_data(self):
-        '''Writes the instance's Traits to a json file
-        '''
-
-        if(not self.remote_log):
-            return
-
-        if not os.path.exists('data'):
-            os.mkdir('data')
-        with open('data/simdata.json', 'w') as f:
-            data = {}
-            for k, v in self.traits().items():
-                if type(v.default_value) not in [str, int, float]:
-                    data[k] = ast.literal_eval(v.default_value_repr())
-                else:
-                    data[k] = v.default_value
-            for k, v in self.__dict__.items():
-                if k not in data and type(v) in [str, int, float, list, dict, tuple, str] and k[0] != '_':
-                    data[k] = v
-            f.write(json.dumps(data))
-
-            # put information to database
-
-            # properties that we want to store
-            properties = ['peptide_density', 'ion_concentration']
-            url = (self.host + self.post_address).encode('utf-8')
-
-            i = 0
-            for seq in data['sequences']:
-                for prop in properties:
-                    payload = {'sim_name': self.sim_name,
-                               'property': prop, 'property_value': data[prop]}
-                    r = requests.put(url, payload)
-                payload = {'sim_name': self.sim_name, 'property': 'counts',
-                           'property_value': data['counts'][i]}
-                r = requests.put(url, payload)
-                i += 1
+    def __str__(self):
+        data = {}
+        for k, v in self.traits().items():
+            if type(v.default_value) not in [str, int, float]:
+                data[k] = ast.literal_eval(v.default_value_repr())
+            else:
+                data[k] = v.default_value
+        for k, v in self.__dict__.items():
+            if k not in data and type(v) in [str, int, float, list, dict, tuple, str] and k[0] != '_':
+                data[k] = v
+        keys = list(data.keys())
+        keys.sort()
+        result = ['==========PeptideSim Object==========']
+        result.append(self.job_name)
+        for k in keys:
+            if k == '_sim_list':
+                continue
+            v = data[k]
+            result.append('{:10s} : {}'.format(k, v))
+        result.append('------------Simulations--------------')
+        for i, s in enumerate(self._sim_list):
+            result.append('Simulation {}'.format(i))
+            result.append(textwrap.indent(str(s), '  '))
+        result.append('=====================================')
+        return '\n'.join(result)
 
     def initialize(self):
         '''Build PDB files, pack them, convert to gmx, add water and ions
@@ -483,6 +500,7 @@ class PeptideSim(Configurable):
         self.run(mdpfile='peptidesim_emin.mdp',
                  tag='initialize-emin', mdp_kwargs={'nsteps': 500})
 
+        self.save('initialized')
         self.log.info('Completed Initialization')
 
     def demux(self, path_to_replica_dir):
@@ -628,10 +646,6 @@ class PeptideSim(Configurable):
                      run_kwargs=run_kwargs,
                      dump_signal=dump_signal)
 
-            #write pickle file
-            with open(os.path.join(self.rel_dir_name, self.pickle_name), 'w+b') as f:
-                dill.dump(self, file=f)
-
             replex_eff = min(get_replex_e(self, replicas))
             if replex_eff >= eff_threshold and i >= (min_iters-1):
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}.'
@@ -665,6 +679,7 @@ class PeptideSim(Configurable):
             if(hills_file_location != os.getcwd() and hills_file_location is not None):
                 for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
                     self.add_file(f)
+            self.save('pte-complete')
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
 
     def remove_simulation(self, sim_name, debug=None):
@@ -742,8 +757,6 @@ class PeptideSim(Configurable):
 
         for i in range(len(tpr_file_index)):
             del self._tpr[tpr_file_index[i]-i-1]
-        with open(os.path.join(self.rel_dir_name, self.pickle_name), 'w+b') as f:
-            dill.dump(self, file=f)
 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
@@ -775,10 +788,12 @@ class PeptideSim(Configurable):
             mpi_np = self.mpi_np
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
-        with self._simulation_context(tag, self.pickle_name, dump_signal, repeat=repeat) as ec:
+        with self._simulation_context(tag, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
+            self.save('{}-pre'.format(ec.name))
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
+            self.save('{}-post'.format(ec.name))
 
     def analyze(self):
         self.calc_rmsd()
@@ -811,7 +826,7 @@ class PeptideSim(Configurable):
             return os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), os.path.abspath(self.rel_dir_name)), p))
 
     @contextlib.contextmanager
-    def _simulation_context(self, name, pickle_name, dump_signal, repeat):
+    def _simulation_context(self, name, dump_signal, repeat):
         '''This context will handle restart and keeping a history of simulations performed.
         TODO: Maybe have this context submit a simulation job?
         '''
@@ -821,8 +836,7 @@ class PeptideSim(Configurable):
                 'Simulation being interrupted by signal {}'.format(signum))
             rel_dir_name = self.rel_dir_name
             self.rel_dir_name = '.'  # so that we restart from where we started
-            with open(os.path.join(rel_dir_name, pickle_name), 'w+b') as f:
-                dill.dump(self, file=f)
+            self.save('{}-interrupt'.format(name))
             os.chdir(rel_dir_name)  # put us cleanly into the correct place
             raise KeyboardInterrupt()  # Make sure we do actually end
         # cache existing
@@ -1372,5 +1386,15 @@ class PeptideSim(Configurable):
             else:
                 self.log.info('...done'.format(sinfo.name))
             # finished, store any info needed
-            self.store_data()
             self.gro_file = gro
+
+    def save(self, name):
+        name = '{:05d}-{}.pickle'.format(self._save_count, name)
+        pickle_path = os.path.join(self._save_directory, name)
+        with open(pickle_path, 'w+b') as f:
+            dill.dump(self, file=f)
+        shutil.copy2(pickle_path, os.path.join(self._save_directory,
+                                               '..', '{}-restart.pickle'.format(self.job_name)))
+        with open(os.path.join(self._save_directory, '..', '{}-status.txt'.format(self.job_name)), 'w') as f:
+            f.write(str(self) + '\n')
+        self._save_count += 1
