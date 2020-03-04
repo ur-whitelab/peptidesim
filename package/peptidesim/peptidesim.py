@@ -36,6 +36,7 @@ import glob
 import dill
 from math import *
 from .utilities import *
+from .version import __version__
 from traitlets.config import Configurable, Application, PyFileConfigLoader
 from traitlets import Int, Float, Unicode, Bool, List, Instance, Dict
 import gromacs
@@ -159,6 +160,11 @@ class PeptideSim(Configurable):
                            ).tag(config=True)
 
     @property
+    def peptidesim_version(self):
+        ''' the version of peptidesim used when object was instantiated
+        '''
+        return self._peptidesim_version
+    @property
     def box_size_angstrom(self):
         ''' a property that returns a box size in Angstroms
         '''
@@ -195,7 +201,7 @@ class PeptideSim(Configurable):
         ''' a property that returns the latest generated pdb file
         '''
         if len(self._pdb) > 0:
-            return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
+            return os.path.normpath(os.path.join(self._rel_dir_name, self._pdb[-1]))
         elif self.gro_file is not None:
             print('grofile is not NONE', os.path.basename(self.gro_file).split('.pdb')[
                   0], 'ends in pdb', os.path.basename(self.gro_file).split('.gro')[0], 'gro')
@@ -203,7 +209,7 @@ class PeptideSim(Configurable):
             output = '{}.pdb'.format(os.path.basename(
                 self.gro_file).split('.gro')[0])
             gromacs.editconf(f=self.gro_file, o=output)
-            return os.path.normpath(os.path.join(self.rel_dir_name, output))
+            return os.path.normpath(os.path.join(self._rel_dir_name, output))
         return None
 
     @pdb_file.setter
@@ -220,7 +226,7 @@ class PeptideSim(Configurable):
             result = self._gro[-1]
         else:
             result = [self._gro[-1]]
-        return [os.path.normpath(os.path.join(self.rel_dir_name, ri)) for ri in result]
+        return [os.path.normpath(os.path.join(self._rel_dir_name, ri)) for ri in result]
 
     @property
     def gro_file(self):
@@ -232,7 +238,7 @@ class PeptideSim(Configurable):
             result = self._gro[-1][0]
         else:
             result = self._gro[-1]
-        return os.path.normpath(os.path.join(self.rel_dir_name, result))
+        return os.path.normpath(os.path.join(self._rel_dir_name, result))
 
     @gro_file.setter
     def gro_file(self, f):
@@ -248,7 +254,7 @@ class PeptideSim(Configurable):
         '''
         if len(self._top) == 0:
             return None
-        return os.path.normpath(os.path.join(self.rel_dir_name, self._top[-1]))
+        return os.path.normpath(os.path.join(self._rel_dir_name, self._top[-1]))
 
     @top_file.setter
     def top_file(self, f):
@@ -260,7 +266,7 @@ class PeptideSim(Configurable):
         '''
         if len(self._tpr) == 0:
             return None
-        return os.path.normpath(os.path.join(self.rel_dir_name, self._tpr[-1]))
+        return os.path.normpath(os.path.join(self._rel_dir_name, self._tpr[-1]))
 
     @tpr_file.setter
     def tpr_file(self, f):
@@ -270,7 +276,7 @@ class PeptideSim(Configurable):
     def traj_file(self):
         if len(self._trr) == 0:
             return None
-        return os.path.normpath(os.path.join(self.rel_dir_name, self._trr[-1]))
+        return os.path.normpath(os.path.join(self._rel_dir_name, self._trr[-1]))
 
     @traj_file.setter
     def traj_file(self, f):
@@ -286,7 +292,7 @@ class PeptideSim(Configurable):
         if self._ndx_file is None:
             return None
         n = gromacs.fileformats.NDX()
-        n.read(os.path.normpath(os.path.join(self.rel_dir_name, self._ndx_file)))
+        n.read(os.path.normpath(os.path.join(self._rel_dir_name, self._ndx_file)))
         return n
 
     @ndx.setter
@@ -359,6 +365,7 @@ class PeptideSim(Configurable):
         self._trr = []
         self._file_list = []
         self._ndx_file = None
+        self._peptidesim_version = __version__
 
         # set-up saving
         self._save_count = 0
@@ -378,7 +385,7 @@ class PeptideSim(Configurable):
             self.job_name = os.path.split(dir_name)[-1]
 
         self.dir_name = dir_name
-        self.rel_dir_name = '.'
+        self._rel_dir_name = '.'
 
         if not os.path.exists(self.dir_name):
             os.mkdir(self.dir_name)
@@ -443,15 +450,23 @@ class PeptideSim(Configurable):
         for k, v in self.__dict__.items():
             if k not in data and type(v) in [str, int, float, list, dict, tuple, str] and k[0] != '_':
                 data[k] = v
+        # list of properties I think are important
+        data['box_size_nm'] = self.box_size_nm
+        data['file_list'] = self.file_list
+        data['current_tpr'] = self.tpr_file
+        data['current_gro'] = self.gro_file
+        data['current_traj'] = self.traj_file
+        data['current_top'] = self.top_file
+        data['current_pdb'] = self.pdb_file
+        data['peptidesim_version'] = self.peptidesim_version
         keys = list(data.keys())
         keys.sort()
         result = ['==========PeptideSim Object==========']
-        result.append(self.job_name)
         for k in keys:
             if k == '_sim_list':
                 continue
             v = data[k]
-            result.append('{:10s} : {}'.format(k, v))
+            result.append('{:14s} : {}'.format(k, v))
         result.append('------------Simulations--------------')
         for i, s in enumerate(self._sim_list):
             result.append('Simulation {}'.format(i))
@@ -471,14 +486,14 @@ class PeptideSim(Configurable):
 		  6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         # generate pdbs from sequences and store their extents
-        self.structure_extents = []
+        self._structure_extents = []
         self.peptide_mass = []
         self.peptide_pdb_files = []
         for i, s in enumerate(self.sequences):
             structure, minmax, mass = self._pdb_file_generator(
                 s, 'seq_' + str(i))
             self.peptide_pdb_files.append(structure)
-            self.structure_extents.append(minmax)
+            self._structure_extents.append(minmax)
             self.peptide_mass.append(mass)
 
         # pack the peptides together into an initial structure
@@ -815,15 +830,18 @@ class PeptideSim(Configurable):
     def __setstate__(self, dict):
         self.__dict__.update(dict)
         self._start_logging()
-        self.log.info('Restarting from pickled state')
+        self.log.info('Restarted from pickled state')
+        if self.peptidesim_version != __version__:
+            self.log.warning('Loaded pickle file is from peptidesim version {} but you are running version {}'.format(
+                self.peptidesim_version, __version__))
 
     def _convert_path(self, p):
         '''Converts path to be local to our working directory'''
         if(os.path.exists(p)):
-            return os.path.relpath(os.path.abspath(p), os.path.abspath(self.rel_dir_name))
+            return os.path.relpath(os.path.abspath(p), os.path.abspath(self._rel_dir_name))
         else:
             # join(where you are relative to root, filename)
-            return os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), os.path.abspath(self.rel_dir_name)), p))
+            return os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), os.path.abspath(self._rel_dir_name)), p))
 
     @contextlib.contextmanager
     def _simulation_context(self, name, dump_signal, repeat):
@@ -834,8 +852,8 @@ class PeptideSim(Configurable):
         def handler(signum, frame):
             self.log.warning(
                 'Simulation being interrupted by signal {}'.format(signum))
-            rel_dir_name = self.rel_dir_name
-            self.rel_dir_name = '.'  # so that we restart from where we started
+            rel_dir_name = self._rel_dir_name
+            self._rel_dir_name = '.'  # so that we restart from where we started
             self.save('{}-interrupt'.format(name))
             os.chdir(rel_dir_name)  # put us cleanly into the correct place
             raise KeyboardInterrupt()  # Make sure we do actually end
@@ -902,7 +920,7 @@ class PeptideSim(Configurable):
                 # go there
         curdir = os.getcwd()
         # keep path to original directory
-        self.rel_dir_name = os.path.relpath(curdir, d)
+        self._rel_dir_name = os.path.relpath(curdir, d)
         os.chdir(d)
 
         try:
@@ -912,7 +930,7 @@ class PeptideSim(Configurable):
             os.chdir(curdir)
 
             # update path to original directory
-            self.rel_dir_name = '.'
+            self._rel_dir_name = '.'
 
             # bring back files
             # TODO: Why? Is this every necessary
@@ -1010,7 +1028,7 @@ class PeptideSim(Configurable):
 
         # sum volumes and get longest dimension
         long_dim = 0
-        for e in self.structure_extents:
+        for e in self._structure_extents:
             diff = [smax - smin for smax, smin in zip(e[0], e[1])]
             long_dim = max(max(diff), long_dim)
 
