@@ -775,7 +775,7 @@ class PeptideSim(Configurable):
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
         else:
-            tag = os.path.basename(mdpfile).split('.')[0] + ':tag'
+            tag = os.path.basename(mdpfile).split('.')[0] + ':' + tag
         with self._simulation_context(tag, self.pickle_name, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
