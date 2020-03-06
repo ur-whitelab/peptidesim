@@ -156,7 +156,7 @@ class PeptideSim(Configurable):
     run_kwargs = Dict(dict(),
                       help='mdrun kwargs'
                       ).tag(config=True)
-    
+
     mpi_np = Int(1,
                  allow_none=True,
                  help='Number of mpi processes. If not set, it is not specified'
@@ -446,7 +446,7 @@ class PeptideSim(Configurable):
                 r = requests.put(url, payload)
                 i += 1
 
-    def initialize(self, run_kwargs={}):
+    def initialize(self):
         '''Build PDB files, pack them, convert to gmx, add water and ions
 
         This method accomplishes the following steps:
@@ -455,10 +455,10 @@ class PeptideSim(Configurable):
           3. Convert them into gmx files using the pdb2gmx command and configuration parameters
           4. Add water using the editconf/genbox
           5. Add ions
-		  6. Compile our energy-minimization tpr file for purposes of adding ions
+                  6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         # generate pdbs from sequences and store their extents
-        self.log.info('Running initialize with {}'.format(run_kwargs))        
+        self.log.info('Running initialize with {}'.format(locals()))
         self.structure_extents = []
         self.peptide_mass = []
         self.peptide_pdb_files = []
@@ -486,7 +486,7 @@ class PeptideSim(Configurable):
 
         # energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp',
-                 tag='initialize-emin', mdp_kwargs={'nsteps': 500}, run_kwargs=run_kwargs)
+                 tag='initialize-emin', mdp_kwargs={'nsteps': 500})
 
         self.log.info('Completed Initialization')
 

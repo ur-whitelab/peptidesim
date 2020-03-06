@@ -200,6 +200,7 @@ class TestPTE(TestCase):
         # run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
         p.mpi_np = 1
+        p.run_kwargs = {} #WHY IS THIS NECESSSARY?@?!?!%?!%?
         p.mdrun_driver = 'gmx_mpi'
         p.peptide_density = 0.005
         p.initialize()
@@ -228,6 +229,7 @@ class TestPTE(TestCase):
         # run a pte to get plumed output
         p = PeptideSim('pte_test_restart', ['AA'], [1], job_name='test-pte-restart')
         p.mpi_np = 1
+        p.run_kwargs = {} #WHY IS THIS NECESSSARY?@?!?!%?!%?
         p.mdrun_driver = 'gmx_mpi'
         p.peptide_density = 0.005
         p.initialize()
@@ -243,7 +245,7 @@ class TestPTE(TestCase):
 
         del p
 
-        new_p = pickle.load(open('test-pte.pickle', 'r+b'))
+        new_p = pickle.load(open('test-pte-restart.pickle', 'r+b'))
 
         # make sure there is one simulation in history with pte
 
@@ -254,73 +256,6 @@ class TestPTE(TestCase):
                           'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
 
         shutil.rmtree('pte_test_restart')
-
-    def test_plumed_restart(self):
-        # run a pte to get plumed output
-        p = PeptideSim('plumed_test', ['AA'], [1], job_name='test-plumed')
-        p.run_kwargs = SIM_KWARGS
-        p.peptide_density = 0.005
-        p.initialize()
-        p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
-        p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 50})
-        # the name of the plumed file should always start with a plumed string
-        # and end with .dat
-        plumed_test_name = 'plumed_test.dat'
-
-        # plumed input file contents
-        text_old = textwrap.dedent('''
-        DISTANCE ATOMS=1,2 LABEL=d1
-        PRINT ARG=d1 FILE=colvar STRIDE=10
-        ''')
-
-        with open(plumed_test_name, 'w') as f0:
-            f0.write(text_old)
-
-        p.add_file(plumed_test_name)
-        # the new content of the plumed file
-        signal.alarm(1)
-        try:
-            p.run(
-                mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
-                    'nsteps': 250}, run_kwargs={
-                        'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
-        except KeyboardInterrupt:
-            pass
-
-        del p
-        
-        with open('test-plumed.pickle', 'r+b') as f:
-            new_p = pickle.load(f)
-
-        # now we modify the content of the same plumed file and add it to the
-        # list of required files
-        text_new = textwrap.dedent('''
-        DISTANCE ATOMS=1,3 LABEL=d1
-        PRINT ARG=d1 FILE=colvar STRIDE=10
-        ''')
-        # test pickle on signal
-        f1 = open(plumed_test_name, 'w')
-        f1.write(text_new)
-        f1.close()
-        new_p.add_file(plumed_test_name)
-        signal.alarm(1)
-        try:
-            new_p.run(
-                mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
-                    'nsteps': 250}, run_kwargs={
-                    'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
-        except KeyboardInterrupt:
-            pass
-
-        reloaded_plumed = open(
-            './' + new_p.sims[-1].location + '/' + plumed_test_name, 'r')
-        f2 = open('./' + plumed_test_name, 'r')
-        self.assertEqual(reloaded_plumed.readlines(), f2.readlines())
-        f2.close()
-        reloaded_plumed.close()
-        os.remove('test-plumed.pickle')
-        os.remove(plumed_test_name)
-        shutil.rmtree('plumed_test')
 
 class TestRemoveSimulation(TestCase):
     def test_remove(self):
@@ -385,6 +320,7 @@ class TestPeptideEmin(TestCase):
     def test_mpinp_emin(self):
         start_gro = self.p.gro_file
         self.p.mpi_np = 1
+        p.run_kwargs = {} #WHY IS THIS NECESSSARY?@?!?!%?!%?
         self.p.mdrun_driver = 'gmx_mpi'
         self.p.run(mdpfile='peptidesim_emin.mdp',
                    tag='short-test', mdp_kwargs={'nsteps': 10})
@@ -519,6 +455,75 @@ class TestConfig(TestCase):
                 shutil.rmtree('testconfig')
             except OSError as e:
                 pass
+
+class TestRestartPlumed(TestCase):
+    def test_plumed_restart(self):
+        # run a pte to get plumed output
+        p = PeptideSim('plumed_test', ['AA'], [1], job_name='test-plumed')
+        p.run_kwargs = SIM_KWARGS
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
+        p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 50})
+        # the name of the plumed file should always start with a plumed string
+        # and end with .dat
+        plumed_test_name = 'plumed_test.dat'
+
+        # plumed input file contents
+        text_old = textwrap.dedent('''
+        DISTANCE ATOMS=1,2 LABEL=d1
+        PRINT ARG=d1 FILE=colvar STRIDE=10
+        ''')
+
+        with open(plumed_test_name, 'w') as f0:
+            f0.write(text_old)
+
+        p.add_file(plumed_test_name)
+        # the new content of the plumed file
+        signal.alarm(1)
+        try:
+            p.run(
+                mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
+                    'nsteps': 250}, run_kwargs={
+                        'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        del p
+        
+        with open('test-plumed.pickle', 'r+b') as f:
+            new_p = pickle.load(f)
+
+        # now we modify the content of the same plumed file and add it to the
+        # list of required files
+        text_new = textwrap.dedent('''
+        DISTANCE ATOMS=1,3 LABEL=d1
+        PRINT ARG=d1 FILE=colvar STRIDE=10
+        ''')
+        # test pickle on signal
+        f1 = open(plumed_test_name, 'w')
+        f1.write(text_new)
+        f1.close()
+        new_p.add_file(plumed_test_name)
+        signal.alarm(1)
+        try:
+            new_p.run(
+                mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
+                    'nsteps': 250}, run_kwargs={
+                    'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        reloaded_plumed = open(
+            './' + new_p.sims[-1].location + '/' + plumed_test_name, 'r')
+        f2 = open('./' + plumed_test_name, 'r')
+        self.assertEqual(reloaded_plumed.readlines(), f2.readlines())
+        f2.close()
+        reloaded_plumed.close()
+        os.remove('test-plumed.pickle')
+        os.remove(plumed_test_name)
+        shutil.rmtree('plumed_test')
+
 
 if __name__ == '__main__':
     import unittest
