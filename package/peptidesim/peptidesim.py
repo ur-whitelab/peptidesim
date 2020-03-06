@@ -152,11 +152,16 @@ class PeptideSim(Configurable):
     mpiexec = Unicode('mpiexec',
                       help='The MPI executable'
                       ).tag(config=True)
+
+    run_kwargs = Dict(dict(),
+                      help='mdrun kwargs'
+                      ).tag(config=True)
     
-    mpi_np = Int(None,
+    mpi_np = Int(1,
                  allow_none=True,
                  help='Number of mpi processes. If not set, it is not specified'
                  ).tag(config=True)
+
     mdrun_driver = Unicode(None,
                            allow_none=True,
                            help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)'
@@ -201,9 +206,6 @@ class PeptideSim(Configurable):
         if len(self._pdb) > 0:
             return os.path.normpath(os.path.join(self.rel_dir_name, self._pdb[-1]))
         elif self.gro_file is not None:
-            print('grofile is not NONE', os.path.basename(self.gro_file).split('.pdb')[
-                  0], 'ends in pdb', os.path.basename(self.gro_file).split('.gro')[0], 'gro')
-
             output = '{}.pdb'.format(os.path.basename(
                 self.gro_file).split('.gro')[0])
             gromacs.editconf(f=self.gro_file, o=output)
@@ -403,7 +405,7 @@ class PeptideSim(Configurable):
         self.log.addHandler(file_handler)
 
         self.log_handler = file_handler
-        self.log.setLevel(logging.DEBUG)
+        self.log.setLevel(logging.INFO)
         self.log.info('Started logging for PeptideSim...')
 
     def store_data(self):
@@ -456,6 +458,7 @@ class PeptideSim(Configurable):
 		  6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         # generate pdbs from sequences and store their extents
+        self.log.info('Running initialize with {}'.format(run_kwargs))        
         self.structure_extents = []
         self.peptide_mass = []
         self.peptide_pdb_files = []
@@ -495,7 +498,6 @@ class PeptideSim(Configurable):
             cmd = Demux()
             result = cmd('{}/md0.log'.format(path_to_replica_dir))
             if result[0] != 0:
-                print(result)
                 self.log.error(
                     'Demux failed with retcode {}. Out: {} Err: {} '.format(*result))
             else:
@@ -777,6 +779,12 @@ class PeptideSim(Configurable):
             mpi_np = self.mpi_np
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
+        # combine kwargs with my config kwargs - using given once as more important
+        self.log.info('{} {}'.format(self.run_kwargs, run_kwargs))
+        for k,v in self.run_kwargs.items():
+            # avoid override
+            if k not in run_kwargs:
+                run_kwargs[k] = v
         with self._simulation_context(tag, self.pickle_name, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
