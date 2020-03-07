@@ -452,6 +452,7 @@ class TestConfig(TestCase):
             except OSError as e:
                 pass
 
+
 class TestRestartPlumed(TestCase):
     def test_plumed_restart(self):
         # run a pte to get plumed output
