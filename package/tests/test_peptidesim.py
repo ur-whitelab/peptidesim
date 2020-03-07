@@ -1,18 +1,12 @@
 from unittest import TestCase, skip
-
-
 import os.path
 import time
-
 from peptidesim import *
 import shutil
 import os
 import textwrap
 import dill as pickle
-
-
 from io import BytesIO
-
 import json
 import requests
 import signal
@@ -199,11 +193,14 @@ class TestPTE(TestCase):
     def test_pte(self):
         # run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
+        print(p.run_kwargs)
         p.mpi_np = 1
-        p.run_kwargs = {} #WHY IS THIS NECESSSARY?@?!?!%?!%?
+        print(p.run_kwargs)
         p.mdrun_driver = 'gmx_mpi'
         p.peptide_density = 0.005
+        print(p.run_kwargs)
         p.initialize()
+        print(p.run_kwargs)
         p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
         pte_result = ''
@@ -229,7 +226,6 @@ class TestPTE(TestCase):
         # run a pte to get plumed output
         p = PeptideSim('pte_test_restart', ['AA'], [1], job_name='test-pte-restart')
         p.mpi_np = 1
-        p.run_kwargs = {} #WHY IS THIS NECESSSARY?@?!?!%?!%?
         p.mdrun_driver = 'gmx_mpi'
         p.peptide_density = 0.005
         p.initialize()
@@ -320,7 +316,7 @@ class TestPeptideEmin(TestCase):
     def test_mpinp_emin(self):
         start_gro = self.p.gro_file
         self.p.mpi_np = 1
-        p.run_kwargs = {} #WHY IS THIS NECESSSARY?@?!?!%?!%?
+        self.p.run_kwargs = {}
         self.p.mdrun_driver = 'gmx_mpi'
         self.p.run(mdpfile='peptidesim_emin.mdp',
                    tag='short-test', mdp_kwargs={'nsteps': 10})
@@ -490,7 +486,7 @@ class TestRestartPlumed(TestCase):
             pass
 
         del p
-        
+
         with open('test-plumed.pickle', 'r+b') as f:
             new_p = pickle.load(f)
 
@@ -528,5 +524,3 @@ class TestRestartPlumed(TestCase):
 if __name__ == '__main__':
     import unittest
     unittest.main()
-
-    

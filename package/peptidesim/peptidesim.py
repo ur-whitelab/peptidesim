@@ -155,7 +155,7 @@ class PeptideSim(Configurable):
 
     run_kwargs = Dict(dict(),
                       help='mdrun kwargs'
-                      ).tag(config=True)
+                      ).tag(config=False)
 
     mpi_np = Int(1,
                  allow_none=True,
@@ -458,7 +458,6 @@ class PeptideSim(Configurable):
                   6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         # generate pdbs from sequences and store their extents
-        self.log.info('Running initialize with {}'.format(locals()))
         self.structure_extents = []
         self.peptide_mass = []
         self.peptide_pdb_files = []
@@ -485,8 +484,7 @@ class PeptideSim(Configurable):
         self._add_ions()
 
         # energy minimize it
-        self.run(mdpfile='peptidesim_emin.mdp',
-                 tag='initialize-emin', mdp_kwargs={'nsteps': 500})
+        self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps': 500})
 
         self.log.info('Completed Initialization')
 
@@ -509,7 +507,7 @@ class PeptideSim(Configurable):
         current_dir = os.getcwd()
         return '{}/replica_temp.xvg'.format(current_dir)
 
-    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4, mdp_kwargs=dict(), run_kwargs=dict(), hills_file_location=None,
+    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4, mdp_kwargs=None, run_kwargs = None, hills_file_location=None,
                     cold=300.0, hot=400.0, eff_threshold=0.3,
                     hill_height=1.2, sigma=140.0, bias_factor=10,
                     exchange_period=25, dump_signal=signal.SIGTERM):
@@ -556,6 +554,10 @@ class PeptideSim(Configurable):
             The list of temperatures used for the biases
         '''
 
+        if mdp_kwargs is None:
+            mdp_kwargs = {}
+        if run_kwargs is None:
+            run_kwargs = {}
         def get_replex_e(self, replica_number):
             pte_sims = []
             index = 0
@@ -624,6 +626,7 @@ class PeptideSim(Configurable):
                 replica_kwargs[k]['ref_t'] = ti
 
             plumed_output_script = None
+            run_kwargs = {}
             run_kwargs['plumed'] = plumed_input_name
             run_kwargs['replex'] = exchange_period
 
@@ -749,7 +752,7 @@ class PeptideSim(Configurable):
         with open(os.path.join(self.rel_dir_name, self.pickle_name), 'w+b') as f:
             dill.dump(self, file=f)
 
-    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=dict(), run_kwargs=dict(), metadata=dict(), dump_signal=signal.SIGTERM):
+    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=None, run_kwargs=None, metadata=None, dump_signal=signal.SIGTERM):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -775,12 +778,17 @@ class PeptideSim(Configurable):
             This is the signal that will trigger saving the simulation, the pickle file, and gracefully shutdown
 
         '''
+        if mdp_kwargs is None:
+            mdp_kwargs = {}
+        if run_kwargs is None:
+            run_kwargs = {}
+        if metadata is None:
+            metadata = {}
         if mpi_np is None:
             mpi_np = self.mpi_np
         if tag == '':
             tag = os.path.basename(mdpfile).split('.')[0]
         # combine kwargs with my config kwargs - using given once as more important
-        self.log.info('{} {}'.format(self.run_kwargs, run_kwargs))
         for k,v in self.run_kwargs.items():
             # avoid override
             if k not in run_kwargs:
@@ -1198,13 +1206,11 @@ class PeptideSim(Configurable):
             self.log.info('Adding Ions...')
             gromacs.genion(s=ion_tpr, conc=self.ion_concentration, neutral=True,
                            o=ion_gro, p=self.top_file, input=('', solvent_index))
-            self.log.info('...OK')
 
             # now we need to remove all the include stuff so we can actually pass the file around if needed
             self.log.info('Resovling include statements via GromacsWrapper...')
             self.top_file = gromacs.cbook.create_portable_topology(
                 self.top_file, ion_gro)
-            self.log.info('...OK')
 
             self.gro_file = ion_gro
             self.tpr_file = ion_tpr
@@ -1372,7 +1378,7 @@ class PeptideSim(Configurable):
                                   s, re.VERBOSE | re.DOTALL)
                     if(m is None):
                         self.log.error(
-                            'Gromacs simulation failed for unknown raeson. Unable to locate output gro file ({})'.format(gro))
+                            'Gromacs simulation (args: {}) failed for unknown reason. Unable to locate output gro file ({})'.format(run_kwargs, gro))
                         self.log.error('Found ({})'.format(
                             [f for f in os.listdir('.') if os.path.isfile(f)]))
                     else:
@@ -1381,7 +1387,7 @@ class PeptideSim(Configurable):
                             self.log.error('SIMULATION FAILED: ' + line)
                 raise RuntimeError('Failed to complete simulation')
             else:
-                self.log.info('...done'.format(sinfo.name))
+                self.log.info('simulation succeeded'.format(sinfo.name))
             # finished, store any info needed
             self.store_data()
             self.gro_file = gro
