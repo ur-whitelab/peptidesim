@@ -507,8 +507,8 @@ class PeptideSim(Configurable):
         current_dir = os.getcwd()
         return '{}/replica_temp.xvg'.format(current_dir)
 
-    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4, 
-                    mdp_kwargs=None, run_kwargs = None, hills_file_location=None,
+    def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4,
+                    mdp_kwargs=None, run_kwargs=None, hills_file_location=None,
                     cold=300.0, hot=400.0, eff_threshold=0.3,
                     hill_height=1.2, sigma=140.0, bias_factor=10,
                     exchange_period=25, dump_signal=signal.SIGTERM):
