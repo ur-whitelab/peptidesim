@@ -34,12 +34,7 @@ which pip #or which python
 ```
 **Note**: In case the environment is not properly activated, i.e., `which pip` outputs a path not as mentioned above, try `conda init`. Close and reopen a new terminal and do `conda activate <yourenvname>`.
 
-3. You will need to install the GromacsWrapper module separately due to a pending bug fix.
-```bash
-pip install --no-cache-dir git+https://github.com/whitead/GromacsWrapper
-```
-
-4. For installing PeptideSim, you need to clone the package from github.
+3. For installing PeptideSim, you need to clone the package from github.
 ```bash
 git clone https://github.com/ur-whitelab/peptidesim.git
 ```
@@ -49,7 +44,7 @@ cd package
 pip install -e .
 ```
 
-5. Setup a config file for Gromacswrapper to be able to find the gromacs installation. You can use the one given below and save it to `~/.gromacswrapper.cfg`
+4. Setup a config file for Gromacswrapper to be able to find the gromacs installation. You can use the one given below and save it to `~/.gromacswrapper.cfg`
 
 
 `.gromacswrapper.cfg`
@@ -78,6 +73,16 @@ import gromacs
 gromacs.config.setup()
 ```
 
+# Running Tests
+
+You must install pytest first, then you can run the tests using the following command:
+
+```sh
+python -m pytest -x -v  peptidesim/package/tests/
+```
+
+You should be on an interactive node if on bluehive. The tests
+generate a lot of files, so run it in a clean directory.
 
 # Developer Test Environment
 
