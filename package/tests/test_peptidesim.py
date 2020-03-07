@@ -145,6 +145,7 @@ class TestPeptideRestart(TestCase):
 
     def test_can_save(self):
         p = PeptideSim('can-save-test', ['AA'], [2])
+        p.run_kwargs = SIM_KWARGS
         p.marker = True
         p.save('foo')
         g = PeptideSim('can-save-test', ['AA'], [2])
@@ -153,6 +154,7 @@ class TestPeptideRestart(TestCase):
 
     def test_can_skip(self):
         p = PeptideSim('can-skip-test', ['AA'], [2])
+        p.run_kwargs = SIM_KWARGS
         p.initialize()
         p.run(mdpfile='peptidesim_emin.mdp',
               tag='restart-test', mdp_kwargs={'nsteps': 25})
@@ -209,7 +211,6 @@ class TestPTE(TestCase):
               mdp_kwargs=[{'nsteps': 100, 'ref_t': ti}
                           for ti in pte_result['temperatures']],
               run_kwargs={'plumed': 'plumed.dat', 'replex': 25})
-        shutil.rmtree('pte_test')
 
         shutil.rmtree('pte_test')
 
@@ -241,7 +242,6 @@ class TestPTE(TestCase):
         # try to restart it
         new_p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={
                           'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
-        shutil.rmtree('pte_test')
 
         shutil.rmtree('pte_test_restart')
 
@@ -477,8 +477,7 @@ class TestRestartPlumed(TestCase):
 
         del p
 
-        with open('test-plumed.pickle', 'r+b') as f:
-            new_p = pickle.load(f)
+        new_p = PeptideSim('plumed_test', ['AA'], [1], job_name='test-plumed')
 
         # now we modify the content of the same plumed file and add it to the
         # list of required files
@@ -506,7 +505,6 @@ class TestRestartPlumed(TestCase):
         self.assertEqual(reloaded_plumed.readlines(), f2.readlines())
         f2.close()
         reloaded_plumed.close()
-        os.remove('test-plumed.pickle')
         os.remove(plumed_test_name)
         shutil.rmtree('plumed_test')
 
