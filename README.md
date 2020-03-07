@@ -1,25 +1,24 @@
 # 1. PeptideSim <!-- omit in toc -->
 
-
 - [1. Release Notes](#1-release-notes)
 - [2. Installation](#2-installation)
   - [2.1. Bluehive Install](#21-bluehive-install)
-- [3. Developer Test Environment](#3-developer-test-environment)
-  - [3.1. Creating Docker Image](#31-creating-docker-image)
-  - [3.2. Running Unit Tests](#32-running-unit-tests)
-  - [3.3. Running Unit Tests Interactively](#33-running-unit-tests-interactively)
-  - [3.4. Running Tests with Docker](#34-running-tests-with-docker)
-  - [Interacting with Environment](#interacting-with-environment)
-- [4. Example Workflows](#4-example-workflows)
-  - [4.1. NVT simulations with multiple peptides](#41-nvt-simulations-with-multiple-peptides)
-    - [4.1.1. Imports](#411-imports)
-    - [4.1.2. Input Conditions](#412-input-conditions)
-    - [4.1.3. Simulation Steps](#413-simulation-steps)
-    - [4.1.4. Run the script](#414-run-the-script)
-    - [4.1.5. Saving at intermediate steps](#415-saving-at-intermediate-steps)
-  - [4.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)](#42-enhanced-sampling-pt-wte-experiment-directed-simulation-eds)
-    - [4.2.1. Preparation](#421-preparation)
-    - [4.2.2. PT-WTE](#422-pt-wte)
+- [3. Running Tests](#3-running-tests)
+- [4. Developer Test Environment](#4-developer-test-environment)
+  - [4.1. Creating Docker Image](#41-creating-docker-image)
+  - [4.2. Running Unit Tests](#42-running-unit-tests)
+  - [4.4. Running Unit Tests Interactively](#44-running-unit-tests-interactively)
+- [5. Example Workflows](#5-example-workflows)
+  - [5.1. NVT simulations with multiple peptides](#51-nvt-simulations-with-multiple-peptides)
+    - [5.1.1. Imports](#511-imports)
+    - [5.1.2. Input Conditions](#512-input-conditions)
+    - [5.1.3. Simulation Steps](#513-simulation-steps)
+    - [5.1.4. Run the script](#514-run-the-script)
+    - [5.1.5. Saving at intermediate steps](#515-saving-at-intermediate-steps)
+  - [5.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)](#52-enhanced-sampling-pt-wte-experiment-directed-simulation-eds)
+    - [5.2.1. Preparation](#521-preparation)
+    - [5.2.2. PT-WTE](#522-pt-wte)
+- [6. Restarting Simulations](#6-restarting-simulations)
 
 # 1. Release Notes
 
@@ -50,12 +49,7 @@ which pip #or which python
 ```
 **Note**: In case the environment is not properly activated, i.e., `which pip` outputs a path not as mentioned above, try `conda init`. Close and reopen a new terminal and do `conda activate <yourenvname>`.
 
-3. You will need to install the GromacsWrapper module separately due to a pending bug fix.
-```bash
-pip install --no-cache-dir git+https://github.com/whitead/GromacsWrapper
-```
-
-4. For installing PeptideSim, you need to clone the package from github.
+3. For installing PeptideSim, you need to clone the package from github.
 ```bash
 git clone https://github.com/ur-whitelab/peptidesim.git
 ```
@@ -65,7 +59,7 @@ cd package
 pip install -e .
 ```
 
-5. Setup a config file for Gromacswrapper to be able to find the gromacs installation. You can use the one given below and save it to `~/.gromacswrapper.cfg`
+4. Setup a config file for Gromacswrapper to be able to find the gromacs installation. You can use the one given below and save it to `~/.gromacswrapper.cfg`
 
 
 `.gromacswrapper.cfg`
@@ -94,10 +88,20 @@ import gromacs
 gromacs.config.setup()
 ```
 
+# 3. Running Tests
 
-# 3. Developer Test Environment
+You must install pytest first, then you can run the tests using the following command:
 
-## 3.1. Creating Docker Image
+```sh
+python -m pytest -x -v  peptidesim/package/tests/
+```
+
+You should be on an interactive node if on bluehive. The tests
+generate a lot of files, so run it in a clean directory.
+
+# 4. Developer Test Environment
+
+## 4.1. Creating Docker Image
 
 Load the plumed gromacs docker image from dockerhub:
 
@@ -115,37 +119,7 @@ docker build -t peptidesim/test .
 These two steps gather the plumed and gromacs version. Generally,
 you do not need to re-run them.
 
-## 3.2. Running Unit Tests
-
-From the repo root directory:
-
-```sh
-docker run -it --rm -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test
-```
-
-This will run all tests and clean-up.
-
-## 3.3. Running Unit Tests Interactively
-
-If you want to leave all test files around and have python access to troubleshoot,
-including an editable install so code you change is reflected, use:
-
-```sh
-docker run --rm -it -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test bash ../interact.sh
-python -m pytest -x ../peptidesim/package/tests/
-```
-
-Prepare the docker image in the test-docker folder by running
-the build script. You may need to have `sudo` depending on your docker configuration.
-
-```bash
-cd test-docker && [sudo] ./build.sh
-```
-It is only necessary to rebuild the docker script when newer gromacs,
-gromacswrapper packages are available.
-
-
-## 3.4. Running Tests with Docker
+## 4.2. Running Unit Tests
 
 From the repo root directory:
 
@@ -153,33 +127,37 @@ From the repo root directory:
 [sudo] ./test.sh
 ```
 
- You may need to have `sudo` depending on your docker configuration.
+ You may need to have `sudo` depending on your docker configuration. This will run all tests and clean-up. If are using Windows or need to modify the command, use:
 
- ## Interacting with Environment
+```sh
+docker run -it --rm -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test
+```
 
- To have access to the docker environment with the built package
- so you can debug/develop, execute this commend from the repo
- root directory:
 
- ```bash
+
+## 4.4. Running Unit Tests Interactively
+
+If you want to leave all test files around and have python access to troubleshoot,
+including an editable install so code you change is reflected, use:
+
+```sh
 [sudo] ./interact.sh
- ```
+```
 
-You may need to have `sudo` depending on your docker configuration.
 Type `exit` to leave the docker environment. See instructions that are printed after
 running the command for how to interact/use the environment.
 
-# 4. Example Workflows
+# 5. Example Workflows
 
-## 4.1. NVT simulations with multiple peptides
+## 5.1. NVT simulations with multiple peptides
 A complete example can be found in `peptidesim/inputs/simple`.
 
-### 4.1.1. Imports
+### 5.1.1. Imports
 Create a Python script simple.py and import the PeptideSim class
 ```python
 from pepsidesim import PeptideSim
 ```
-### 4.1.2. Input Conditions
+### 5.1.2. Input Conditions
 Specify peptides, conditions, and initialize. Note
 that all properties of the PeptideSim have defaults,
 so you do not necessarily need to specify a concentration
@@ -196,7 +174,7 @@ ps.mpi_np = 4 # Number of MPI processes to use
 ps.initialize()
 ```
 
-### 4.1.3. Simulation Steps
+### 5.1.3. Simulation Steps
 Here we do energy minimization, annealing and NVT equilibration. Note that
 we can pass specific gromacs `mdp` arguments as python objects. The `tag` is
 the short name of the simulation we are doing. The `mdpfile` names used here
@@ -208,7 +186,7 @@ ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
 ```
 
-### 4.1.4. Run the script
+### 5.1.4. Run the script
 
 If you are using a slurm job script, you
 could use this example:
@@ -221,71 +199,28 @@ could use this example:
 python simple.py
 ```
 
-### 4.1.5. Saving at intermediate steps
-
-Simulations may takes a long time depending on the number of steps chosen and resource requested. It is a good idea
-to periodically save your python `PeptideSim` object so that you can restart. First, you'll want to check
-in your script if a `pickle` file is found and restart rather than creating a new one.
-```python
-pickle_name = ...
-if(os.path.exists(pickle_name)):
-    print('loading restart')
-    with open(pickle_name, 'rb') as f:
-        ps = pickle.load(f)
-else:
-    # ...code from step 2
-```
-
-It is recommended to save the pickle file after each simulation:
-```python
-ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**5})
-print('Pickled filename': ps.pickle_name)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
-
-ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
-print('Pickled filename': ps.pickle_name)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
-
-ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
-print('Pickled filename': ps.pickle_name)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
-
-```
-Note that for python3 pickle files should always be opened in binary mode.
-
-## 4.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)
+## 5.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)
 
 A complete example can be found in `peptidesim/inputs/pte`.
 
-### 4.2.1. Preparation
+### 5.2.1. Preparation
 Create a Python script for the preparation step. It is similiar to NVT simulation script.
 
 If you are using experimental bias, additional code will be needed for the preparation. Check part1.py, [plumed METAD documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_m_e_t_a_d.html) and [plumed EDS documentation](https://www.plumed.org/doc-v2.5/user-doc/html/_e_d_s.html).
 
-### 4.2.2. PT-WTE
+### 5.2.2. PT-WTE
 
 Create a second script and import all required modules.
 Specify peptides, replica number and exchange period. Note that the name of the job must be consistant with that in part 1.
 
 ```python
 name = nameinpart1
-pickle_name = name + '.pickle'
 MPI_NP = 16
 peptide_cpoies = 1 #number of peptide per replica
 replicas = 16 #number of replicas
 remd_exhcange_period = 250
 #reload
-ps=3#initialize
-if(os.path.exists(pickle_name)):
-    print('loading restart')
-    with open(pickle_name, 'rb') as f:
-        ps = pickle.load(f)
-        #ps.pickle_name=pickle_name
-        print(os.getcwd())
-        ps.rel_dir_name='.'
+ps=3
 ```
 
 We will need a function for getting replica exchange efficiency. The function is used to extract replica exchange efficiency from log files, which will be used as a criteria for ending replica exchange iterations.
@@ -345,34 +280,31 @@ We can now start replica exchange. Iteration will break if the replica exchange 
 for i in range(max_iterations):
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),
            mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period}, mpi_np=MPI_NP)
-    with open(ps.pickle_name, 'wb') as f:
-        pickle.dump(ps, file=f)
 
     rep_eff_1 = get_replex_e(ps, replicas)
     if rep_eff_1 ==-1:
         ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period},mpi_np=MPI_NP)
-        with open(ps.pickle_name, 'wb') as f:
-            pickle.dump(ps, file=f)
 
     elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
         print('Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1))
         break
-
-        with open(ps.pickle_name, 'wb') as f:
-            pickle.dump(ps, file=f)
     else:
         print('Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1))
 
 
 final_time_eds=int(0.040*5*10**5)
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},mpi_np=MPI_NP)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
 ```
 
 Write a bash script and run.
 
 **Note**: During replica exchange simulations, MPI_NP must be consistant with N (number of nodes), ntask_per_node and c (cpus_per_task) in bash script. Restarts should also have the same number of MPI processes otherwise it will result in PTE tuning log file missing error.
-​
 
+# 6. Restarting Simulations
+
+Restarting is handled via the built-in gromacs restarts combined with python pickle objects. After each modification of the simulation (e.g., initialization or running a simulation), a current pickle file is saved in the peptidesim root directory. Its name matches your job name. Additionally, previous pickle files are saved in a directory called `restarts` that can be used to resume from previous stages. Your current pickle is always saved there too, so that you can simply move a pickle file from this directory to your root directory to restart from a different step. Pickle files are automatically used to restart your simulation in a script and simulations that have already completed will be skipped so that you need not edit your script if restarting.
+
+You can disable restarting by passing the `restartable=False` argument to the `PeptideSim` initialization. If the `restartable` flag is not set but there are existing pickle objects, an error will occur to prevent you from accidentally overwriting a previous simulation.
+
+----
 &copy; Andrew White at University of Rochester

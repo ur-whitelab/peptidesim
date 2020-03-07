@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+v0.4 (2019-03-06)
+-----------------------
+
+*Enhancements*
+
+- Pickling is handled by peptidesim
+- Tests run significantly faster on bluehive
+- You can now print peptidesim objects
+- Removed no longer used code
+
 v0.3 (2019-02-28)
 -----------------------
 
