@@ -127,7 +127,7 @@ From the repo root directory:
 [sudo] ./test.sh
 ```
 
- You may need to have `sudo` depending on your docker configuration. This will run all tests and clean-up. If are on windows or need to modify the command, you can view it in `test.sh` or see below:
+ You may need to have `sudo` depending on your docker configuration. This will run all tests and clean-up. If are using Windows or need to modify the command, use:
 
 ```sh
 docker run -it --rm -v [path_to_peptidesim_root]:/home/whitelab/peptidesim peptidesim/test
@@ -144,8 +144,6 @@ including an editable install so code you change is reflected, use:
 [sudo] ./interact.sh
 ```
 
-Prepare the docker image in the test-docker folder by running
-the build script. You may need to have `sudo` depending on your docker configuration.
 Type `exit` to leave the docker environment. See instructions that are printed after
 running the command for how to interact/use the environment.
 
@@ -201,41 +199,6 @@ could use this example:
 python simple.py
 ```
 
-### 5.1.5. Saving at intermediate steps
-
-Simulations may takes a long time depending on the number of steps chosen and resource requested. It is a good idea
-to periodically save your python `PeptideSim` object so that you can restart. First, you'll want to check
-in your script if a `pickle` file is found and restart rather than creating a new one.
-```python
-pickle_name = ...
-if(os.path.exists(pickle_name)):
-    print('loading restart')
-    with open(pickle_name, 'rb') as f:
-        ps = pickle.load(f)
-else:
-    # ...code from step 2
-```
-
-It is recommended to save the pickle file after each simulation:
-```python
-ps.run(mdpfile='peptidesim_emin.mdp', tag='init_emin', mdp_kwargs={'nsteps': 10**5})
-print('Pickled filename': ps.pickle_name)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
-
-ps.run(mdpfile='peptidesim_anneal.mdp', tag='anneal_nvt')
-print('Pickled filename': ps.pickle_name)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
-
-ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod', mdp_kwargs={'nsteps': int(3 * 5*10**5), 'constraints': 'h-bonds'})
-print('Pickled filename': ps.pickle_name)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
-
-```
-Note that for python3 pickle files should always be opened in binary mode.
-
 ## 5.2. Enhanced Sampling (PT-WTE)/ Experiment Directed simulation (EDS)
 
 A complete example can be found in `peptidesim/inputs/pte`.
@@ -252,20 +215,12 @@ Specify peptides, replica number and exchange period. Note that the name of the 
 
 ```python
 name = nameinpart1
-pickle_name = name + '.pickle'
 MPI_NP = 16
 peptide_cpoies = 1 #number of peptide per replica
 replicas = 16 #number of replicas
 remd_exhcange_period = 250
 #reload
-ps=3#initialize
-if(os.path.exists(pickle_name)):
-    print('loading restart')
-    with open(pickle_name, 'rb') as f:
-        ps = pickle.load(f)
-        #ps.pickle_name=pickle_name
-        print(os.getcwd())
-        ps.rel_dir_name='.'
+ps=3
 ```
 
 We will need a function for getting replica exchange efficiency. The function is used to extract replica exchange efficiency from log files, which will be used as a criteria for ending replica exchange iterations.
@@ -325,29 +280,20 @@ We can now start replica exchange. Iteration will break if the replica exchange 
 for i in range(max_iterations):
     ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),
            mdp_kwargs=kwargs, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period}, mpi_np=MPI_NP)
-    with open(ps.pickle_name, 'wb') as f:
-        pickle.dump(ps, file=f)
 
     rep_eff_1 = get_replex_e(ps, replicas)
     if rep_eff_1 ==-1:
         ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_conver_{}'.format(i),  mdp_kwargs=kwargs,mpi_np=MPI_NP, run_kwargs={'plumed':'plumed.dat','replex':remd_exhcange_period},mpi_np=MPI_NP)
-        with open(ps.pickle_name, 'wb') as f:
-            pickle.dump(ps, file=f)
 
     elif (min(rep_eff_1) >= replex_eff and i>=min_iterations):
         print('Reached replica exchange efficiency of {}. Continuing to production'.format(rep_eff_1))
         break
-
-        with open(ps.pickle_name, 'wb') as f:
-            pickle.dump(ps, file=f)
     else:
         print('Replica exchange efficiency of {}. Continuing simulation'.format(rep_eff_1))
 
 
 final_time_eds=int(0.040*5*10**5)
 ps.run(mdpfile='peptidesim_nvt.mdp', tag='nvt_prod',  mdp_kwargs={'nsteps': final_time_eds, 'ref_t': 278},mpi_np=MPI_NP)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
 ```
 
 Write a bash script and run.
@@ -359,6 +305,6 @@ Write a bash script and run.
 Restarting is handled via the built-in gromacs restarts combined with python pickle objects. After each modification of the simulation (e.g., initialization or running a simulation), a current pickle file is saved in the peptidesim root directory. Its name matches your job name. Additionally, previous pickle files are saved in a directory called `restarts` that can be used to resume from previous stages. Your current pickle is always saved there too, so that you can simply move a pickle file from this directory to your root directory to restart from a different step. Pickle files are automatically used to restart your simulation in a script and simulations that have already completed will be skipped so that you need not edit your script if restarting.
 
 You can disable restarting by passing the `restartable=False` argument to the `PeptideSim` initialization. If the `restartable` flag is not set but there are existing pickle objects, an error will occur to prevent you from accidentally overwriting a previous simulation.
-​
 
+----
 &copy; Andrew White at University of Rochester
