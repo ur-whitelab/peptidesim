@@ -1379,7 +1379,6 @@ class PeptideSim(Configurable):
                     sinfo.metadata['traj'] = trajectory_file
                     run_kwargs['o'] = trajectory_file
                     self.traj_file = trajectory_file
-                    self._file_list.append(os.path.basename(self.traj_file))
                 run_kwargs.update(dict(s=tpr, c=sinfo.short_name + '.gro'))
                 sinfo.metadata['run-kwargs'] = run_kwargs
                 # add mpiexec to command
