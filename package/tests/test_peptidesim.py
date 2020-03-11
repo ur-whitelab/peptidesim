@@ -183,6 +183,8 @@ class TestPeptideStability(TestCase):
 
 class TestPTE(TestCase):
     def test_pte(self):
+        import fnmatch
+        root_dir = os.getcwd()
         # run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
         print(p.run_kwargs)
@@ -213,10 +215,15 @@ class TestPTE(TestCase):
               run_kwargs={'plumed': 'plumed.dat', 'replex': 25})
 
         shutil.rmtree('pte_test')
-        for items in os.listdir('.'):
-            if (items.startswith('HILLS_PTE') or
-                    items.startswith('COLVAR_PTWTE') or items.startswith('plumed')):
-                os.remove(items)
+
+        for filename in os.listdir('.'):
+            print(filename)
+            if fnmatch.fnmatch(filename, 'HILLS_PTE.*'):
+                os.remove(filename)
+            if fnmatch.fnmatch(filename, 'COLVAR_PTWTE.*'):
+                os.remove(filename)
+            if fnmatch.fnmatch(filename, 'plumed*'):
+                os.remove(filename)
 
     def test_pte_restart(self):
         # run a pte to get plumed output
