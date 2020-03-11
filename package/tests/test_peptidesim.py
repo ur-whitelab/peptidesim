@@ -271,6 +271,7 @@ class TestRemoveSimulation(TestCase):
         self.assertGreaterEqual(old_gro_files_number, new_gro_len)
         self.assertGreaterEqual(old_tpr_files_number, new_tpr_len)
         self.assertGreaterEqual(old_sim_files_number, new_sim_len)
+        shutil.rmtree('test_remove')
 
     def test_remove_restart(self):
         # run a pte to get plumed output
@@ -291,9 +292,6 @@ class TestRemoveSimulation(TestCase):
             p.remove_simulation('wrong_sim_name')
         with self.assertRaises(TypeError) as cm:
             p.remove_simulation(None)
-
-    def tearDown(self):
-        shutil.rmtree('test_remove')
         shutil.rmtree('test_remove_restart')
 
 class TestPeptideEmin(TestCase):
