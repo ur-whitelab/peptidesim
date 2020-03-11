@@ -214,7 +214,7 @@ class TestPTE(TestCase):
 
         shutil.rmtree('pte_test')
         for items in os.listdir('.'):
-            if (items.startswith('HILLS_PTE') or 
+            if (items.startswith('HILLS_PTE') or
                     items.startswith('COLVAR_PTWTE') or items.startswith('plumed')):
                 os.remove(items)
 
