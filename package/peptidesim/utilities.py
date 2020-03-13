@@ -143,13 +143,13 @@ def pdb_for_plumed(input_pdbfile, peptide_copies,
 
     # read the pdb file
     with open(input_pdbfile, 'r') as f:
-        lines=f.readlines()
+        lines = f.readlines()
         # grab lines that don't matter
-        beginning=lines[:first_atom_index]
+        beginning = lines[:first_atom_index]
         # grab lines that need to be changed
-        lines=lines[first_atom_index:]
+        lines = lines[first_atom_index:]
 
-        with open(output_pdbfile,'w') as f:
+        with open(output_pdbfile, 'w') as f:
             # iterate through first few lines and write them as is
             for index in np.arange(len(beginning)):
                 f.write("{}\n".format(beginning[index].strip()))
@@ -171,17 +171,18 @@ def pdb_for_plumed(input_pdbfile, peptide_copies,
                     #                   [#atoms in chain1 of seq2, #atoms in chain2 of seq2,...],
                     #                   [and so on]]
                     for atom in np.arange(atoms_in_chain[seq][copy]):
-                        current_line = lines[skip_lines + copy * (atoms_in_chain[seq][copy]) + atom]
+                        current_line = lines[skip_lines + copy *
+                                             (atoms_in_chain[seq][copy]) + atom]
                         # converts the string into a list of characters
                         split_line = list(current_line)
                         # unique ID on at position 21 of current_line
-                        if (len(split_line)>=21):
-                            split_line[21]=ascii_uppercase[letter]
-                            current_line="".join(split_line)
+                        if (len(split_line) >= 21):
+                            split_line[21] = ascii_uppercase[letter]
+                            current_line = "".join(split_line)
                             f.write('{}'.format(current_line))
-                        if(atom==int(atoms_in_chain[seq][copy]-1)):
+                        if(atom == int(atoms_in_chain[seq][copy]-1)):
                             f.write('TER second\n')
-                            skip_lines +=1
+                            skip_lines += 1
                             #puts ter at the end of each chain
                     atoms_scanned += atoms_in_chain[seq][copy]
                     print(atoms_scanned, skip_lines)
