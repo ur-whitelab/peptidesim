@@ -10,7 +10,7 @@ from io import BytesIO
 import json
 import requests
 import signal
-
+import fnmatch
 
 SIM_KWARGS = {'nt': 1}
 
@@ -183,6 +183,7 @@ class TestPeptideStability(TestCase):
 
 class TestPTE(TestCase):
     def test_pte(self):
+        root_dir = os.getcwd()
         # run a pte to get plumed output
         p = PeptideSim('pte_test', ['AA'], [1], job_name='test-pte')
         print(p.run_kwargs)
@@ -214,6 +215,15 @@ class TestPTE(TestCase):
 
         shutil.rmtree('pte_test')
 
+        for filename in os.listdir('.'):
+            print(filename)
+            if fnmatch.fnmatch(filename, 'HILLS_PTE.*'):
+                os.remove(filename)
+            if fnmatch.fnmatch(filename, 'COLVAR_PTWTE.*'):
+                os.remove(filename)
+            if fnmatch.fnmatch(filename, 'plumed*'):
+                os.remove(filename)
+
     def test_pte_restart(self):
         # run a pte to get plumed output
         p = PeptideSim('pte_test_restart', ['AA'], [1], job_name='test-pte-restart')
@@ -244,6 +254,14 @@ class TestPTE(TestCase):
                           'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
 
         shutil.rmtree('pte_test_restart')
+        for filename in os.listdir('.'):
+            print(filename)
+            if fnmatch.fnmatch(filename, 'HILLS_PTE.*'):
+                os.remove(filename)
+            if fnmatch.fnmatch(filename, 'COLVAR_PTWTE.*'):
+                os.remove(filename)
+            if fnmatch.fnmatch(filename, 'plumed*'):
+                os.remove(filename)
 
 class TestRemoveSimulation(TestCase):
     def test_remove(self):
@@ -267,6 +285,7 @@ class TestRemoveSimulation(TestCase):
         self.assertGreaterEqual(old_gro_files_number, new_gro_len)
         self.assertGreaterEqual(old_tpr_files_number, new_tpr_len)
         self.assertGreaterEqual(old_sim_files_number, new_sim_len)
+        shutil.rmtree('test_remove')
 
     def test_remove_restart(self):
         # run a pte to get plumed output
@@ -287,6 +306,7 @@ class TestRemoveSimulation(TestCase):
             p.remove_simulation('wrong_sim_name')
         with self.assertRaises(TypeError) as cm:
             p.remove_simulation(None)
+        shutil.rmtree('test_remove_restart')
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
