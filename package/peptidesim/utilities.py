@@ -167,9 +167,6 @@ def pdb_for_plumed(input_pdbfile, peptide_copies,
                     if copy != 0:
                         letter += 1
                     # iterate through the atoms in the chain
-                    # atoms_in_chain = [[#atoms in chain1 of seq1, #atoms in chain2 of seq1,...],
-                    #                   [#atoms in chain1 of seq2, #atoms in chain2 of seq2,...],
-                    #                   [and so on]]
                     for atom in np.arange(atoms_in_chain[seq][copy]):
                         current_line = lines[skip_lines + copy *
                                              (atoms_in_chain[seq][copy]) + atom]
@@ -183,7 +180,7 @@ def pdb_for_plumed(input_pdbfile, peptide_copies,
                         if(atom == int(atoms_in_chain[seq][copy]-1)):
                             f.write('TER second\n')
                             skip_lines += 1
-                            #puts ter at the end of each chain
+                            # puts ter at the end of each chain
                     atoms_scanned += atoms_in_chain[seq][copy]
                     print(atoms_scanned, skip_lines)
                 skip_lines += atoms_scanned
