@@ -165,6 +165,19 @@ class TestPeptideRestart(TestCase):
               tag='restart-test', mdp_kwargs={'nsteps': 25})
         self.assertEqual(len(p.sims), len(g.sims))
 
+    def test_wont_skip_mdp(self):
+        p = PeptideSim('can-skip-test', ['AA'], [2])
+        p.run_kwargs = SIM_KWARGS
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp',
+              tag='restart-test', mdp_kwargs={'nsteps': 25})
+        g = PeptideSim('can-skip-test', ['AA'], [2])
+        self.assertEqual(len(p.sims), len(g.sims))
+        g.initialize()
+        g.run(mdpfile='peptidesim_emin.mdp',
+              tag='restart-test', mdp_kwargs={'nsteps': 5})
+        self.assertEqual(len(p.sims) + 1, len(g.sims))
+
     def tearDown(self):
         shutil.rmtree('can-skip-test', ignore_errors=True)
         shutil.rmtree('can-save-test', ignore_errors=True)

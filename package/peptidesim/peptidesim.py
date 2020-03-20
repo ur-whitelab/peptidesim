@@ -822,7 +822,12 @@ class PeptideSim(Configurable):
             # avoid override
             if k not in run_kwargs:
                 run_kwargs[k] = v
-        with self._simulation_context(tag, dump_signal, repeat=repeat) as ec:
+
+        # make name contain info about mdp and tag
+        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, mdpfile + str(mdp_kwargs))
+        # the hash is huge. Take the first few chars
+        simname = tag + '-' + str(file_hash)[:8]
+        with self._simulation_context(simname, tag, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
             ec.metadata.update(metadata)
             self.save('{}-pre'.format(ec.name))
@@ -863,7 +868,7 @@ class PeptideSim(Configurable):
             return os.path.normpath(os.path.join(os.path.relpath(os.getcwd(), os.path.abspath(self._rel_dir_name)), p))
 
     @contextlib.contextmanager
-    def _simulation_context(self, name, dump_signal, repeat):
+    def _simulation_context(self, simname, short_name, dump_signal, repeat):
         '''This context will handle restart and keeping a history of simulations performed.
         TODO: Maybe have this context submit a simulation job?
         '''
@@ -873,7 +878,7 @@ class PeptideSim(Configurable):
                 'Simulation being interrupted by signal {}'.format(signum))
             rel_dir_name = self._rel_dir_name
             self._rel_dir_name = '.'  # so that we restart from where we started
-            self.save('{}-interrupt'.format(name))
+            self.save('{}-interrupt'.format(simname))
             os.chdir(rel_dir_name)  # put us cleanly into the correct place
             raise KeyboardInterrupt()  # Make sure we do actually end
         # cache existing
@@ -881,18 +886,10 @@ class PeptideSim(Configurable):
         # set new one
         signal.signal(dump_signal, handler)
 
-        # TODO need something smarter here, like parse gro file or log file
-        # TOP is constant, so repeating a sim type will give collisions
-
-        # construct name and add to simulation infos
-        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, self.top_file)
-        # the hash is huge. Take the first few chars
-        simname = name + '-' + str(file_hash)[:8]
-
         if simname in self._sims:
             si = self._sims[simname]
         else:
-            si = SimulationInfo(simname, name)
+            si = SimulationInfo(simname, short_name)
             if repeat:
                 si.location = self._convert_path(os.path.join(
                     self.dir_name, self._sim_list[-1].name))
