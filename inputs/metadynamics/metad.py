@@ -53,8 +53,7 @@ ps.run(
             0.1 * 5 * 10**2)},
     run_kwargs={
         'cpt': 5},
-    mpi_np=MPI_NP) 
-
+    mpi_np=MPI_NP)
 
 
 ps.run(
@@ -67,8 +66,8 @@ ps.run(
     run_kwargs={
         'cpt': 5},
     mpi_np=MPI_NP)
-TEMP=278
-STRIDE=100 # the number frames at which the trajecotry is written and biases are added and then are reweighted
+TEMP = 278
+STRIDE = 100  # the number frames at which the trajecotry is written and biases are added and then are reweighted
 
 plumed_input = textwrap.dedent(
     '''
@@ -78,11 +77,14 @@ plumed_input = textwrap.dedent(
     LABEL=metad TEMP={}
     ARG=gyration,distance SIGMA=0.05,0.05 HEIGHT=0.3 PACE={} FILE=HILLS2
     ... METAD
-    
-    PRINT ARG=metad.bias,distance,gyration FILE=COLVAR_OUTPUT_metad STRIDE={}
-    ENDPLUMED''').format(TEMP,STRIDE,STRIDE)
 
-####IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under metad.bias column for each CV that was  used a CV to be biased. the column can be used to measure the bias for other CV that need to be measured after the simulation is over. 
+    PRINT ARG=metad.bias,distance,gyration FILE=COLVAR_OUTPUT_metad STRIDE={}
+    ENDPLUMED''').format(TEMP, STRIDE, STRIDE)
+
+# IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under
+# metad.bias column for each CV that was  used a CV to be biased. the
+# column can be used to measure the bias for other CV that need to be
+# measured after the simulation is over.
 with open('plumed_metad.dat', 'w') as f:
     f.write(plumed_input)
 ps.add_file('plumed_metad.dat')
@@ -93,22 +95,25 @@ ps.run(
     mdp_kwargs={
         'nsteps': int(
             100 * 5 * 10**2),
-        'nstxout':int(STRIDE),
+        'nstxout': int(STRIDE),
         'ref_t': TEMP
-        },
+    },
     run_kwargs={
-        'cpt': 5,'plumed':'plumed_metad.dat'},
+        'cpt': 5, 'plumed': 'plumed_metad.dat'},
     mpi_np=MPI_NP)
-########### TO find the weights for other CV's. Assuming you did not print metad.bias previously during simulation, you can compute a new CV and measure the weights for those CVs using the following plumed files and command line executable called 'plumed driver'
+# TO find the weights for other CV's. Assuming you did not print
+# metad.bias previously during simulation, you can compute a new CV and
+# measure the weights for those CVs using the following plumed files and
+# command line executable called 'plumed driver'
 plumed_input_reweight = textwrap.dedent(
     '''
     # after the simulation is done we rememeber to compute these CVs because there was metad applied
     # we need to reweights the biases for those CVs as well.
-    
+
     gyration: GYRATION ATOMS=1-3
     distance: DISTANCE ATOMS=5,8
-   
-    gyration1: GYRATION ATOMS=5-8 # new CV 
+
+    gyration1: GYRATION ATOMS=5-8 # new CV
     distance1: DISTANCE ATOMS=1,3 # new CV
 
     # restarting metad but we not addinh anymore biases shown by big PACE and zero for hill height
@@ -122,35 +127,33 @@ plumed_input_reweight = textwrap.dedent(
 
     # again metad.bias column contains weights, make sure the Stride is equal to 1 if you
     # do not want to lose the hard-earned trajectory points
-    # stride=1 means that it will compute the CV and its weights at every frame 
-    # at the trr file was outputted, aka nstfout in the mdp file that was used 
+    # stride=1 means that it will compute the CV and its weights at every frame
+    # at the trr file was outputted, aka nstfout in the mdp file that was used
     # to make the trajectory file
     PRINT ARG=metad.bias STRIDE=1 FILE=WEIGHTS
     PRINT ARG=metad.bias,distance,gyration,distance1,gyration1 FILE=COLVAR_OUTPUT_metad_reweight STRIDE=1
 
-    ENDPLUMED''').format(TEMP,os.getcwd(),ps.sims[-1].location)
+    ENDPLUMED''').format(TEMP, os.getcwd(), ps.sims[-1].location)
 
 with open('plumed_metad_reweight.dat', 'w') as f:
     f.write(plumed_input_reweight)
 ps.add_file('plumed_metad_reweight.dat')
-driver='plumed driver' # command line excutable used in reweighting new CV's after the simulation is completed
+# command line excutable used in reweighting new CV's after the simulation
+# is completed
+driver = 'plumed driver'
 
 # the following command is run the command line
 # timestep is the time step in picesecond used during generation of the trajectory file. In peptidesim the default is 2 fs.
-# the trajectory stride is equal to the nstfxout in mdp file as mentioned before.
+# the trajectory stride is equal to the nstfxout in mdp file as mentioned
+# before.
 
 
-
-pwd=os.getcwd()
+pwd = os.getcwd()
 os.chdir(ps.sims[-1].location)
-# we are using method mentioned in https://www.plumed.org/doc-master/user-doc/html/lugano-3.html 
+# we are using method mentioned in https://www.plumed.org/doc-master/user-doc/html/lugano-3.html
 # Exercise 4: reweighting
 
-result = subprocess.call('{} --plumed {}/{} --mf_trr traj.trr --timestep 0.002 --trajectory-stride {}'.format(
-                driver, pwd,'plumed_metad_reweight.dat',STRIDE), shell=True)
+result = subprocess.call(
+    '{} --plumed {}/{} --mf_trr traj.trr --timestep 0.002 --trajectory-stride {}'.format(
+        driver, pwd, 'plumed_metad_reweight.dat', STRIDE), shell=True)
 print(result)
-
-
-
-
-
