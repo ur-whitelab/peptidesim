@@ -177,21 +177,21 @@ class TestPeptideRestart(TestCase):
                   dump_signal=signal.SIGALRM)
         except KeyboardInterrupt:
             pass
-        
+
         del p
-		#restart once
+        # restart once
         p1 = PeptideSim('test-multiple-interrupts', ['AEDK'], [2],
                         job_name='test-multiple-interrupts')
         try:
             p1.run(mdpfile='peptidesim_nvt.mdp',
-                  tag='nvt',
-                  mdp_kwargs={'nsteps': 5000},
-				  dump_signal=signal.SIGALRM)
+                   tag='nvt',
+                   mdp_kwargs={'nsteps': 5000},
+                   dump_signal=signal.SIGALRM)
         except KeyboardInterrupt:
             pass
 
         del p1
-		#restart twice
+        # restart twice
         p2 = PeptideSim('test-multiple-interrupts', ['AEDK'], [2],
                         job_name='test-multiple-interrupts')
         try:
@@ -203,14 +203,14 @@ class TestPeptideRestart(TestCase):
             pass
 
         del p2
-		#restart thrice
+        # restart thrice
         p3 = PeptideSim('test-multiple-interrupts', ['AEDK'], [2],
                         job_name='test-multiple-interrupts')
         p3.run(mdpfile='peptidesim_nvt.mdp',
                tag='nvt',
                mdp_kwargs={'nsteps': 5000},
                dump_signal=signal.SIGALRM)
-        
+
         self.assertTrue(p3.sims[-1].short_name.startswith('nvt'))
 
     def tearDown(self):
