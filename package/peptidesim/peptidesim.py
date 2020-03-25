@@ -122,6 +122,10 @@ class PeptideSim(Configurable):
     packmol_exe = Unicode('packmol',
                           help='The command to run the packmol program.'
                           ).tag(config=True)
+    
+    plumed_driver_exe = Unicode('plumed driver',
+                          help='The command to run the plumed driver program.'
+                          ).tag(config=True)
     demux_exe = Unicode('demux',
                         help='The command to demux the replica temperatures.'
                         ).tag(config=True)
@@ -539,6 +543,142 @@ class PeptideSim(Configurable):
                     'replica_temp.xvg'), 'Demux succeeded with retcode {} but has no output. Out: {} Err: {}'.format(*result)
         current_dir = os.getcwd()
         return '{}/replica_temp.xvg'.format(current_dir)
+
+
+    def plumed_driver(
+            self,
+            metad_dir,
+            plumed_metad,
+            HILLS_file,
+            trajectory_file,
+            stride,
+            timestep=0.002):
+        ''' generates the WEIGHTS file from a metad_simulation                                                                                    
+        metad_dir : absolute path to the directory where the metadynamics simulation was running                                                  
+        plumed_metad : absolute path to the plumed metadynamics file                                                                              
+        trajectory_file : absolute path to the trajectory file                                                                                    
+        timestep : the timestep in picosecond used to generate the trajectroy file                                                                
+        stride : the number of frames                                                                                                             
+        returns: file path to the WEIGHTS file                                                                                                    
+        '''
+        metad_lines = []
+        number = 0
+        meta_start_number = 0
+        metadynamics_line = []
+        with open(plumed_metad, 'r') as f:
+            lines = f.readlines()
+            CVS = []
+
+            for line in lines:
+
+                line_segments = line.strip().split()
+
+                if len(line_segments) == 0 or len(line_segments) == 1:
+                    next
+                elif line_segments[0].startswith('METAD') and len(line_segments) < 3:
+                    meta_start_number = number
+                    metad_lines.append([number, line_segments, line])
+
+                elif line_segments[1] == 'METAD' and line_segments[0] == '...':
+                    metad_lines.append([number, line_segments, line])
+                    exit
+
+                elif line_segments[1].startswith('METAD') and line_segments[0][-1] == ':':
+                    metad_lines.append([number, line_segments, line])
+
+                    for segment in line_segments:
+                        if segment.startswith('ARG='):
+                            CVS.append(segment[4:].split(','))
+
+                number = number + 1
+
+            label = ''
+            metad_text = ''
+            for metad_line in metad_lines:
+
+                if metad_line[2].startswith('METAD ...'):
+
+                    metad_text = metad_text + 'METAD ...\nRESTART=YES\n'
+                    for line in lines[metad_line[0] + 1:metad_lines[1][0]]:
+
+                        for segment in line.strip().split():
+                            if 'ARG=' in segment:
+                                CVS.append(segment[4:].split(','))
+                                metad_text = metad_text + segment + '\n'
+
+                            elif 'HEIGHT=' in segment:
+                                metad_text = metad_text + 'HEIGHT=0\n'
+                            elif 'PACE='in segment:
+                                metad_text = metad_text + 'PACE=100000000\n'
+                            elif 'LABEL' in segment:
+                                label = segment[6:]
+                                metad_text = metad_text + segment + '\n'
+                            else:
+                                metad_text = metad_text + segment + '\n'
+                    metad_text = metad_text + '... METAD\n'
+
+                elif metad_line[1][0][-1] == ':':
+                    metad_text = metad_text + 'METAD ... \n'
+                    print(metad_line[1][0])
+                    for segment in metad_line[1][2:]:
+                        if segment.startswith('ARG='):
+                            CVS.append(segment[4:].split(','))
+                            metad_text = metad_text + segment + '\n'
+
+                        elif 'HEIGHT=' in segment:
+                            metad_text = metad_text + 'HEIGHT=0\n'
+
+                        elif 'PACE='in segment:
+                            metad_text = metad_text + 'PACE=100000000\n'
+
+                        else:
+                            metad_text = metad_text + segment + '\n'
+                    metad_text = metad_text + 'RESTART=YES\n'
+                    label = metad_line[1][0][:-1]
+                    metad_text = metad_text + 'LABEL=' + label + '\n'
+                    metad_text = metad_text + '... METAD\n'
+
+            cv_text = ''
+            print_text = ''
+            done = []
+            for line in lines:
+                for cv in CVS[0]:
+                    if line.startswith(cv):
+                        cv_text = cv_text + line
+                        print_text = print_text + cv + ','
+                        done.append('done')
+
+                if len(CVS[0]) == len(done):
+                    exit
+
+            final_text = cv_text + metad_text + 'PRINT ARG=' + \
+                label + '.bias FILE=WEIGHTS STRIDE={}\n'.format(stride)
+            final_text = final_text + 'PRINT ARG=' + \
+                print_text[:-1] + ' FILE=CVs.dat STRIDE={}\n'.format(stride)
+
+            plumed_file_name = 'plumed_compute_weights.dat'
+
+            driver = self.plumed_driver_exe
+            os.chdir(metad_dir)
+            with open(plumed_file_name, 'w') as f:
+                f.write(final_text)
+            self.add_file(plumed_file_name)
+
+            result = subprocess.call(
+                '{} --plumed {} --mf_trr {} --timestep {} --trajectory-stride  {}'.format(
+                    driver, plumed_file_name, trajectory_file, timestep, stride), shell=True)
+            if result != 0:
+                self.log.error(
+                    'Plumed driver failed with retcode {}'.format(result))
+            else:
+                self.log.info(
+                    'Plumed driver succeeded with retcode {}'.format(result))
+
+                assert os.path.exists(
+                    'WEIGHTS'), 'Plumed Driver succeeded with retcode {}'.format(result)
+            current_dir = os.getcwd()
+        return '{}/WEIGHTS'.format(current_dir)
+
 
     def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4,
                     mdp_kwargs=None, run_kwargs=None, hills_file_location=None,
