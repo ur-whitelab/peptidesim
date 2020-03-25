@@ -412,7 +412,7 @@ class PeptideSim(Configurable):
         else:
             self.log.info('Using default configuration'.format(config_file))
 
-        self.log.debug('Loaded {}:'.format(str(config)))
+        self.log.info('Loaded {}:'.format(str(config)))
         super(PeptideSim, self).__init__(config=config, parent=None)
 
         # store passed parameters
@@ -432,7 +432,6 @@ class PeptideSim(Configurable):
 
         # don't know how we got here, so we'll just add our logger
         file_handler = logging.FileHandler(self.log_file)
-        file_handler.setLevel(logging.DEBUG)
         formatter = logging.Formatter(
             '%(asctime)s [%(filename)s, %(lineno)d, %(funcName)s]: %(message)s (%(levelname)s)')
         file_handler.setFormatter(formatter)
@@ -441,7 +440,7 @@ class PeptideSim(Configurable):
         self.log.addHandler(file_handler)
 
         self.log_handler = file_handler
-        self.log.setLevel(logging.DEBUG)
+        self.log.setLevel(logging.INFO)
         self.log.info('Started logging for PeptideSim...')
 
     def __str__(self):
@@ -1396,7 +1395,7 @@ class PeptideSim(Configurable):
                     sinfo.name, os.getcwd()))
                 cmd = gromacs.mdrun._commandline(**run_kwargs)
                 gromacs.mdrun.driver = temp  # put back the original command
-                self.log.debug(' '.join(map(str, cmd)))
+                self.log.info('Simulation command:' + ' '.join(map(str, cmd)))
                 # make it run in shell
                 sinfo.run(subprocess.call, {
                           'args': ' '.join(map(str, cmd)), 'shell': True})
