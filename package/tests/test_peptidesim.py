@@ -165,9 +165,58 @@ class TestPeptideRestart(TestCase):
               tag='restart-test', mdp_kwargs={'nsteps': 25})
         self.assertEqual(len(p.sims), len(g.sims))
 
+    def test_restart_after_multiple_interrupts(self):
+        p = PeptideSim('test-multiple-interrupts', ['AEDK'], [2])
+        p.run_kwargs = SIM_KWARGS
+        p.initialize()
+        signal.alarm(1)
+        try:
+            p.run(mdpfile='peptidesim_nvt.mdp',
+                  tag='nvt',
+                  mdp_kwargs={'nsteps': 5000},
+                  dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+        
+        del p
+		#restart once
+        p1 = PeptideSim('test-multiple-interrupts', ['AEDK'], [2],
+                        job_name='test-multiple-interrupts')
+        try:
+            p1.run(mdpfile='peptidesim_nvt.mdp',
+                  tag='nvt',
+                  mdp_kwargs={'nsteps': 5000},
+				  dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        del p1
+		#restart twice
+        p2 = PeptideSim('test-multiple-interrupts', ['AEDK'], [2],
+                        job_name='test-multiple-interrupts')
+        try:
+            p2.run(mdpfile='peptidesim_nvt.mdp',
+                   tag='nvt',
+                   mdp_kwargs={'nsteps': 5000},
+                   dump_signal=signal.SIGALRM)
+        except KeyboardInterrupt:
+            pass
+
+        del p2
+		#restart thrice
+        p3 = PeptideSim('test-multiple-interrupts', ['AEDK'], [2],
+                        job_name='test-multiple-interrupts')
+        p3.run(mdpfile='peptidesim_nvt.mdp',
+               tag='nvt',
+               mdp_kwargs={'nsteps': 5000},
+               dump_signal=signal.SIGALRM)
+        
+        self.assertTrue(p3.sims[-1].short_name.startswith('nvt'))
+
     def tearDown(self):
         shutil.rmtree('can-skip-test', ignore_errors=True)
         shutil.rmtree('can-save-test', ignore_errors=True)
+        shutil.rmtree('test-multiple-interrupts', ignore_errors=True)
 
 class TestPeptideStability(TestCase):
     def test_dipeptides(self):
