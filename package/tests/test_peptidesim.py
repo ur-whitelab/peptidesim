@@ -181,6 +181,82 @@ class TestPeptideStability(TestCase):
             shutil.rmtree('dipeptide')
 
 
+
+class TestPlumedDriver(TestCase):
+    def test_plumed_driver(self):
+        MPI_NP = 1
+
+        p = PeptideSim(
+            'plumed_driver_test',
+            ['AA'],
+            [1],
+            job_name='test-plumed-driver')
+        STRIDE = 2
+        TEMP = 278
+        p.run_kwargs = SIM_KWARGS
+        p.peptide_density = 0.009
+        p.initialize()
+
+        p.run(
+            mdpfile='peptidesim_emin.mdp',
+            mdp_kwargs={
+                'nsteps': 10},
+            mpi_np=MPI_NP)
+        p.run(
+            mdpfile='peptidesim_nvt.mdp',
+            mdp_kwargs={
+                'nsteps': 10},
+            mpi_np=MPI_NP)
+        # the name of the plumed file should always start with a plumed string                        
+        # and end with .dat                                                                           
+        # p=pickle.load('test-plumed-driver-restart.pickle')                                          
+        plumed_test_name = 'plumed_metad_test.dat'
+
+        plumed_input = textwrap.dedent(
+            '''                                                                                       
+            gyration: GYRATION ATOMS=1-3                                                              
+            distance: DISTANCE ATOMS=5,8                                                              
+            METAD ...                                                                                 
+            LABEL=metad TEMP={}                                                                       
+            ARG=gyration,distance SIGMA=0.05,0.05 HEIGHT=0.3 PACE={} FILE=HILLS2                      
+            ... METAD                                                                                 
+            PRINT ARG=metad.bias,distance,gyration FILE=COLVAR_OUTPUT_metad STRIDE={}                 
+            ENDPLUMED''').format(TEMP, STRIDE, STRIDE)
+
+        # IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under metad.bias            
+        # column for each CV that was  used a CV to be biased. the column can be used to measure      
+        # the bias for other CV that need to be measured after the simulation                         
+        # is over.                                                                                    
+        with open(plumed_test_name, 'w') as f:
+            f.write(plumed_input)
+        p.add_file(plumed_test_name)
+        p.run(
+            mdpfile='peptidesim_nvt.mdp',
+            tag='meat2',
+            mdp_kwargs={
+                'nsteps': int(
+                    100),
+                'nstxout': int(STRIDE),
+                'ref_t': TEMP
+            },
+            run_kwargs={
+                'cpt': 1,
+                'plumed': plumed_test_name},
+            mpi_np=MPI_NP)
+        pwd = os.getcwd()
+        os.chdir(p.sims[-1].location)
+        pwd2 = os.getcwd()
+        self.assertEqual(
+            '{}/WEIGHTS'.format(pwd2),
+            p.plumed_driver(
+                pwd2,
+                plumed_test_name,
+                'HILLS2',
+                'traj.trr',
+                STRIDE))
+
+
+
 class TestPTE(TestCase):
     def test_pte(self):
         root_dir = os.getcwd()
