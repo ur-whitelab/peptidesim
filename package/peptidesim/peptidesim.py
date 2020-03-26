@@ -440,7 +440,7 @@ class PeptideSim(Configurable):
         self.log.addHandler(file_handler)
 
         self.log_handler = file_handler
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(logging.DEBUG)
         self.log.info('Started logging for PeptideSim...')
 
     def __str__(self):
