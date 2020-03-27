@@ -10,13 +10,13 @@ name = sys.argv[2]
 debug = False
 MPI_NP = 1
 data_dir = sys.argv[4]
-if sys.argv[3][0]=='[':
-    seq=sys.argv[1].strip('[').strip(']').split(',')
+if sys.argv[3][0] == '[':
+    seq = sys.argv[1].strip('[').strip(']').split(',')
     copies = sys.argv[3].strip('[').strip(']').split(',')
-    peptide_copies =[int(i) for i in copies]
+    peptide_copies = [int(i) for i in copies]
 else:
-    peptide_copies=[int(sys.argv[3])]
-    seq=[sys.argv[1]]
+    peptide_copies = [int(sys.argv[3])]
+    seq = [sys.argv[1]]
 
 ps = PeptideSim(name, seq, peptide_copies, job_name='{}'.format(name))
 ps.mdrun_driver = 'gmx_mpi'
@@ -31,7 +31,7 @@ cwd = os.getcwd()
 # gromacs.pdb2gmx(f=file00,o="file_pdb_output.pdb",water=ps.water,ff=ps.forcefield)
 # file00="{}/{}".format(cwd,"file_pdb_output.pdb")
 
-#find the total number of chains
+# find the total number of chains
 number_chains = int(sum(peptide_copies))
 atoms_in_chain = utilities.get_atoms_in_chains(original_pdb)
 file0 = utilities.remove_solvent_from_pdb(original_pdb, 'template.pdb')
@@ -78,6 +78,7 @@ copyfile(camshift_src, camshift_dst)
 copyfile(gromacs_a03_mdb_src, gromacs_a03_mdb_dst)
 
 center = ''
+
 
 def data_folder(number_amino_acids, name, copies_chains):
     ''' a function that takes total number of amino acids in the pdbfile,
@@ -171,6 +172,7 @@ for i in filenames:
     data_folder(int(number_chains), i, int(peptide_copies))
 ps.add_file(directory)
 
+# Run Simulations - energy minimization, annealing, equilibration
 ps.run(
     mdpfile='peptidesim_emin.mdp',
     tag='init_emin',
