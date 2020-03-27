@@ -1,17 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from peptidesim import PeptideSim, utilities
-import textwrap
 import sys
-import re
 import os
 import sys
 import gromacs
-import dill as pickle
 from shutil import copyfile, move
-
-import matplotlib
-matplotlib.use('Agg')
 
 name = sys.argv[2]
 debug = False
@@ -33,72 +26,29 @@ ps.peptide_density = 0.008  # mg/ml
 ps.ion_concentration = 0.001  # 10mM
 ps.initialize()
 
-file00 = ps.pdb_file
+original_pdb = ps.pdb_file
 cwd = os.getcwd()
 # gromacs.pdb2gmx(f=file00,o="file_pdb_output.pdb",water=ps.water,ff=ps.forcefield)
 # file00="{}/{}".format(cwd,"file_pdb_output.pdb")
 
-def atoms_in_each_chain(input_file, output_file='template.pdb'):
-    output = open(output_file, 'w')
-    with open(input_file, "r") as f:
-        lines = f.readlines()
-        i = 4 
-        for line in lines[:4]:
-            output.write(line)
-
-        for line in lines[4:]:
-            old_line = line
-            line = line.split()
-            i = i + 1
-            if(len(line) > 1 and line[3] == 'SOL'):
-                output.write('TER final\n')
-                output.write('ENDMDL final\n')
-                output.close()
-                break
-            # i=i+1
-            output.write(old_line)
-        last_line = []
-        print(lines[i - 1], lines[i - 2], lines[i - 3])
-        if (lines[i - 1].startswith('END')):
-
-            last_line = lines[i - 3].strip()
-            print("ends with END")
-        else:
-            last_line = lines[i - 1].strip()
-            print("doesnt end with END")
-
-        last_line = last_line.split()
-
-        output.close()
-        if (last_line[4].isdigit()):
-            return int(last_line[1]), output_file
-        else:
-            return int(last_line[1]), output_file
-
-total_no_atoms, file0 = total_aa(file00, 'template.pdb')
 #find the total number of chains
-number_chains = int(sum(peptide_copies)
-atoms_in_chain = int(total_no_atoms / number_chains)
+number_chains = int(sum(peptide_copies))
+atoms_in_chain = utilities.get_atoms_in_chains(original_pdb)
+file0 = utilities.remove_solvent_from_pdb(original_pdb, 'template.pdb')
 
-# replace 'HIS' as 'HIE' because plumed likes it that way
-with open(file0, 'r') as file_read:
-    file_data = file_read.read()
-file_data = file_data.replace('HIS', 'HIE')
-with open(file0, 'w') as file_write:
-    file_write.write(file_data)
-
-file3 = 'template.pdb'
-print('file0 is:{}'.format(file0))
+plumed_pdb = 'template.pdb'
 new_pdb_file = utilities.pdb_for_plumed(input_pdbfile=file0,
                                         peptide_copies=peptide_copies,
                                         atoms_in_chain=atoms_in_chain,
                                         first_atom_index=5,
-                                        output_pdbfile=file3)
+                                        output_pdbfile=plumed_pdb)
 
+# *All data manipulation is specific to the EDS simulations*
+# copy over data files and make modifications as needed.
 directory = 'data'
 if not os.path.exists(directory):
     os.mkdir(directory)
-template_pdb = os.path.join(directory, file3)
+template_pdb = os.path.join(directory, plumed_pdb)
 
 camshift_src = os.path.join(data_folder + 'camshift.db')
 gromacs_a03_mdb_src = os.path.join(data_folder + 'a03_gromacs.mdb')
@@ -110,7 +60,7 @@ ha_src = os.path.join(data_folder + 'HAshifts.dat')
 # n_src=os.path.join(data_folder + 'Nshifts.dat')
 gromacs_a03_mdb_dst = os.path.join(directory, 'a03_gromacs.mdb')
 camshift_dst = os.path.join(directory, 'camshift.db')
-template_pdb = os.path.join(directory, file3)
+template_pdb = os.path.join(directory, plumed_pdb)
 h_dst = os.path.join(directory, 'Hshifts.dat')
 ha_dst = os.path.join(directory, 'HAshifts.dat')
 # c_dst=os.path.join(directory,'Cshifts.dat')
@@ -181,7 +131,6 @@ def data_folder(number_amino_acids, name, copies_chains):
             chemical_shifts = np.genfromtxt(
                 os.path.join(data_folder, '{}'.format(name)),
                 comments='!#')
-#            print chemical_shifts
             for i in range(copies_chains):
                 # adds the begining amino acid index of the chain i, first
                 # index starts at 1
@@ -221,8 +170,6 @@ filenames = [
 for i in filenames:
     data_folder(int(number_chains), i, int(peptide_copies))
 ps.add_file(directory)
-with open(ps.pickle_name, 'wb') as f:
-    pickle.dump(ps, file=f)
 
 ps.run(
     mdpfile='peptidesim_emin.mdp',

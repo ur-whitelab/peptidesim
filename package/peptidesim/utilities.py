@@ -110,34 +110,34 @@ def parser(plumed_file):
     return (ca_shifts, cb_shifts, c_shifts, ha_shifts, hn_shifts, nh_shifts)
 
 
-def pdb_for_plumed(input_pdbfile, peptide_copies,
+def pdb_for_plumed(input_file, peptide_copies,
                    atoms_in_chain, first_atom_index,
-                   output_pdbfile):
+                   output_file):
     ''' Funtion that takes an old pdbfile that has all hydrogens
         but without unique chain IDs and without terminii of chains
         indicated and generates a new pdbfile with unique chain IDs
         and terminii indicated.
 
-            Parameters
-            ----------
-            input_pdbfile: input pdb filename
-            number_of_chains: list of number of copies of each sequence
-            atoms_in_chain: list of number of atoms in each sequence
-            first_atom_index: the line number containing first atom
-                            in the old pdbfile (line indexing starts at 0)
-            output_pdbfile: output pdb filename
+        Parameters
+        ----------
+        input_file: input pdb filename
+        number_of_chains: list of number of copies of each sequence
+        atoms_in_chain: list of number of atoms in each sequence
+        first_atom_index: the line number containing first atom
+                        in the old pdbfile (line indexing starts at 0)
+        output_file: output pdb filename
 
-            Returns
-            -------
-            output_pdbfile
+        Returns
+        -------
+        output_pdbfile
 
-            Example function call
-            -------------
-            pdb_for_plumed(input_pdbfile='template.pdb',
-                            peptide_copies=[6,2],
-                            atoms_in_chain=[35,43],
-                            first_atom_index=5,
-                            output_pdbfile='new.pdb')
+        Example function call
+        -------------
+        pdb_for_plumed(input_file='template.pdb',
+                        peptide_copies=[6,2],
+                        atoms_in_chain=[35,43],
+                        first_atom_index=5,
+                        output_file='new.pdb')
     '''
     from string import ascii_uppercase
 
@@ -188,3 +188,69 @@ def pdb_for_plumed(input_pdbfile, peptide_copies,
             f.close()
 
     return output_pdbfile
+
+def get_atoms_in_chains(input_file):
+    ''' This function returns the number of atoms in each peptide
+    chain. Note that the solvent molecules are excluded from counting.
+
+    Parameters
+    ----------
+    input_pdbfile: input pdb filename to use to count atoms
+
+    Returns
+    -------
+    atoms_in_chains
+
+    Example function call
+    -------------
+    get_atoms_in_chains(input_pdbfile='template.pdb')
+    '''
+    with open(input_file, "r") as f:
+        lines = f.readlines()
+    # use rest of the lines to get atoms in chain
+    atoms_in_chains = []
+    old_line = lines[4]
+    for line in lines[4:]:
+        if line == 'TER\n':
+            split = old_line.split()
+            atoms_in_chains.append(int(split[1])-sum(atoms_in_chains))
+        # do not count solvent atoms
+        # solvent molecules are always at the end
+        if 'SOL' in line:
+            break
+        old_line = line
+    return atoms_in_chains
+
+def remove_solvent_from_pdb(input_file,
+                            output_file='template_no_solvent.pdb'):
+    ''' Remove solvent molecules from the pdb file
+
+    Parameters
+    ----------
+    input_file: input pdb filename
+    output_file: output pdb filename
+
+    Returns
+    -------
+    output_file
+
+    Example function call
+    -------------
+    remove_solvent_from_pdb(input_file='template.pdb',
+                            output_file='no_solvent.pdb')
+    '''
+    with open(input_file, "r") as f:
+        lines = f.readlines()
+    with open(output_file, 'w') as output:
+        # write back first few lines as is 
+        for line in lines[:4]:
+            output.write(line)
+        # Then check if there is solvent
+        for line in lines[4:]:
+            if('SOL' in line):
+                output.write('TER final\n')
+                output.write('ENDMDL final\n')
+                output.close()
+                break
+            output.write(line)
+    return output_file
