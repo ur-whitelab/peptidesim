@@ -168,8 +168,10 @@ def pdb_for_plumed(input_file, peptide_copies,
                         letter += 1
                     # iterate through the atoms in the chain
                     for atom in np.arange(atoms_in_chain[seq][copy]):
-                        current_line = lines[skip_lines + copy *
-                                             (atoms_in_chain[seq][copy]) + atom]
+                        current_line = lines[skip_lines +
+                                             copy *
+                                             (atoms_in_chain[seq][copy]) +
+                                             atom]
                         # converts the string into a list of characters
                         split_line = list(current_line)
                         # unique ID on at position 21 of current_line
@@ -188,6 +190,7 @@ def pdb_for_plumed(input_file, peptide_copies,
             f.close()
 
     return output_pdbfile
+
 
 def get_atoms_in_chains(input_file):
     ''' This function returns the number of atoms in each peptide
@@ -221,6 +224,7 @@ def get_atoms_in_chains(input_file):
         old_line = line
     return atoms_in_chains
 
+
 def remove_solvent_from_pdb(input_file,
                             output_file='template_no_solvent.pdb'):
     ''' Remove solvent molecules from the pdb file
@@ -242,7 +246,7 @@ def remove_solvent_from_pdb(input_file,
     with open(input_file, "r") as f:
         lines = f.readlines()
     with open(output_file, 'w') as output:
-        # write back first few lines as is 
+        # write back first few lines as is
         for line in lines[:4]:
             output.write(line)
         # Then check if there is solvent
