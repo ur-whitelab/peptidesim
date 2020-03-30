@@ -114,6 +114,13 @@ class TestPeptideSimInitialize(TestCase):
         new_p.initialize()
         self.assertEqual(len(new_p.sims), n)
 
+    def can_force(self):
+        n = len(self.p.sims)
+        self.p.initialize()
+        self.assertEqual(n, len(self.p.sims))
+        self.p.initialize(force=True)
+        self.assertEqual(n, len(self.p.sims) - 1)
+
     def tearDown(self):
         shutil.rmtree('pinit_test')
 
@@ -213,10 +220,24 @@ class TestPeptideRestart(TestCase):
 
         self.assertTrue(p3.sims[-1].short_name.startswith('nvt'))
 
+    def test_wont_skip_mdp(self):
+        p = PeptideSim('can-skip-test', ['AA'], [2])
+        p.run_kwargs = SIM_KWARGS
+        p.initialize()
+        p.run(mdpfile='peptidesim_emin.mdp',
+              tag='restart-test', mdp_kwargs={'nsteps': 25})
+        g = PeptideSim('can-skip-test', ['AA'], [2])
+        self.assertEqual(len(p.sims), len(g.sims))
+        g.initialize()
+        g.run(mdpfile='peptidesim_emin.mdp',
+              tag='restart-test', mdp_kwargs={'nsteps': 5})
+        self.assertEqual(len(p.sims) + 1, len(g.sims))
+
     def tearDown(self):
         shutil.rmtree('can-skip-test', ignore_errors=True)
         shutil.rmtree('can-save-test', ignore_errors=True)
         shutil.rmtree('test-multiple-interrupts', ignore_errors=True)
+
 
 class TestPeptideStability(TestCase):
     def test_dipeptides(self):
@@ -228,6 +249,19 @@ class TestPeptideStability(TestCase):
             p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
             p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
             shutil.rmtree('dipeptide')
+
+    def test_gmx_error(self):
+        p = PeptideSim('dipeptide', ['FF'], [1], job_name='dipeptide')
+        p.run_kwargs = SIM_KWARGS
+        p.peptide_density = 0.005
+        p.initialize()
+        p.run_kwargs = {'foo': 1}
+        n = len(p.sims)
+        with self.assertRaises(RuntimeError):
+            p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
+        # make sure failed simulation (syntax error) was removed
+        self.assertEqual(len(p.sims), n)
+        shutil.rmtree('dipeptide')
 
 
 class TestPTE(TestCase):
@@ -286,7 +320,7 @@ class TestPTE(TestCase):
         signal.alarm(1)
         try:
             p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={
-                          'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.01, min_iters=1, dump_signal=signal.SIGALRM)
+                          'nsteps': 250}, replicas=2, hot=315, eff_threshold=0.01, min_iters=1)
         except KeyboardInterrupt:
             pass
 
@@ -300,7 +334,7 @@ class TestPTE(TestCase):
 
         # try to restart it
         new_p.pte_replica(mpi_np=2, tag='pte_tune_test', max_tries=5, mdp_kwargs={
-                          'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01, dump_signal=signal.SIGALRM)
+                          'nsteps': 250}, replicas=2, hot=315, min_iters=1, eff_threshold=0.01)
 
         shutil.rmtree('pte_test_restart')
         for filename in os.listdir('.'):
@@ -472,7 +506,7 @@ class TestPeptideEmin(TestCase):
         signal.alarm(1)
         try:
             self.p.run(mdpfile='peptidesim_emin.mdp', tag='timeout-signal',
-                       mdp_kwargs={'nsteps': 2500}, dump_signal=signal.SIGALRM)
+                       mdp_kwargs={'nsteps': 2500})
         except KeyboardInterrupt:
             pass
 
@@ -540,7 +574,7 @@ class TestRestartPlumed(TestCase):
             p.run(
                 mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
                     'nsteps': 250}, run_kwargs={
-                        'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
+                        'plumed': plumed_test_name})
         except KeyboardInterrupt:
             pass
 
@@ -564,7 +598,7 @@ class TestRestartPlumed(TestCase):
             new_p.run(
                 mdpfile='peptidesim_nvt.mdp', tag='nvt', mdp_kwargs={
                     'nsteps': 250}, run_kwargs={
-                    'plumed': plumed_test_name}, dump_signal=signal.SIGALRM)
+                    'plumed': plumed_test_name})
         except KeyboardInterrupt:
             pass
 
