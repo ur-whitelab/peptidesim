@@ -222,7 +222,7 @@ class TestPlumedWeights(TestCase):
         # IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under metad.bias
         # column for each CV that was  used a CV to be biased. the column can be used to measure
         # the bias for other CV that need to be measured after the simulation
-        # is over.               
+        # is over.
         with open(plumed_test_name, 'w') as f:
             f.write(plumed_input)
         p.add_file(plumed_test_name)
