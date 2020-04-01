@@ -180,8 +180,6 @@ class TestPeptideStability(TestCase):
             p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
             shutil.rmtree('dipeptide')
 
-
-
 class TestPlumedWeights(TestCase):
     def test_plumed_weights(self):
         MPI_NP = 1
@@ -208,9 +206,8 @@ class TestPlumedWeights(TestCase):
                 'nsteps': 10},
             mpi_np=MPI_NP)
         # the name of the plumed file should always start with a plumed string
-        # and end with .dat        
+        # and end with .dat
         plumed_test_name = 'plumed_metad_test.dat'
-
         plumed_input = textwrap.dedent(
             '''
             gyration: GYRATION ATOMS=1-3
@@ -222,8 +219,8 @@ class TestPlumedWeights(TestCase):
             PRINT ARG=metad.bias,distance,gyration FILE=COLVAR_OUTPUT_metad STRIDE={}
             ENDPLUMED''').format(TEMP, STRIDE, STRIDE)
 
-        # IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under metad.bias            
-        # column for each CV that was  used a CV to be biased. the column can be used to measure      
+        # IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under metad.bias
+        # column for each CV that was  used a CV to be biased. the column can be used to measure
         # the bias for other CV that need to be measured after the simulation
         # is over.               
         with open(plumed_test_name, 'w') as f:
@@ -253,8 +250,6 @@ class TestPlumedWeights(TestCase):
                 'HILLS2',
                 'traj.trr',
                 STRIDE))
-
-
 
 class TestPTE(TestCase):
     def test_pte(self):
