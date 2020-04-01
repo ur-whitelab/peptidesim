@@ -115,21 +115,18 @@ class PeptideSim(Configurable):
     ion_concentration = Float(0.002,
                               help='The concentration of sodium chloride to add in moles / liter'
                               ).tag(config=True)
-
     log_file = Unicode('simulation.log',
                        help='The location of the log file. If relative path, it will be in simulation directory.',
                        ).tag(config=True)
     packmol_exe = Unicode('packmol',
                           help='The command to run the packmol program.'
                           ).tag(config=True)
-    
     plumed_driver_exe = Unicode('plumed driver',
                                 help='The command to run the plumed driver program.'
                                 ).tag(config=True)
     demux_exe = Unicode('demux',
                         help='The command to demux the replica temperatures.'
                         ).tag(config=True)
-
     forcefield = Unicode('charmm27',
                          help='The gromacs syntax forcefield',
                          ).tag(config=True)
@@ -543,7 +540,6 @@ class PeptideSim(Configurable):
                     'replica_temp.xvg'), 'Demux succeeded with retcode {} but has no output. Out: {} Err: {}'.format(*result)
         current_dir = os.getcwd()
         return '{}/replica_temp.xvg'.format(current_dir)
-
 
     def plumed_weights(
             self,
