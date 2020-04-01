@@ -37,11 +37,11 @@ atoms_in_chain = utilities.get_atoms_in_chains(original_pdb)
 file0 = utilities.remove_solvent_from_pdb(original_pdb, 'template.pdb')
 
 plumed_pdb = 'template.pdb'
-new_pdb_file = utilities.pdb_for_plumed(input_pdbfile=file0,
+new_pdb_file = utilities.pdb_for_plumed(input_file=file0,
                                         peptide_copies=peptide_copies,
                                         atoms_in_chain=atoms_in_chain,
                                         first_atom_index=5,
-                                        output_pdbfile=plumed_pdb)
+                                        output_file=plumed_pdb)
 
 # *All data manipulation is specific to the EDS simulations*
 # copy over data files and make modifications as needed.

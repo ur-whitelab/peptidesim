@@ -142,14 +142,14 @@ def pdb_for_plumed(input_file, peptide_copies,
     from string import ascii_uppercase
 
     # read the pdb file
-    with open(input_pdbfile, 'r') as f:
+    with open(input_file, 'r') as f:
         lines = f.readlines()
         # grab lines that don't matter
         beginning = lines[:first_atom_index]
         # grab lines that need to be changed
         lines = lines[first_atom_index:]
 
-        with open(output_pdbfile, 'w') as f:
+        with open(output_file, 'w') as f:
             # iterate through first few lines and write them as is
             for index in np.arange(len(beginning)):
                 f.write("{}\n".format(beginning[index].strip()))
