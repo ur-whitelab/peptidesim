@@ -124,8 +124,8 @@ class PeptideSim(Configurable):
                           ).tag(config=True)
     
     plumed_driver_exe = Unicode('plumed driver',
-                          help='The command to run the plumed driver program.'
-                          ).tag(config=True)
+                                help='The command to run the plumed driver program.'
+                                ).tag(config=True)
     demux_exe = Unicode('demux',
                         help='The command to demux the replica temperatures.'
                         ).tag(config=True)
@@ -545,7 +545,7 @@ class PeptideSim(Configurable):
         return '{}/replica_temp.xvg'.format(current_dir)
 
 
-    def plumed_driver(
+    def plumed_weights(
             self,
             metad_dir,
             plumed_metad,
@@ -553,13 +553,13 @@ class PeptideSim(Configurable):
             trajectory_file,
             stride,
             timestep=0.002):
-        ''' generates the WEIGHTS file from a metad_simulation                                                                                    
-        metad_dir : absolute path to the directory where the metadynamics simulation was running                                                  
-        plumed_metad : absolute path to the plumed metadynamics file                                                                              
-        trajectory_file : absolute path to the trajectory file                                                                                    
-        timestep : the timestep in picosecond used to generate the trajectroy file                                                                
-        stride : the number of frames                                                                                                             
-        returns: file path to the WEIGHTS file                                                                                                    
+        ''' generates the WEIGHTS file from a metad_simulation
+        metad_dir : absolute path to the directory where the metadynamics simulation was running
+        plumed_metad : absolute path to the plumed metadynamics file
+        trajectory_file : absolute path to the trajectory file
+        timestep : the timestep in picosecond used to generate the trajectroy file
+        stride : the number of frames
+        returns: file path to the WEIGHTS file
         '''
         metad_lines = []
         number = 0
@@ -568,7 +568,6 @@ class PeptideSim(Configurable):
         with open(plumed_metad, 'r') as f:
             lines = f.readlines()
             CVS = []
-
             for line in lines:
 
                 line_segments = line.strip().split()
@@ -581,7 +580,7 @@ class PeptideSim(Configurable):
 
                 elif line_segments[1] == 'METAD' and line_segments[0] == '...':
                     metad_lines.append([number, line_segments, line])
-                    exit
+                    break
 
                 elif line_segments[1].startswith('METAD') and line_segments[0][-1] == ':':
                     metad_lines.append([number, line_segments, line])
@@ -649,8 +648,7 @@ class PeptideSim(Configurable):
                         done.append('done')
 
                 if len(CVS[0]) == len(done):
-                    exit
-
+                    break
             final_text = cv_text + metad_text + 'PRINT ARG=' + \
                 label + '.bias FILE=WEIGHTS STRIDE={}\n'.format(stride)
             final_text = final_text + 'PRINT ARG=' + \

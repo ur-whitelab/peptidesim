@@ -182,8 +182,8 @@ class TestPeptideStability(TestCase):
 
 
 
-class TestPlumedDriver(TestCase):
-    def test_plumed_driver(self):
+class TestPlumedWeights(TestCase):
+    def test_plumed_weights(self):
         MPI_NP = 1
 
         p = PeptideSim(
@@ -207,26 +207,25 @@ class TestPlumedDriver(TestCase):
             mdp_kwargs={
                 'nsteps': 10},
             mpi_np=MPI_NP)
-        # the name of the plumed file should always start with a plumed string                        
-        # and end with .dat                                                                           
-        # p=pickle.load('test-plumed-driver-restart.pickle')                                          
+        # the name of the plumed file should always start with a plumed string
+        # and end with .dat        
         plumed_test_name = 'plumed_metad_test.dat'
 
         plumed_input = textwrap.dedent(
-            '''                                                                                       
-            gyration: GYRATION ATOMS=1-3                                                              
-            distance: DISTANCE ATOMS=5,8                                                              
-            METAD ...                                                                                 
-            LABEL=metad TEMP={}                                                                       
-            ARG=gyration,distance SIGMA=0.05,0.05 HEIGHT=0.3 PACE={} FILE=HILLS2                      
-            ... METAD                                                                                 
-            PRINT ARG=metad.bias,distance,gyration FILE=COLVAR_OUTPUT_metad STRIDE={}                 
+            '''
+            gyration: GYRATION ATOMS=1-3
+            distance: DISTANCE ATOMS=5,8
+            METAD ...
+            LABEL=metad TEMP={}
+            ARG=gyration,distance SIGMA=0.05,0.05 HEIGHT=0.3 PACE={} FILE=HILLS2
+            ... METAD
+            PRINT ARG=metad.bias,distance,gyration FILE=COLVAR_OUTPUT_metad STRIDE={}
             ENDPLUMED''').format(TEMP, STRIDE, STRIDE)
 
         # IMPORTANT the file COLVAR_OUTPUT_Metad has the biad being added under metad.bias            
         # column for each CV that was  used a CV to be biased. the column can be used to measure      
-        # the bias for other CV that need to be measured after the simulation                         
-        # is over.                                                                                    
+        # the bias for other CV that need to be measured after the simulation
+        # is over.               
         with open(plumed_test_name, 'w') as f:
             f.write(plumed_input)
         p.add_file(plumed_test_name)
@@ -248,7 +247,7 @@ class TestPlumedDriver(TestCase):
         pwd2 = os.getcwd()
         self.assertEqual(
             '{}/WEIGHTS'.format(pwd2),
-            p.plumed_driver(
+            p.plumed_weights(
                 pwd2,
                 plumed_test_name,
                 'HILLS2',
