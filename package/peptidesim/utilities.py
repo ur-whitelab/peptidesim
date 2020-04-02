@@ -113,9 +113,9 @@ def parser(plumed_file):
 def pdb_for_plumed(input_file, peptide_copies,
                    atoms_in_chain, first_atom_index,
                    output_file):
-    ''' Funtion that takes an old pdbfile that has all hydrogens
+    ''' Funtion that takes an old .pdb file that has all hydrogens
         but without unique chain IDs and without terminii of chains
-        indicated and generates a new pdbfile with unique chain IDs
+        indicated and generates a new .pdb file with unique chain IDs
         and terminii indicated.
 
         Parameters
@@ -124,12 +124,12 @@ def pdb_for_plumed(input_file, peptide_copies,
         number_of_chains: list of number of copies of each sequence
         atoms_in_chain: list of number of atoms in each sequence
         first_atom_index: the line number containing first atom
-                        in the old pdbfile (line indexing starts at 0)
+                        in the old .pdb file (line indexing starts at 0)
         output_file: output pdb filename
 
         Returns
         -------
-        output_pdbfile
+        output_file
 
         Example function call
         -------------
@@ -189,7 +189,7 @@ def pdb_for_plumed(input_file, peptide_copies,
             f.write('ENDMDL second\n')
             f.close()
 
-    return output_pdbfile
+    return output_file
 
 
 def get_atoms_in_chains(input_file):
@@ -198,7 +198,7 @@ def get_atoms_in_chains(input_file):
 
     Parameters
     ----------
-    input_pdbfile: input pdb filename to use to count atoms
+    input_file: input pdb filename to use to count atoms
 
     Returns
     -------
@@ -206,7 +206,7 @@ def get_atoms_in_chains(input_file):
 
     Example function call
     -------------
-    get_atoms_in_chains(input_pdbfile='template.pdb')
+    get_atoms_in_chains(input_file='template.pdb')
     '''
     with open(input_file, "r") as f:
         lines = f.readlines()

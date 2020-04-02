@@ -79,7 +79,6 @@ copyfile(gromacs_a03_mdb_src, gromacs_a03_mdb_dst)
 
 center = ''
 
-
 def data_folder(number_amino_acids, name, copies_chains):
     ''' a function that takes total number of amino acids in the pdbfile,
     name of the chemical shifts file and how many copies of a peptide are

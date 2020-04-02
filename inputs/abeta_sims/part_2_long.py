@@ -1,4 +1,4 @@
-from peptidesim import PeptideSim
+from peptidesim import PeptideSim, utilities
 import textwrap
 import sys
 import os
