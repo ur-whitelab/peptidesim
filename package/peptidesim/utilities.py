@@ -140,6 +140,17 @@ def pdb_for_plumed(input_file, peptide_copies,
                         output_file='new.pdb')
     '''
     from string import ascii_uppercase
+    
+    # reshape atoms_in_chain for our loop
+    new_chain_list = []
+    k=0
+    for i,j in enumerate(peptide_copies):
+        new_chain_list.append([])
+        for chain in range(j):
+            new_chain_list[i].append(atoms_in_chain[k])
+        k += j
+    atoms_in_chain = new_chain_list
+    print(atoms_in_chain)
 
     # read the pdb file
     with open(input_file, 'r') as f:
@@ -160,13 +171,16 @@ def pdb_for_plumed(input_file, peptide_copies,
             letter = 0
             # iterate through the number of different sequences
             for seq in np.arange(len(peptide_copies)):
+                print('Entered loop 1: seq={}'.format(seq))
                 if seq != 0:
                     letter += 1
                 # iterate through the copies of that sequence
                 for copy in np.arange(peptide_copies[seq]):
+                    print('Entered loop 2: seq={},copy={}\n'.format(seq,copy))
                     if copy != 0:
                         letter += 1
                     # iterate through the atoms in the chain
+                    print('About to enter loop 3: seq={}, copy={}, atoms_in_chain={}\n'.format(seq,copy,atoms_in_chain))
                     for atom in np.arange(atoms_in_chain[seq][copy]):
                         current_line = lines[skip_lines +
                                              copy *
