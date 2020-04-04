@@ -56,6 +56,7 @@ class CSTests(unittest.TestCase):
                         print ('Simulation uses data {} for {}. Invalid EDS chemical shift found for data {}!'.format(Shifts_index, keys[i], Invalid_index))
                         self.assertTrue(count == 0)
 
+
 class EDSTests(unittest.TestCase):
     def test_load_eds(self):
         with open('eds_out', 'w') as f:
@@ -73,5 +74,7 @@ class EDSTests(unittest.TestCase):
         peptidesim.plot_couplings('eds_out', 'plot.png')
         os.remove('eds_out')
         os.remove('plot.png')
+
+
 if __name__ == '__main__':
     unittest.main()
