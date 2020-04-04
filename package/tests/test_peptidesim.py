@@ -1,4 +1,5 @@
 from unittest import TestCase, skip
+import glob
 import os.path
 import time
 from peptidesim import *
@@ -360,14 +361,23 @@ class TestRemoveSimulation(TestCase):
         old_tpr_files_number = len(p._tpr)
         old_sim_files_number = len(p._sims)
 
+        #test that the directory corresponding to the  object to be removed exists
+        nvt_dir = glob.glob('test_remove/nvt_check*')
+        self.assertTrue(os.path.exists(nvt_dir[0]))
+        print('old nvt dir', nvt_dir)
         # now try running it with PTE
         p.remove_simulation('nvt_check')
+        new_nvt_dir = glob.glob('test_remove/nvt_check*')
+        print('new nvt dir',new_nvt_dir)
         new_gro_len = len(p._gro)
         new_tpr_len = len(p._tpr)
         new_sim_len = len(p._sims)
         self.assertGreaterEqual(old_gro_files_number, new_gro_len)
         self.assertGreaterEqual(old_tpr_files_number, new_tpr_len)
         self.assertGreaterEqual(old_sim_files_number, new_sim_len)
+
+        #check if the directory corresponding to the removed object has been deleted
+        self.assertFalse(os.path.exists(nvt_dir[0]))
         shutil.rmtree('test_remove')
 
     def test_remove_restart(self):
@@ -379,6 +389,12 @@ class TestRemoveSimulation(TestCase):
         p.run(tag='eminiiii', mdpfile='peptidesim_emin.mdp',
               mdp_kwargs={'nsteps': 100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
+
+        #test that the directory corresponding to the  object to be removed exists
+        emin_dir = glob.glob('test_remove_restart/eminiiii*')
+        print('emin dir',emin_dir)
+        self.assertTrue(os.path.exists(emin_dir[0]))
+        
         # test pickle on signal
 
         # make sure there is one simulation
@@ -389,6 +405,7 @@ class TestRemoveSimulation(TestCase):
             p.remove_simulation('wrong_sim_name')
         with self.assertRaises(TypeError) as cm:
             p.remove_simulation(None)
+        self.assertFalse(os.path.exists(emin_dir[0]))
         shutil.rmtree('test_remove_restart')
 
 class TestPeptideEmin(TestCase):
