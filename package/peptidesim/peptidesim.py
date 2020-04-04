@@ -833,9 +833,6 @@ class PeptideSim(Configurable):
             self._run(mpi_np, mdpfile, ec, mdp_kwargs, run_kwargs)
             self.save('{}-post'.format(ec.name))
 
-    def analyze(self):
-        self.calc_rmsd()
-
     def __del__(self):
         self._stop_logging()
 

@@ -108,3 +108,33 @@ def parser(plumed_file):
         elif cs_type == 'cs.ha':
             ha_shifts.append(int(txt_list[i][6:])-1)
     return (ca_shifts, cb_shifts, c_shifts, ha_shifts, hn_shifts, nh_shifts)
+
+
+def load_eds_restart(filename):
+    with open(filename, 'r') as f:
+        header = f.readline().split()[2:]
+    # initial read of fields
+    data = pd.read_table(filename, sep='\s+', comment='#', names=header)
+    return data
+
+def plot_couplings(eds_filename, output_plot='couplings.png'):
+    import matplotlib.pyplot as plt
+    data = load_eds_restart(eds_filename)
+    # get cv names
+    cv_names = set()
+    for n in data.columns:
+        sn = n.split('_')
+        if len(sn) > 1:
+            cv_names.add(sn[0])
+    fig, ax = plt.subplots(nrows=len(cv_names) // 2, ncols=2, figsize=(12,8))
+    index = 0
+    cv_names = list(cv_names)
+    cv_names.sort()
+    for i in range(len(cv_names) // 2):
+        for j in range(2):
+            cv = cv_names[index]
+            ax[i,j].plot(data.time, data[f'{cv}_coupling'])
+            ax[i,j].set_title(cv)
+            index += 1
+    plt.tight_layout()
+    plt.savefig(output_plot, dpi=300)
