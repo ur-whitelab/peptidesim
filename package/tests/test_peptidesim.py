@@ -361,14 +361,12 @@ class TestRemoveSimulation(TestCase):
         old_tpr_files_number = len(p._tpr)
         old_sim_files_number = len(p._sims)
 
-        #test that the directory corresponding to the  object to be removed exists
+        # test that the directory corresponding to the  object to be removed exists
         nvt_dir = glob.glob('test_remove/nvt_check*')
         self.assertTrue(os.path.exists(nvt_dir[0]))
-        print('old nvt dir', nvt_dir)
         # now try running it with PTE
         p.remove_simulation('nvt_check')
         new_nvt_dir = glob.glob('test_remove/nvt_check*')
-        print('new nvt dir',new_nvt_dir)
         new_gro_len = len(p._gro)
         new_tpr_len = len(p._tpr)
         new_sim_len = len(p._sims)
@@ -376,7 +374,7 @@ class TestRemoveSimulation(TestCase):
         self.assertGreaterEqual(old_tpr_files_number, new_tpr_len)
         self.assertGreaterEqual(old_sim_files_number, new_sim_len)
 
-        #check if the directory corresponding to the removed object has been deleted
+        # check if the directory corresponding to the removed object has been deleted
         self.assertFalse(os.path.exists(nvt_dir[0]))
         shutil.rmtree('test_remove')
 
@@ -390,9 +388,8 @@ class TestRemoveSimulation(TestCase):
               mdp_kwargs={'nsteps': 100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
 
-        #test that the directory corresponding to the  object to be removed exists
+        # test that the directory corresponding to the  object to be removed exists
         emin_dir = glob.glob('test_remove_restart/eminiiii*')
-        print('emin dir',emin_dir)
         self.assertTrue(os.path.exists(emin_dir[0]))
         
         # test pickle on signal
