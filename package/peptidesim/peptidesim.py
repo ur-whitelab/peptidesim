@@ -724,7 +724,6 @@ class PeptideSim(Configurable):
                     if (debug is not None):
                         full_name = debug
                     sim_location = sim.location
-                    print('printing simulation location',sim.location)
                     del self.sims[sim_index]
                     del self._sims[full_name]
                     break
@@ -781,7 +780,7 @@ class PeptideSim(Configurable):
         if type(full_name) != str and full_name is None:
             raise ValueError(
                 'name of the simulation to be removed should be a string or the simulation does not exist anymore')
-        else:
+        if os.path.exists(sim_location):
             dir_name = sim_location.split('/')[-1]
             dir_path = sim_location.rpartition('/')[0]+'/'
             
