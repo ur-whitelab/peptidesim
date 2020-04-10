@@ -556,6 +556,9 @@ class PeptideSim(Configurable):
         timestep : the timestep in picosecond used to generate the trajectroy file
         stride : the number of frames
         returns: file path to the WEIGHTS file
+        DISCLAIMER: it returns free energy rewighted at each time step. to get the actual weights 
+        you will need to do the following: exp(V(s)/kt). The energy units are in Kj/mol and the 
+        Weights file will have the V(s) as a function of time.
         '''
         metad_lines = []
         number = 0
@@ -569,7 +572,7 @@ class PeptideSim(Configurable):
                 line_segments = line.strip().split()
 
                 if len(line_segments) == 0 or len(line_segments) == 1:
-                    next
+                    continue
                 elif line_segments[0].startswith('METAD') and len(line_segments) < 3:
                     meta_start_number = number
                     metad_lines.append([number, line_segments, line])
