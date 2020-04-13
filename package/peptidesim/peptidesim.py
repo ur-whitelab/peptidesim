@@ -980,7 +980,11 @@ class PeptideSim(Configurable):
 
     def add_file(self, f):
         if f != self._convert_path(f):
-            shutil.copyfile(f, self._convert_path(f))
+            try:
+                shutil.copyfile(f, self._convert_path(f))
+            except shutil.SameFileError:
+                pass
+                # shutil.copy(f, self._convert_path(f))
         self._file_list.append(os.path.basename(f))
 
     def get_mdpfile(self, f):
