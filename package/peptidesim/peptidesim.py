@@ -985,7 +985,7 @@ class PeptideSim(Configurable):
         if f != self._convert_path(f):
             try:
                 shutil.copyfile(f, self._convert_path(f))
-            except:
+            except shutil.SameFileError:
                 pass
                 # shutil.copy(f, self._convert_path(f))
         self._file_list.append(os.path.basename(f))
