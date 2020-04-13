@@ -891,7 +891,7 @@ class PeptideSim(Configurable):
                 signal.SIGTRAP, signal.SIGABRT, signal.SIGKILL,
                 signal.SIGALRM, signal.SIGPIPE, signal.SIGSTOP,
                 signal.SIGTSTP, signal.SIGXCPU, signal.SIGVTALRM,
-                signal.SIGXFSZ, signal.SIGPROF]
+                signal.SIGXFSZ, signal.SIGPROF, signal.SIGTERM]
         else:
             dump_signal = [dump_signal]
         cached = {}
