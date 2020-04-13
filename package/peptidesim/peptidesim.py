@@ -370,6 +370,7 @@ class PeptideSim(Configurable):
         self._file_list = []
         self._ndx_file = None
         self._peptidesim_version = __version__
+        self._initialized = False
 
         # set-up saving
         self._save_count = 0
@@ -440,7 +441,7 @@ class PeptideSim(Configurable):
         self.log.addHandler(file_handler)
 
         self.log_handler = file_handler
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(logging.DEBUG)
         self.log.info('Started logging for PeptideSim...')
 
     def __str__(self):
@@ -477,7 +478,7 @@ class PeptideSim(Configurable):
         result.append('=====================================')
         return '\n'.join(result)
 
-    def initialize(self):
+    def initialize(self, force=False):
         '''Build PDB files, pack them, convert to gmx, add water and ions
 
         This method accomplishes the following steps:
@@ -486,9 +487,12 @@ class PeptideSim(Configurable):
           3. Convert them into gmx files using the pdb2gmx command and configuration parameters
           4. Add water using the editconf/genbox
           5. Add ions
-                  6. Compile our energy-minimization tpr file for purposes of adding ions
+          6. Compile our energy-minimization tpr file for purposes of adding ions
         '''
         # generate pdbs from sequences and store their extents
+        if not force and self._initialized:
+            self.log.warn('Ignoring request to re-initialize. Pass force=True to initialize to force')
+            return
         self._structure_extents = []
         self.peptide_mass = []
         self.peptide_pdb_files = []
@@ -517,6 +521,7 @@ class PeptideSim(Configurable):
         # energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps': 500})
 
+        self._intialized = True
         self.save('initialized')
         self.log.info('Completed Initialization')
 
@@ -543,7 +548,7 @@ class PeptideSim(Configurable):
                     mdp_kwargs=None, run_kwargs=None, hills_file_location=None,
                     cold=300.0, hot=400.0, eff_threshold=0.3,
                     hill_height=1.2, sigma=140.0, bias_factor=10,
-                    exchange_period=25, dump_signal=signal.SIGTERM):
+                    exchange_period=25, dump_signal=None):
         '''
         Runs NVT tuning with plumed PTE and replica exchange to obtain high replica efficiency.
 
@@ -780,7 +785,7 @@ class PeptideSim(Configurable):
         for i in range(len(tpr_file_index)):
             del self._tpr[tpr_file_index[i]-i-1]
 
-    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=None, run_kwargs=None, metadata=None, dump_signal=signal.SIGTERM):
+    def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=None, run_kwargs=None, metadata=None, dump_signal=None):
         '''Run a simulation with the given mdpfile
 
         The name of the simulation will be the name of the mpdfile
@@ -877,10 +882,28 @@ class PeptideSim(Configurable):
             self.save('{}-interrupt'.format(simname))
             os.chdir(rel_dir_name)  # put us cleanly into the correct place
             raise KeyboardInterrupt()  # Make sure we do actually end
-        # cache existing
-        oh = signal.getsignal(dump_signal)
-        # set new one
-        signal.signal(dump_signal, handler)
+        if dump_signal is None:
+            dump_signal = [
+                signal.SIGHUP, signal.SIGINT, signal.SIGQUIT,
+                signal.SIGTRAP, signal.SIGABRT, signal.SIGKILL,
+                signal.SIGALRM, signal.SIGPIPE, signal.SIGSTOP,
+                signal.SIGTSTP, signal.SIGXCPU, signal.SIGVTALRM,
+                signal.SIGXFSZ, signal.SIGPROF, signal.SIGTERM]
+        else:
+            dump_signal = [dump_signal]
+        cached = {}
+        for ds in dump_signal:
+            # cache existing
+            oh = signal.getsignal(ds)
+            # set new one
+            try:
+                signal.signal(ds, handler)
+                # do not cache, since we cannot set it anyway
+                self.log.debug('Will intercept signal ' + str(ds) + ' for saving from simulation')
+                cached[ds] = oh
+            except (OSError, RuntimeError) as m:
+                # skip signals we cannot intercept
+                pass
 
         if simname in self._sims:
             si = self._sims[simname]
@@ -897,8 +920,10 @@ class PeptideSim(Configurable):
         try:
             yield si
         finally:
-            #reset signal handler
-            signal.signal(dump_signal, oh)
+            #reset signal handlers
+            for k,v in cached.items():
+                self.log.debug('Resetting signal handler' + str(k))
+                signal.signal(k, v)
 
     @contextlib.contextmanager
     def _put_in_dir(self, dirname):
@@ -1246,6 +1271,8 @@ class PeptideSim(Configurable):
 
         with self._put_in_dir(sinfo.location):
 
+            exit_code = 0
+
             # make this out of restart/no restart logic so we can check for success
             gro = sinfo.short_name + '.gro'
             if type(mdp_kwargs) is list:
@@ -1263,7 +1290,7 @@ class PeptideSim(Configurable):
                     # add restart string if this is our first
                     if(sinfo.restart_count == 1):
                         sinfo.run_kwargs['args'] += ' -cpi state.cpt'
-                    sinfo.run()
+                    exit_code = sinfo.run()
             else:
                 # need to prepare for simulation
                 # preparing tpr file
@@ -1391,28 +1418,31 @@ class PeptideSim(Configurable):
                 gromacs.mdrun.driver = temp  # put back the original command
                 self.log.info('Simulation command:' + ' '.join(map(str, cmd)))
                 # make it run in shell
-                sinfo.run(subprocess.call, {
+                exit_code = sinfo.run(subprocess.call, {
                           'args': ' '.join(map(str, cmd)), 'shell': True})
 
-            # check if the output file was created
-            if((not os.path.exists(gro[0])) if type(gro) is list else (not os.path.exists(gro))):
+            # check if the output file was created and exit code
+            if exit_code != 0 or ((not os.path.exists(gro[0])) if type(gro) is list else (not os.path.exists(gro))):
                 # open the md log and check for error message
-                with open(sinfo.metadata['md-log']) as f:
-                    s = f.read()
-                    m = re.search(gromacs.mdrun.gmxfatal_pattern,
-                                  s, re.VERBOSE | re.DOTALL)
-                    if(m is None):
-                        self.log.error(
-                            'Gromacs simulation (args: {}) failed for unknown reason. Unable to locate output gro file ({})'.format(run_kwargs, gro))
-                        self.log.error('Found ({})'.format(
-                            [f for f in os.listdir('.') if os.path.isfile(f)]))
-                    else:
-                        self.log.error('SIMULATION FAILED:')
-                        for line in m.group('message'):
-                            self.log.error('SIMULATION FAILED: ' + line)
+                if os.path.exists(sinfo.metadata['md-log']):
+                    with open(sinfo.metadata['md-log']) as f:
+                        s = f.read()
+                        m = re.search(gromacs.mdrun.gmxfatal_pattern,
+                                    s, re.VERBOSE | re.DOTALL)
+                        if(m is None):
+                            self.log.error(
+                                'Gromacs simulation (args: {}) failed for unknown reason. Unable to locate output gro file ({})'.format(run_kwargs, gro))
+                            self.log.error('Found ({})'.format(
+                                [f for f in os.listdir('.') if os.path.isfile(f)]))
+                        else:
+                            self.log.error('SIMULATION FAILED:')
+                            for line in m.group('message'):
+                                self.log.error('SIMULATION FAILED: ' + line)
+                self.log.error('Removing simulation from restarts')
+                self.remove_simulation(sinfo.short_name)
                 raise RuntimeError('Failed to complete simulation')
             else:
-                self.log.info('simulation succeeded'.format(sinfo.name))
+                self.log.info('{} simulation succeeded'.format(sinfo.name))
             # finished, store any info needed
             self.gro_file = gro
 
