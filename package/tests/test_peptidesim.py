@@ -391,7 +391,7 @@ class TestRemoveSimulation(TestCase):
         # test that the directory corresponding to the  object to be removed exists
         emin_dir = glob.glob('test_remove_restart/eminiiii*')
         self.assertTrue(os.path.exists(emin_dir[0]))
-        
+
         # test pickle on signal
 
         # make sure there is one simulation

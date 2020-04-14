@@ -782,14 +782,14 @@ class PeptideSim(Configurable):
                 'name of the simulation to be removed should be a string or the simulation does not exist anymore')
         if os.path.exists(sim_location):
             dir_name = sim_location.split('/')[-1]
-            dir_path = sim_location.rpartition('/')[0]+'/'
-            bck_count = len(glob.glob(dir_path+dir_name+'-backup-*'))
-            shutil.move(sim_location, dir_path+dir_name+'-backup-'+str(bck_count))
+            dir_path = sim_location.rpartition('/')[0] + '/'
+            bck_count = len(glob.glob(dir_path + dir_name + '-backup-*'))
+            shutil.move(sim_location, dir_path + dir_name + '-backup-'+str(bck_count))
         for i in range(len(gro_file_index)):
-            del self._gro[gro_file_index[i]-i-1]
+            del self._gro[gro_file_index[i] - i - 1]
 
         for i in range(len(tpr_file_index)):
-            del self._tpr[tpr_file_index[i]-i-1]
+            del self._tpr[tpr_file_index[i] - i - 1]
 
     def run(self, mdpfile, tag='', repeat=False, mpi_np=None, mdp_kwargs=None, run_kwargs=None, metadata=None, dump_signal=None):
         '''Run a simulation with the given mdpfile
