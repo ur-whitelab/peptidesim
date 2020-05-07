@@ -622,7 +622,10 @@ class PeptideSim(Configurable):
             raise ValueError(
                 'minimum number of simulations should be greater than the maximum number of iterations')
         if (hills_file_location is None):
-            hills_file_location = os.getcwd()
+            hills_file_location = os.path.join(os.path.abspath(self.dir_name), 'pte_hills')
+        if not os.path.exists(hills_file_location):
+            os.mkdir(hills_file_location)
+
         # replica temperatures
         for i in range(max_tries):
 
@@ -632,10 +635,7 @@ class PeptideSim(Configurable):
                 cold * (hot / cold) ** (float(m) / (replicas - 1)) for m in range(replicas)]
             #plumed input for WT-PTE
             temps = ','.join(str(e) for e in replica_temps)
-            plumed_input_name = '{}/{}'.format(
-                self.sims[-1].location, 'plumed_wte.dat')
-            plumed_input_name = self._convert_path('plumed_wte.dat')
-            plumed_input_name = self._convert_path('plumed_wte.dat')
+            plumed_input_name = self._convert_path(os.path.join(hills_file_location, 'plumed_wte.dat'))
             plumed_input = textwrap.dedent(
                 '''
                 RESTART
@@ -655,7 +655,7 @@ class PeptideSim(Configurable):
             # putting the above text into a file
             with open(plumed_input_name, 'w') as f:
                 f.write(plumed_input)
-            # adding the file to the list of required files
+            
             self.add_file(plumed_input_name)
 
             # arguments for WT-PTE
@@ -665,7 +665,7 @@ class PeptideSim(Configurable):
 
             plumed_output_script = None
             run_kwargs = {}
-            run_kwargs['plumed'] = plumed_input_name
+            run_kwargs['plumed'] = 'plumed_wte.dat'
             run_kwargs['replex'] = exchange_period
 
             self.run(tag=tag + '-{}'.format(i), mdpfile='peptidesim_nvt.mdp',
@@ -703,10 +703,11 @@ class PeptideSim(Configurable):
         if plumed_output_script is None:
             raise RuntimeError('Did not reach high enough efficiency')
         else:
-            if(hills_file_location != os.getcwd() and hills_file_location is not None):
-                for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
-                    self.add_file(f)
+            #if(hills_file_location != os.getcwd() and hills_file_location is not None):
+            #    for f in glob.glob('{}/HILLS_PTE*'.format(hills_file_location)):
+            #        self.add_file(f)
             self.save('pte-complete')
+            self.remove_file(plumed_input_name)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
 
     def remove_simulation(self, sim_name, debug=None):
@@ -956,11 +957,12 @@ class PeptideSim(Configurable):
                     shutil.copytree(f, os.path.join(d, os.path.basename(f)))
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-            if(f.startswith('plumed') and f != 'plumed_wte.dat' and os.path.exists(f)):
-                shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-            elif(f.startswith('plumed') and f != 'plumed_wte.dat' and not os.path.exists(f)):
-                shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-                # go there
+            try:
+                # TODO: Why this separate logic?
+                if(f.startswith('plumed') and os.path.exists(f)):
+                    shutil.copy2(f, os.path.join(d, os.path.basename(f)))
+            except shutil.SameFileError:
+                pass
         curdir = os.getcwd()
         # keep path to original directory
         self._rel_dir_name = os.path.relpath(curdir, d)
@@ -976,7 +978,7 @@ class PeptideSim(Configurable):
             self._rel_dir_name = '.'
 
             # bring back files
-            # TODO: Why? Is this every necessary
+            # TODO: Why? Is this ever necessary
             for f in self.file_list:
                 if(f is not None and os.path.exists(os.path.join(d, f)) and not os.path.exists(f)):
                     if os.path.isdir(f):
@@ -985,13 +987,25 @@ class PeptideSim(Configurable):
                         shutil.copy2(os.path.join(d, f), f)
 
     def add_file(self, f):
+        if not os.path.exists(f):
+            raise FileNotFoundError('Could not find requested add_file file {}'.format(f))
         if f != self._convert_path(f):
             try:
                 shutil.copyfile(f, self._convert_path(f))
             except shutil.SameFileError:
                 pass
-                # shutil.copy(f, self._convert_path(f))
-        self._file_list.append(os.path.basename(f))
+        self._file_list.append(self._convert_path(f))
+
+    def remove_file(self, f):
+        if not os.path.exists(f):
+            raise FileNotFoundError('Could not find requested remove_file file {}'.format(f))
+        if f != self._convert_path(f):
+            try:
+                os.remove(self._convert_path(f))
+            except shutil.SameFileError:
+                pass
+        self._file_list.remove(self._convert_path(f))
+
 
     def get_mdpfile(self, f):
 
@@ -1355,8 +1369,10 @@ class PeptideSim(Configurable):
                             subdir, sinfo.short_name + '.tpr'))
                         # copy everything(!) on files list
                         for f in self.file_list:
+                            # put_in_dir should have already copied it to run directory
+                            f = os.path.basename(f)
                             # make sure it exists, is not none and needs to be copied
-                            if(f is not None and os.path.exists(f) and not os.path.exists(os.path.join(subdir, os.path.basename(f)))):
+                            if(f is not None and os.path.exists(f) and not os.path.exists(os.path.join(subdir, f))):
                                 if os.path.isdir(f):
                                     shutil.copytree(f, os.path.join(
                                         subdir, os.path.basename(f)))
@@ -1365,14 +1381,14 @@ class PeptideSim(Configurable):
                                         subdir, os.path.basename(f)))
 
                             if f.startswith(
-                                    run_kwargs['plumed']) and f != 'plumed_wte.dat' and os.path.exists(
+                                    run_kwargs['plumed']) and os.path.exists(
                                         os.path.join(
                                             subdir,
                                             os.path.basename(f))) and os.path.exists(f):
                                 shutil.copy2(
                                     f, os.path.join(
                                         subdir, os.path.basename(f)))
-                            elif(f.startswith(run_kwargs['plumed']) and f != 'plumed_wte.dat' and not os.path.exists(os.path.join(subdir, os.path.basename(f))) and os.path.exists(f)):
+                            elif(f.startswith(run_kwargs['plumed']) and not os.path.exists(os.path.join(subdir, os.path.basename(f))) and os.path.exists(f)):
                                 shutil.copy2(
                                     f, os.path.join(
                                         subdir, os.path.basename(f)))
