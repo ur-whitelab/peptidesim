@@ -103,7 +103,7 @@ def parser(plumed_file):
             ca_shifts.append(int(txt_list[i][6:])-1)
         elif cs_type == 'cs.cb':
             cb_shifts.append(int(txt_list[i][6:])-1)
-        elif cs_type == 'cs.c_':
+        elif cs_type == 'cs.c-':
             c_shifts.append(int(txt_list[i][5:])-1)
         elif cs_type == 'cs.ha':
             ha_shifts.append(int(txt_list[i][6:])-1)
