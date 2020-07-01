@@ -1323,7 +1323,7 @@ class PeptideSim(Configurable):
                     if(sinfo.restart_count == 1):
                         sinfo.run_kwargs['args'] += ' -cpi state.cpt'
                     # allow basic updating of kwargs too, in case they are different
-                    for k,v in run_kwargs.items():
+                    for k, v in run_kwargs.items():
                         if ('-' + k) in sinfo.run_kwargs['args'].split():
                             sargs = sinfo.run_kwargs['args'].split()
                             i = sargs.index('-' + k)
