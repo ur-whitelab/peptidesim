@@ -16,5 +16,5 @@ setup(name = 'peptidesim',
       install_requires=['PeptideBuilder@https://api.github.com/repos/mtien/PeptideBuilder/tarball/master', 'GromacsWrapper@https://api.github.com/repos/whitead/GromacsWrapper/tarball/master', 'dill', 'traitlets', 'requests', 'future', 'pytest', 'biopython', 'pandas'],
       test_suite='tests',
       zip_safe=True,
-      package_data = {'peptidesim': ['templates/*.mdp']}
+      package_data = {'peptidesim': ['templates/*.mdp', 'templates:/*db']}
 )

@@ -3,6 +3,7 @@ import functools
 import os
 import pandas as pd
 import numpy as np
+import pkg_resources
 
 class TimeoutError(Exception):
     pass
@@ -142,8 +143,7 @@ def plot_couplings(eds_filename, output_plot='couplings.png'):
     plt.savefig(output_plot, dpi=300)
 
 def pdb_for_plumed(input_file, peptide_copies,
-                   atoms_in_chain, first_atom_index,
-                   output_file):
+                   atoms_in_chain, output_file, first_atom_index=5):
     ''' Funtion that takes an old .pdb file that has all hydrogens
         but without unique chain IDs and without terminii of chains
         indicated and generates a new .pdb file with unique chain IDs
@@ -221,12 +221,12 @@ def pdb_for_plumed(input_file, peptide_copies,
                             current_line = "".join(split_line)
                             f.write('{}'.format(current_line))
                         if(atom == int(atoms_in_chain[seq][copy]-1)):
-                            f.write('TER second\n')
+                            f.write('TER\n')
                             skip_lines += 1
                             # puts ter at the end of each chain
                     atoms_scanned += atoms_in_chain[seq][copy]
                 skip_lines += atoms_scanned
-            f.write('ENDMDL second\n')
+            f.write('ENDMDL\n')
             f.close()
 
     return output_file
@@ -298,3 +298,47 @@ def remove_solvent_from_pdb(input_file,
                 break
             output.write(line)
     return output_file
+
+
+def prepare_cs_data(ps, shift_files=['H', 'HA', 'CA']):
+    '''Prepare a directory for adding chemical shifts.
+
+    Parameters
+    ----------
+    ps: peptidesim object
+    shift_files: which chemical shift nuclei to include
+
+    Returns
+    ----------
+    directory of resulting data directory
+    '''
+    data_dir = os.path.join(ps.dir_name, 'camshift_data')
+    os.makedirs(data_dir, exist_ok=True)
+    number_chains = int(sum(ps.counts))
+    atoms_in_chain = get_atoms_in_chains(ps.pdb_file)
+    template_pdb = os.path.join(data_dir, 'template.pdb')
+    remove_solvent_from_pdb(ps.pdb_file, template_pdb)
+    
+    pdb_for_plumed(input_file=template_pdb,
+                             peptide_copies=ps.counts,
+                            atoms_in_chain=atoms_in_chain,
+                             output_file=template_pdb)
+    # add dat files for shifts
+    for rn in shift_files:
+        with open(os.path.join(data_dir, f'{rn}shifts.dat'), 'w') as f:
+            count = 0
+            for i, s in enumerate(ps.sequences):
+                for j in range(ps.counts[i]):
+                    print(s, len(s))
+                    for k in range(len(s)):
+                        if k == 0 or k == len(s) - 1:
+                            f.write(f'#{k} 0\n')
+                        else:
+                            f.write(f'{k} 0\n')
+    # add extra files
+    with open(os.path.join(data_dir, 'camshift.db'), 'wb') as f:
+        f.write(pkg_resources.resource_string(__name__, 'templates/' + 'camshift.db'))
+    with open(os.path.join(data_dir, 'a03_gromacs.mdb'), 'wb') as f:
+        f.write(pkg_resources.resource_string(__name__, 'templates/' + 'a03_gromacs.mdb'))
+    
+    return data_dir
