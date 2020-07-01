@@ -7,7 +7,7 @@ import gromacs
 from shutil import copyfile, move
 import fire
 
-def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 298.15, debug=True):
+def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 298.15):
     ps = PeptideSim(name, seq, peptide_copies, job_name='{}'.format(name))
     ps.mdrun_driver = 'gmx'
     ps.run_kwargs = {'nt': 1}
@@ -16,7 +16,7 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 
     ps.peptide_density = peptide_density  # mg/ml
     ps.ion_concentration = 0.001  # 10mM
     ps.initialize()
-    
+
     def ns_ts(ns, scale=None):
         '''nano seconds to timesteps. Use scale to turn down times for debugging'''
         if scale is None and debug:
@@ -29,12 +29,12 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 
     ps.run_kwargs = {}
     ps.mpi_np = None
 
-    
+
     ps.run(mdpfile='peptidesim_anneal.mdp', tag='annealing', mdp_kwargs={'nsteps':ns_ts(0.5)})
     ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': ns_ts(2), 'ref_t': temperature})
     pteinfo = ps.pte_replica(cold=temperature, eff_threshold=0.2 if not debug else 0.0, hill_height=0.25, hot=400,
                              max_tries=100 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.01)})
-    
+
     kwargs = [{'ref_t': ti} for ti in pteinfo['temperatures']]
 
     # set-up camshift
@@ -48,9 +48,9 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 
         f.write(csinfo['plumed'])
     ps.add_file(plumed_file)
 
-    ps.run(mdpfile='peptidesim_nvt.mdp', 
-           tag='cs-unbiased', 
-           run_kwargs={'plumed': plumed_file, 'replex': pteinfo['replex']}, 
+    ps.run(mdpfile='peptidesim_nvt.mdp',
+           tag='cs-unbiased',
+           run_kwargs={'plumed': plumed_file, 'replex': pteinfo['replex']},
            mdp_kwargs=kwargs)
 
 
@@ -71,17 +71,32 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 
         eds_str += ' PERIOD=500 LM TEMP=@replicas:{{{}}}'.format(','.join([str(t) for t in pteinfo['temperatures']]))
         eds_str += ' OUT_RESTART=checkpoint.eds'
         f.write(eds_str + '\n')
-        eds_str += ' IN_RESTART=checkpoint.eds RESTART=YES\n'        
+        eds_str += ' IN_RESTART=@replicas:{{{}}} RESTART=YES\n'.format(','.join(['checkpoint.{}.eds'.format(i) for i in range(len(pteinfo['temperatures']))]))
         rf.write(eds_str)
     ps.add_file(plumed_file)
     ps.add_file(plumed_file_restart)
 
     restarted = ps.sims[-1].short_name == 'eds-equil'
-    ps.run(mdpfile='peptidesim_nvt.mdp', 
-           tag='eds-equil', 
-           run_kwargs={'plumed': plumed_file_restart if restarted else plumed_file, 'replex': pteinfo['replex']}, 
+
+    # remove extra headers from EDS file if present
+    if restarted:
+        for i,md in enumerate(ps.sims[-1].metadata['multi-dirs']):
+            with open(os.path.join(ps.sims[-1].location, md, 'checkpoint.{}.eds'.format(i)), 'r') as f:
+                restart_lines = f.readlines()
+            with open(os.path.join(ps.sims[-1].location, md, 'checkpoint.{}.eds'.format(i)), 'w') as f:
+                header_complete = False
+                for l in restart_lines:
+                    if l[0] != '#':
+                        header_complete = True
+                        f.write(l)
+                    if not header_complete:
+                        f.write(l)
+
+    ps.run(mdpfile='peptidesim_nvt.mdp',
+           tag='eds-equil',
+           run_kwargs={'plumed': plumed_file_restart if restarted else plumed_file, 'replex': pteinfo['replex']},
            mdp_kwargs=kwargs)
 
-    
+
 if __name__ == '__main__':
     fire.Fire(run)

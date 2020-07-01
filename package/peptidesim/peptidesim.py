@@ -656,7 +656,7 @@ class PeptideSim(Configurable):
             # putting the above text into a file
             with open(plumed_input_name, 'w') as f:
                 f.write(plumed_input)
-            
+
             self.add_file(plumed_input_name)
 
             # arguments for WT-PTE
@@ -1418,6 +1418,7 @@ class PeptideSim(Configurable):
                     sinfo.metadata['md-log'] = os.path.join(
                         multidirs[0], 'md.log')
                     sinfo.metadata['mdp-data'] = mdp_data
+                    sinfo.metadata['multi-dirs'] = multidirs
                     tpr = sinfo.short_name + '.tpr'
                 else:
                     tpr = sinfo.short_name + '.tpr'
