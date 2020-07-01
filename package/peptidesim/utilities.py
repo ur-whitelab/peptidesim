@@ -141,6 +141,7 @@ def plot_couplings(eds_filename, output_plot='couplings.png'):
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
 
+
 def pdb_for_plumed(input_file, output_file):
     ''' Funtion that takes an old .pdb file that has all hydrogens
         but without unique chain IDs and without terminii of chains
@@ -160,7 +161,7 @@ def pdb_for_plumed(input_file, output_file):
     last_cid = ''
     cindex = 0
     atom_number = 0
-    with open(input_file, 'r') as f, open(output_file, 'w') as o:        
+    with open(input_file, 'r') as f, open(output_file, 'w') as o:
         for line in f.readlines():
             if line.startswith('ATOM'):
                 atom_number += 1
@@ -172,11 +173,10 @@ def pdb_for_plumed(input_file, output_file):
                         cindex += 1
                     last_cid = cid
                 o.write(line[:21] + ascii_uppercase[cindex] + line[22:77] + line[13] + line[78:])
-
-
             else:
                 o.write(line)
     return atom_number
+
 
 def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     '''Prepare a directory for adding chemical shifts.
@@ -184,7 +184,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     Parameters
     ----------
     ps: peptidesim object
-    shift_dict: dictionary containing shifts. 
+    shift_dict: dictionary containing shifts.
       Keys should be '[peptide id, from 0]-[resid, from 1]-[res code, one character]-[atom name]' and
       value is shift. For example: 4-G-HA: 4.2. Can be None
     pte_reweight: should pte-rewighting be used
@@ -192,7 +192,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     Returns
     ---------
     dictionary containing following keys:
-        data_dir: path to directory    
+        data_dir: path to directory
         shift_dict: the given shift dictionary
         plumed: the header necessary to use cs2backbone in scripts
         cs2_names: the names for the given shifts (if averaging)
@@ -201,7 +201,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     data_dir = os.path.join(ps.dir_name, 'camshift_data')
     os.makedirs(data_dir, exist_ok=True)
     template_pdb = os.path.join(data_dir, 'template.pdb')
-    atom_number = pdb_for_plumed(input_file=ps.pdb_file,output_file=template_pdb)
+    atom_number = pdb_for_plumed(input_file=ps.pdb_file, output_file=template_pdb)
     # find which nuclei to consider
     if shift_dict is None:
         shift_dict = {}
@@ -236,14 +236,14 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
                         if k == 0 or k == len(s) - 1:
                             f.write(f'#{rindex} {shift}\n')
                         else:
-                            f.write(f'{rindex} {shift}\n') 
+                            f.write(f'{rindex} {shift}\n')
                         rindex += 1
                     cindex += 1
     # check for missed shifts
     given_shifts = set(shift_dict.keys())
     if given_shifts != seen_shifts:
         raise ValueError('Not all given shifts were assigned. Could not assign' + str(given_shifts - seen_shifts))
-    
+
     # add extra files
     with open(os.path.join(data_dir, 'camshift.db'), 'wb') as f:
         f.write(pkg_resources.resource_string(__name__, 'templates/' + 'camshift.db'))
@@ -260,7 +260,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     for k in shift_dict.keys():
         n = k.split('-')[-1]
         i = k.split('-')[0]
-        # this is for biasing        
+        # this is for biasing
         arg_list = ','.join(cs2_names[k])
         plumed_script += f'avg-{k}: COMBINE ARG={arg_list} PERIODIC=NO NORMALIZE\n'
         # for computing running means
@@ -273,6 +273,4 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
         cs2_avg_names.append(f'avg-{k}')
     plumed_script += f'PRINT ARG=(avg-.*),(all-avg-.*) STRIDE=500\n'
 
-        
-    
     return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}

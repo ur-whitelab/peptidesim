@@ -1165,7 +1165,7 @@ class PeptideSim(Configurable):
             self.top_file = topology
             # also make pdb file so we have explicit hydrogens
             # cannot use editconf, otherwise chains do not appear
-            pdb = 'dry_mixed.pdb'            
+            pdb = 'dry_mixed.pdb'
             gromacs.pdb2gmx(f=self.pdb_file, o=pdb, p=topology,
                             water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.pdb_file = pdb
