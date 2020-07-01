@@ -266,11 +266,11 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
         # for computing running means
         plumed_script += f'all-avg-{k}: AVERAGE ARG=avg-{k}'
         if pte_reweight:
-            plumed_script += ' LOGWEIGHT=pte-lw\n'
+            plumed_script += ' LOGWEIGHTS=pte-lw\n'
         else:
             plumed_script += '\n'
         cs2_values.append(shift_dict[k])
         cs2_avg_names.append(f'avg-{k}')
-    plumed_script += f'PRINT ARG=(avg-.*),(all-avg-.*) STRIDE=500\n'
+    plumed_script += f'PRINT FILE=cs_shifts.dat ARG=(avg-.*),(all-avg-.*) STRIDE=500\n'
 
     return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}

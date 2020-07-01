@@ -4,6 +4,10 @@ Change Log
 v0.5
 -----------------------
 
+*New Features*
+
+- Automated creation of cs2backbone data directory
+
 *Enhancements*
 
 - Added tutorials
@@ -11,6 +15,8 @@ v0.5
 - Moved some methods from scripts to be standard
 - No longer generates files in root directory
 - More job interrupt resiliency
+- Allowed kwargs to be updated when restarting
+- New input examples
 
 
 v0.4 (2020-03-06)

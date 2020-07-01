@@ -462,6 +462,7 @@ class PeptideSim(Configurable):
         data['current_traj'] = self.traj_file
         data['current_top'] = self.top_file
         data['current_pdb'] = self.pdb_file
+        data['initialized'] = self._initialized
         data['peptidesim_version'] = self.peptidesim_version
         keys = list(data.keys())
         keys.sort()
@@ -521,7 +522,7 @@ class PeptideSim(Configurable):
         # energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps': 500})
 
-        self._intialized = True
+        self._initialized = True
         self.save('initialized')
         self.log.info('Completed Initialization')
 
@@ -693,7 +694,7 @@ class PeptideSim(Configurable):
                  BIASFACTOR={}
                  ... METAD
                  pte-lw: REWEIGHT_BIAS TEMP=@replicas:{{{}}} ARG=METADPT.bias
-                        '''.format(sigma, hill_height, temps, hills_file_location, bias_factor))
+                        '''.format(sigma, hill_height, temps, hills_file_location, bias_factor, temps))
                 break
             else:
                 self.log.info('Did not complete the simulation. Replica exchange efficiency of {}.'
@@ -709,7 +710,7 @@ class PeptideSim(Configurable):
             #        self.add_file(f)
             self.save('pte-complete')
             self.remove_file(plumed_input_name)
-            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
+            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps, 'replex': exchange_period}
 
     def remove_simulation(self, sim_name, debug=None):
         ''' method that takes a name of the simulation to be removed and deletes the anything related to that simulation
@@ -1321,6 +1322,16 @@ class PeptideSim(Configurable):
                     # add restart string if this is our first
                     if(sinfo.restart_count == 1):
                         sinfo.run_kwargs['args'] += ' -cpi state.cpt'
+                    # allow basic updating of kwargs too, in case they are different
+                    for k,v in run_kwargs.items():
+                        if ('-' + k) in sinfo.run_kwargs['args'].split():
+                            sargs = sinfo.run_kwargs['args'].split()
+                            i = sargs.index('-' + k)
+                            self.log.info('Noticed different run_kwarg in restart, '
+                                          'updating {} with {} (previously, {}'.format(
+                                              k, v, sargs[i + 1]))
+                            sargs[i + 1] = str(v)
+                            sinfo.run_kwargs['args'] = ' '.join(sargs)
                     exit_code = sinfo.run()
             else:
                 # need to prepare for simulation
