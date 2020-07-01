@@ -692,6 +692,7 @@ class PeptideSim(Configurable):
                  FILE={}/HILLS_PTE
                  BIASFACTOR={}
                  ... METAD
+                 pte-lw: REWEIGHT_BIAS TEMP=@replicas:{{{}}} ARG=METADPT.bias
                         '''.format(sigma, hill_height, temps, hills_file_location, bias_factor))
                 break
             else:
@@ -1162,6 +1163,12 @@ class PeptideSim(Configurable):
                             water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.gro_file = output
             self.top_file = topology
+            # also make pdb file so we have explicit hydrogens
+            # cannot use editconf, otherwise chains do not appear
+            pdb = 'dry_mixed.pdb'            
+            gromacs.pdb2gmx(f=self.pdb_file, o=pdb, p=topology,
+                            water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            self.pdb_file = pdb
 
     def calc_rmsd(self):
         with self._put_in_dir('analysis'):
