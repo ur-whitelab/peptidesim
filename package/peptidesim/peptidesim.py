@@ -1493,8 +1493,13 @@ class PeptideSim(Configurable):
             self.gro_file = gro
 
     def save(self, name):
-        name = '{:05d}-{}.pickle'.format(self._save_count, name)
+
+        # we now do not overwrite previously saved pickle files
+        #name = '{:05d}-{}.pickle'.format(self._save_count, name)
+        name = '{}.pickle'.format(name)
         pickle_path = os.path.join(self._save_directory, name)
+        if os.path.exists(pickle_path):
+            return
         with open(pickle_path, 'w+b') as f:
             dill.dump(self, file=f)
         shutil.copy2(pickle_path, os.path.join(self._save_directory,
