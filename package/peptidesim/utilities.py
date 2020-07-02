@@ -255,6 +255,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
 
     cs2_values = []
     cs2_avg_names = []
+    print_arg_list = ''
 
     # now add averaging across chains
     for k in shift_dict.keys():
@@ -271,6 +272,8 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
             plumed_script += '\n'
         cs2_values.append(shift_dict[k])
         cs2_avg_names.append(f'avg-{k}')
-    plumed_script += f'PRINT FILE=cs_shifts.dat ARG=(avg-.*),(all-avg-.*) STRIDE=500\n'
+        print_arg_list += f'avg-{k},all-avg-{k},exp{cs2_names[k][0]}'
+
+    plumed_script += f'PRINT FILE=cs_shifts.dat ARG={print_arg_list} STRIDE=500\n'
 
     return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}

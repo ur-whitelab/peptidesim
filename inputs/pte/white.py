@@ -34,7 +34,7 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 
     ps.run(mdpfile='peptidesim_anneal.mdp', tag='annealing', mdp_kwargs={'nsteps': ns_ts(0.5)})
     ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': ns_ts(2), 'ref_t': temperature})
     pteinfo = ps.pte_replica(cold=temperature, eff_threshold=0.2 if not debug else 0.0, hill_height=1.2, hot=375,
-                             max_tries=100 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.01)})
+                             max_tries=250 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.1)})
 
     kwargs = [{'ref_t': ti} for ti in pteinfo['temperatures']]
 
