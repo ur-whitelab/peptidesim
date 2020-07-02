@@ -8,10 +8,10 @@ from shutil import copyfile, move
 import fire
 
 
-def run(name, seq, peptide_copies, peptide_density, shift_dict, temperature=4 + 273.15, debug=False):
+def run(name, seq, peptide_copies, peptide_density, shift_dict, debug=True, temperature=4 + 273.15):
     ps = PeptideSim(name, seq, peptide_copies, job_name='{}'.format(name))
     ps.mdrun_driver = 'gmx'
-    ps.run_kwargs = {'nt': 1}
+    ps.run_kwargs = {'nt': 4}
     ps.forcefield = 'amber99sb'
     ps.water = 'tip4p'
     ps.peptide_density = peptide_density  # mg/ml
