@@ -211,7 +211,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
         shift_files.add(n)
     # check to make sure all shifts have been seen
     seen_shifts = set()
-    cs2_name_conversions = {'h': 'hn', 'n': 'nh'}
+    cs2_name_conversions = {'h': 'hn', 'n': 'nh', 'c': 'co'}
     cs2_names = dict()
     for rn in list(shift_files):
         rindex = 1
@@ -272,9 +272,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
             plumed_script += '\n'
         cs2_values.append(shift_dict[k])
         cs2_avg_names.append(f'avg-{k}')
-        print(cs2_names)
         exp_name = cs2_names[k][0].replace('cs.', 'cs.exp')
-        print_arg_list.append(f'avg-{k},all-avg-{k},{exp_name}')
 
     plumed_script += f'PRINT FILE=cs_shifts.dat ARG={",".join(print_arg_list)} STRIDE=500\n'
 

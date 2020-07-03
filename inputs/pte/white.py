@@ -8,14 +8,14 @@ from shutil import copyfile, move
 import fire
 
 
-def run(name, seq, peptide_copies, peptide_density, shift_dict, debug=True, temperature=4 + 273.15):
+def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=True, debug=True, temperature=4 + 273.15):
     ps = PeptideSim(name, seq, peptide_copies, job_name='{}'.format(name))
     ps.mdrun_driver = 'gmx'
     ps.run_kwargs = {'nt': 4}
-    ps.forcefield = 'amber99sb'
-    ps.water = 'tip4p'
+    ps.forcefield = 'charmm27'
+    ps.water = 'tip3p'
     ps.peptide_density = peptide_density  # mg/ml
-    ps.ion_concentration = 0.001  # 10mM
+    ps.ion_concentration = 0.008  # 10mM
     ps.initialize()
 
     def ns_ts(ns, scale=None):
@@ -33,8 +33,8 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, debug=True, temp
 
     ps.run(mdpfile='peptidesim_anneal.mdp', tag='annealing', mdp_kwargs={'nsteps': ns_ts(0.5)})
     ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': ns_ts(2), 'ref_t': temperature})
-    pteinfo = ps.pte_replica(cold=temperature, eff_threshold=0.2 if not debug else 0.0, hill_height=1.2, hot=375,
-                             max_tries=250 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.1)})
+    pteinfo = ps.pte_replica(cold=temperature, hot=temperature + 100, eff_threshold=0.2 if not debug else 0.0, 
+                             max_tries=100 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.1)})
 
     kwargs = [{'ref_t': ti} for ti in pteinfo['temperatures']]
 
@@ -66,8 +66,10 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, debug=True, temp
         rf.write(csinfo['plumed'])
         eds_str = 'eds: EDS ARG=' + ','.join(csinfo['cs2_names'])
         eds_str += ' CENTER=' + ','.join([str(v) for v in csinfo['cs2_values']])
-        eds_str += ' RANGE=' + ','.join(['0.1' for _ in csinfo['cs2_values']])
-        eds_str += ' LOGWEIGHTS=pte-lw'
+        eds_str += ' RANGE=' + ','.join(['0.001' for _ in csinfo['cs2_values']])
+        eds_str += ' MULTI_PROP=0.2'
+        if eds_reweight:
+            eds_str += ' LOGWEIGHTS=pte-lw'
         eds_str += ' PERIOD=500 LM TEMP=@replicas:{{{}}}'.format(','.join([str(t) for t in pteinfo['temperatures']]))
         eds_str += ' OUT_RESTART=checkpoint.eds'
         f.write(eds_str + '\n')
