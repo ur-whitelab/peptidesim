@@ -694,7 +694,7 @@ class PeptideSim(Configurable):
                  BIASFACTOR={}
                  ... METAD
                  pte-lw: REWEIGHT_BIAS TEMP=@replicas:{{{}}} ARG=METADPT.bias
-                 PRINT FILE=WEIGHTS.dat ARG=pte-lw,ene STRIDE=250
+                 PRINT FILE=weights.dat ARG=pte-lw,ene STRIDE=250
                         '''.format(sigma, hill_height, temps, hills_file_location, bias_factor, temps))
                 break
             else:
