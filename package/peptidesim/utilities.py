@@ -2,7 +2,7 @@ import signal
 import functools
 import os
 import pandas as pd
-import numpy as np
+import pkg_resources
 
 class TimeoutError(Exception):
     pass
@@ -141,9 +141,8 @@ def plot_couplings(eds_filename, output_plot='couplings.png'):
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
 
-def pdb_for_plumed(input_file, peptide_copies,
-                   atoms_in_chain, first_atom_index,
-                   output_file):
+
+def pdb_for_plumed(input_file, output_file):
     ''' Funtion that takes an old .pdb file that has all hydrogens
         but without unique chain IDs and without terminii of chains
         indicated and generates a new .pdb file with unique chain IDs
@@ -152,149 +151,131 @@ def pdb_for_plumed(input_file, peptide_copies,
         Parameters
         ----------
         input_file: input pdb filename
-        number_of_chains: list of number of copies of each sequence
-        atoms_in_chain: list of number of atoms in each sequence
-        first_atom_index: the line number containing first atom
-                        in the old .pdb file (line indexing starts at 0)
         output_file: output pdb filename
 
         Returns
         -------
-        output_file
-
-        Example function call
-        -------------
-        pdb_for_plumed(input_file='template.pdb',
-                        peptide_copies=[6,2],
-                        atoms_in_chain=[35,43],
-                        first_atom_index=5,
-                        output_file='new.pdb')
+        number of atom records written
     '''
     from string import ascii_uppercase
-    
-    # reshape atoms_in_chain for our loop
-    new_chain_list = []
-    k=0
-    for i,j in enumerate(peptide_copies):
-        new_chain_list.append([])
-        for chain in range(j):
-            new_chain_list[i].append(atoms_in_chain[k])
-        k += j
-    atoms_in_chain = new_chain_list
-
-    # read the pdb file
-    with open(input_file, 'r') as f:
-        lines = f.readlines()
-        # grab lines that don't matter
-        beginning = lines[:first_atom_index]
-        # grab lines that need to be changed
-        lines = lines[first_atom_index:]
-
-        with open(output_file, 'w') as f:
-            # iterate through first few lines and write them as is
-            for index in np.arange(len(beginning)):
-                f.write("{}\n".format(beginning[index].strip()))
-
-            skip_lines = 0
-            atoms_scanned = 0
-            # unique chain ID
-            letter = 0
-            # iterate through the number of different sequences
-            for seq in np.arange(len(peptide_copies)):
-                if seq != 0:
-                    letter += 1
-                # iterate through the copies of that sequence
-                for copy in np.arange(peptide_copies[seq]):
-                    if copy != 0:
-                        letter += 1
-                    # iterate through the atoms in the chain
-                    for atom in np.arange(atoms_in_chain[seq][copy]):
-                        current_line = lines[skip_lines +
-                                             copy *
-                                             (atoms_in_chain[seq][copy]) +
-                                             atom]
-                        # converts the string into a list of characters
-                        split_line = list(current_line)
-                        # unique ID on at position 21 of current_line
-                        if (len(split_line) >= 21):
-                            split_line[21] = ascii_uppercase[letter]
-                            current_line = "".join(split_line)
-                            f.write('{}'.format(current_line))
-                        if(atom == int(atoms_in_chain[seq][copy]-1)):
-                            f.write('TER second\n')
-                            skip_lines += 1
-                            # puts ter at the end of each chain
-                    atoms_scanned += atoms_in_chain[seq][copy]
-                skip_lines += atoms_scanned
-            f.write('ENDMDL second\n')
-            f.close()
-
-    return output_file
+    last_cid = ''
+    cindex = 0
+    atom_number = 0
+    with open(input_file, 'r') as f, open(output_file, 'w') as o:
+        for line in f.readlines():
+            if line.startswith('ATOM'):
+                atom_number += 1
+                # add chain id and atom type to 77
+                cid = line[21]
+                if last_cid != cid:
+                    if last_cid:
+                        o.write('TER\n')
+                        cindex += 1
+                    last_cid = cid
+                o.write(line[:21] + ascii_uppercase[cindex] + line[22:77] + line[13] + line[78:])
+            else:
+                o.write(line)
+    return atom_number
 
 
-def get_atoms_in_chains(input_file):
-    ''' This function returns the number of atoms in each peptide
-    chain. Note that the solvent molecules are excluded from counting.
+def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
+    '''Prepare a directory for adding chemical shifts.
 
     Parameters
     ----------
-    input_file: input pdb filename to use to count atoms
+    ps: peptidesim object
+    shift_dict: dictionary containing shifts.
+      Keys should be '[peptide id, from 0]-[resid, from 1]-[res code, one character]-[atom name]' and
+      value is shift. For example: 4-G-HA: 4.2. Can be None
+    pte_reweight: should pte-rewighting be used
 
     Returns
-    -------
-    atoms_in_chains
-
-    Example function call
-    -------------
-    get_atoms_in_chains(input_file='template.pdb')
+    ---------
+    dictionary containing following keys:
+        data_dir: path to directory
+        shift_dict: the given shift dictionary
+        plumed: the header necessary to use cs2backbone in scripts
+        cs2_names: the names for the given shifts (if averaging)
+        cs2_values: the given experimental values (if averaging)
     '''
-    with open(input_file, "r") as f:
-        lines = f.readlines()
-    # use rest of the lines to get atoms in chain
-    atoms_in_chains = []
-    old_line = lines[4]
-    for line in lines[4:]:
-        if line == 'TER\n':
-            split = old_line.split()
-            atoms_in_chains.append(int(split[1])-sum(atoms_in_chains))
-        # do not count solvent atoms
-        # solvent molecules are always at the end
-        if 'SOL' in line:
-            break
-        old_line = line
-    return atoms_in_chains
+    data_dir = os.path.join(ps.dir_name, 'camshift_data')
+    os.makedirs(data_dir, exist_ok=True)
+    template_pdb = os.path.join(data_dir, 'template.pdb')
+    atom_number = pdb_for_plumed(input_file=ps.pdb_file, output_file=template_pdb)
+    # find which nuclei to consider
+    if shift_dict is None:
+        shift_dict = {}
+    shift_files = set()
+    for k in shift_dict.keys():
+        n = k.split('-')[-1]
+        shift_files.add(n)
+    # check to make sure all shifts have been seen
+    seen_shifts = set()
+    cs2_name_conversions = {'h': 'hn', 'n': 'nh'}
+    cs2_names = dict()
+    for rn in list(shift_files):
+        rindex = 1
+        cindex = 0
+        with open(os.path.join(data_dir, f'{rn}shifts.dat'), 'w') as f:
+            for i, s in enumerate(ps.sequences):
+                for j in range(ps.counts[i]):
+                    for k in range(len(s)):
+                        shift = 0.0
+                        # check for match
+                        key = f'{i}-{k+1}-{s[k]}-{rn}'
+                        if key in shift_dict:
+                            shift = shift_dict[key]
+                            seen_shifts.add(key)
+                            if key not in cs2_names:
+                                cs2_names[key] = []
+                            # y tho
+                            rn_csname = rn.lower()
+                            if rn_csname in cs2_name_conversions:
+                                rn_csname = cs2_name_conversions[rn.lower()]
+                            cs2_names[key].append(f'cs.{rn_csname}-{cindex}-{rindex}')
+                        if k == 0 or k == len(s) - 1:
+                            f.write(f'#{rindex} {shift}\n')
+                        else:
+                            f.write(f'{rindex} {shift}\n')
+                        rindex += 1
+                    cindex += 1
+    # check for missed shifts
+    given_shifts = set(shift_dict.keys())
+    if given_shifts != seen_shifts:
+        raise ValueError('Not all given shifts were assigned. Could not assign' + str(given_shifts - seen_shifts))
 
+    # add extra files
+    with open(os.path.join(data_dir, 'camshift.db'), 'wb') as f:
+        f.write(pkg_resources.resource_string(__name__, 'templates/' + 'camshift.db'))
+    with open(os.path.join(data_dir, 'a03_gromacs.mdb'), 'wb') as f:
+        f.write(pkg_resources.resource_string(__name__, 'templates/' + 'a03_gromacs.mdb'))
 
-def remove_solvent_from_pdb(input_file,
-                            output_file='template_no_solvent.pdb'):
-    ''' Remove solvent molecules from the pdb file
+    plumed_script = f'peptide: GROUP ATOMS=1-{atom_number}\nWHOLEMOLECULES ENTITY0=peptide\n'
+    plumed_script += f'cs: CS2BACKBONE ATOMS=peptide DATADIR={os.path.abspath(data_dir)}\n'
 
-    Parameters
-    ----------
-    input_file: input pdb filename
-    output_file: output pdb filename
+    cs2_values = []
+    cs2_avg_names = []
+    print_arg_list = []
 
-    Returns
-    -------
-    output_file
+    # now add averaging across chains
+    for k in shift_dict.keys():
+        n = k.split('-')[-1]
+        i = k.split('-')[0]
+        # this is for biasing
+        arg_list = ','.join(cs2_names[k])
+        plumed_script += f'avg-{k}: COMBINE ARG={arg_list} PERIODIC=NO NORMALIZE\n'
+        # for computing running means
+        plumed_script += f'all-avg-{k}: AVERAGE ARG=avg-{k}'
+        if pte_reweight:
+            plumed_script += ' LOGWEIGHTS=pte-lw\n'
+        else:
+            plumed_script += '\n'
+        cs2_values.append(shift_dict[k])
+        cs2_avg_names.append(f'avg-{k}')
+        print(cs2_names)
+        exp_name = cs2_names[k][0].replace('cs.', 'cs.exp')
+        print_arg_list.append(f'avg-{k},all-avg-{k},{exp_name}')
 
-    Example function call
-    -------------
-    remove_solvent_from_pdb(input_file='template.pdb',
-                            output_file='no_solvent.pdb')
-    '''
-    with open(input_file, "r") as f:
-        lines = f.readlines()
-    with open(output_file, 'w') as output:
-        # write back first few lines as is
-        for line in lines[:4]:
-            output.write(line)
-        # Then check if there is solvent
-        for line in lines[4:]:
-            if('SOL' in line):
-                output.write('TER final\n')
-                output.write('ENDMDL final\n')
-                output.close()
-                break
-            output.write(line)
-    return output_file
+    plumed_script += f'PRINT FILE=cs_shifts.dat ARG={",".join(print_arg_list)} STRIDE=500\n'
+
+    return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}

@@ -1,7 +1,25 @@
 Change Log
 ==========
 
-v0.4 (2019-03-06)
+v0.5
+-----------------------
+
+*New Features*
+
+- Automated creation of cs2backbone data directory
+
+*Enhancements*
+
+- Added tutorials
+- Added EDS load/plot utilities
+- Moved some methods from scripts to be standard
+- No longer generates files in root directory
+- More job interrupt resiliency
+- Allowed kwargs to be updated when restarting
+- New input examples
+
+
+v0.4 (2020-03-06)
 -----------------------
 
 *Enhancements*
@@ -11,7 +29,7 @@ v0.4 (2019-03-06)
 - You can now print peptidesim objects
 - Removed no longer used code
 
-v0.3 (2019-02-28)
+v0.3 (2020-02-28)
 -----------------------
 
 *New Features*

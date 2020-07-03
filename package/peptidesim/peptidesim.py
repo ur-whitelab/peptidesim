@@ -462,6 +462,7 @@ class PeptideSim(Configurable):
         data['current_traj'] = self.traj_file
         data['current_top'] = self.top_file
         data['current_pdb'] = self.pdb_file
+        data['initialized'] = self._initialized
         data['peptidesim_version'] = self.peptidesim_version
         keys = list(data.keys())
         keys.sort()
@@ -521,7 +522,7 @@ class PeptideSim(Configurable):
         # energy minimize it
         self.run(mdpfile='peptidesim_emin.mdp', tag='initialize-emin', mdp_kwargs={'nsteps': 500})
 
-        self._intialized = True
+        self._initialized = True
         self.save('initialized')
         self.log.info('Completed Initialization')
 
@@ -655,7 +656,7 @@ class PeptideSim(Configurable):
             # putting the above text into a file
             with open(plumed_input_name, 'w') as f:
                 f.write(plumed_input)
-            
+
             self.add_file(plumed_input_name)
 
             # arguments for WT-PTE
@@ -692,7 +693,9 @@ class PeptideSim(Configurable):
                  FILE={}/HILLS_PTE
                  BIASFACTOR={}
                  ... METAD
-                        '''.format(sigma, hill_height, temps, hills_file_location, bias_factor))
+                 pte-lw: REWEIGHT_BIAS TEMP=@replicas:{{{}}} ARG=METADPT.bias
+                 PRINT FILE=weights.dat ARG=pte-lw,ene STRIDE=250
+                        '''.format(sigma, hill_height, temps, hills_file_location, bias_factor, temps))
                 break
             else:
                 self.log.info('Did not complete the simulation. Replica exchange efficiency of {}.'
@@ -708,7 +711,7 @@ class PeptideSim(Configurable):
             #        self.add_file(f)
             self.save('pte-complete')
             self.remove_file(plumed_input_name)
-            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps}
+            return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps, 'replex': exchange_period}
 
     def remove_simulation(self, sim_name, debug=None):
         ''' method that takes a name of the simulation to be removed and deletes the anything related to that simulation
@@ -1162,6 +1165,12 @@ class PeptideSim(Configurable):
                             water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.gro_file = output
             self.top_file = topology
+            # also make pdb file so we have explicit hydrogens
+            # cannot use editconf, otherwise chains do not appear
+            pdb = 'dry_mixed.pdb'
+            gromacs.pdb2gmx(f=self.pdb_file, o=pdb, p=topology,
+                            water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
+            self.pdb_file = pdb
 
     def calc_rmsd(self):
         with self._put_in_dir('analysis'):
@@ -1314,6 +1323,16 @@ class PeptideSim(Configurable):
                     # add restart string if this is our first
                     if(sinfo.restart_count == 1):
                         sinfo.run_kwargs['args'] += ' -cpi state.cpt'
+                    # allow basic updating of kwargs too, in case they are different
+                    for k, v in run_kwargs.items():
+                        if ('-' + k) in sinfo.run_kwargs['args'].split():
+                            sargs = sinfo.run_kwargs['args'].split()
+                            i = sargs.index('-' + k)
+                            self.log.info('Noticed different run_kwarg in restart, '
+                                          'updating {} with {} (previously, {}'.format(
+                                              k, v, sargs[i + 1]))
+                            sargs[i + 1] = str(v)
+                            sinfo.run_kwargs['args'] = ' '.join(sargs)
                     exit_code = sinfo.run()
             else:
                 # need to prepare for simulation
@@ -1400,6 +1419,7 @@ class PeptideSim(Configurable):
                     sinfo.metadata['md-log'] = os.path.join(
                         multidirs[0], 'md.log')
                     sinfo.metadata['mdp-data'] = mdp_data
+                    sinfo.metadata['multi-dirs'] = multidirs
                     tpr = sinfo.short_name + '.tpr'
                 else:
                     tpr = sinfo.short_name + '.tpr'
@@ -1473,8 +1493,13 @@ class PeptideSim(Configurable):
             self.gro_file = gro
 
     def save(self, name):
-        name = '{:05d}-{}.pickle'.format(self._save_count, name)
+
+        # we now do not overwrite previously saved pickle files
+        #name = '{:05d}-{}.pickle'.format(self._save_count, name)
+        name = '{}.pickle'.format(name)
         pickle_path = os.path.join(self._save_directory, name)
+        if os.path.exists(pickle_path):
+            return
         with open(pickle_path, 'w+b') as f:
             dill.dump(self, file=f)
         shutil.copy2(pickle_path, os.path.join(self._save_directory,
