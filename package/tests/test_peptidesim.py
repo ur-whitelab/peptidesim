@@ -421,6 +421,14 @@ class TestPeptideEmin(TestCase):
                    tag='short-test', mdp_kwargs={'nsteps': 10})
         self.assertTrue(start_gro != self.p.gro_file)
 
+
+    def test_get_simulation(self):
+        start_gro = self.p.gro_file
+        self.p.run(mdpfile='peptidesim_emin.mdp',
+                   tag='short-test', mdp_kwargs={'nsteps': 10})
+        self.assertTrue(self.p.sims[-1] == self.p.get_simulation('short-test'))
+
+
     def test_mpinp_emin(self):
         start_gro = self.p.gro_file
         self.p.mpi_np = 1

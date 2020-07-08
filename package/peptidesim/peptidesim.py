@@ -310,7 +310,7 @@ class PeptideSim(Configurable):
         return self._sim_list
 
     @property
-    def sim_dicts(self):
+    def sims_dict(self):
         '''a property that returns a dictionary of simulation names'''
         return self._sims
 
@@ -546,7 +546,7 @@ class PeptideSim(Configurable):
         return '{}/replica_temp.xvg'.format(current_dir)
 
     def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4,
-                    mdp_kwargs=None, run_kwargs=None, hills_file_location=None,
+                    mdp_kwargs=None, run_kwargs=None,
                     cold=300.0, hot=400.0, eff_threshold=0.3,
                     hill_height=1.2, sigma=140.0, bias_factor=10,
                     exchange_period=25, dump_signal=None):
@@ -622,8 +622,7 @@ class PeptideSim(Configurable):
         if min_iters >= max_tries:
             raise ValueError(
                 'minimum number of simulations should be greater than the maximum number of iterations')
-        if (hills_file_location is None):
-            hills_file_location = os.path.join(os.path.abspath(self.dir_name), 'pte_hills')
+        hills_file_location = os.path.join(os.path.abspath(self.dir_name), 'pte_hills')
         if not os.path.exists(hills_file_location):
             os.mkdir(hills_file_location)
 
@@ -713,6 +712,17 @@ class PeptideSim(Configurable):
             self.remove_file(plumed_input_name)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps, 'replex': exchange_period}
 
+
+    def get_simulation(self, sim_tag):
+        '''
+        give most recent simulation with the same tag
+        '''
+        for s in self.sims:
+            if s.name.startswith(sim_tag):
+                return s
+        raise KeyError()
+                
+
     def remove_simulation(self, sim_name, debug=None):
         ''' method that takes a name of the simulation to be removed and deletes the anything related to that simulation
 
@@ -723,14 +733,13 @@ class PeptideSim(Configurable):
         full_name = None
         for sim in self.sims:
             if sim.name.startswith(sim_name):
-                if(len(self.sims) != 0 and len(self._sims) != 0 and self.sims is not None and self._sims is not None):
-                    full_name = sim.name
-                    if (debug is not None):
-                        full_name = debug
-                    sim_location = sim.location
-                    del self.sims[sim_index]
-                    del self._sims[full_name]
-                    break
+                full_name = sim.name
+                if (debug is not None):
+                    full_name = debug
+                sim_location = sim.location
+                del self.sims[sim_index]
+                del self._sims[full_name]
+                break
             sim_index = sim_index+1
         if (debug is not None):
             full_name = debug
@@ -838,7 +847,10 @@ class PeptideSim(Configurable):
                 run_kwargs[k] = v
 
         # make name contain info about mdp and tag
-        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, mdpfile + str(mdp_kwargs))
+        # remove nsteps, because extending simulations is not something 
+        # that should lead to new one
+        mdp_kwargs_copy = {k: v for k,v in mdp_kwargs.items() if k != 'nsteps'}
+        file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, mdpfile + str(mdp_kwargs_copy))
         # the hash is huge. Take the first few chars
         simname = tag + '-' + str(file_hash)[:8]
         with self._simulation_context(simname, tag, dump_signal, repeat=repeat) as ec:
