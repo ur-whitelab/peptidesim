@@ -331,10 +331,16 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
     '''Will plot chemical shift and its average over time across multiple simulations. Can also reweight
     '''
     import matplotlib.pyplot as plt
+    import numpy as np
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        tqdm = lambda x: x
 
     if type(sim_list) != list:
         sim_list = [sim_list]
     sim_data = []
+    weights = []
     for sim in sim_list:
         if 'multi-dirs' in sim.metadata:
             cs_filename = os.path.join(sim.location, sim.metadata['multi-dirs'][0], 'cs_shifts.0.dat')
@@ -344,7 +350,7 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
             weights_filename = os.path.join(sim.location, 'weights.dat')
         if not os.path.exists(cs_filename):
             raise FileNotFoundError('Could not find cs_shifts dat file in {}'.format(cs_filename))
-        if not os.path.exists(weights_filename):
+        if use_weights and not os.path.exists(weights_filename):
             raise FileNotFoundError('Could not find weights dat file in {}'.format(weights_filename))
         with open(cs_filename, 'r') as f:
             header = f.readline().split()[2:]
@@ -358,6 +364,13 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
         # drop zeroth row
         data = data.drop(data.index[0])
         sim_data.append(data)
+        # load weights
+        if use_weights:
+            wdata = np.loadtxt(weights_filename)
+            # drop zeroth row
+            weights.append(wdata[1:, 1])
+        else:
+            weights.append(np.ones(data.count()))
 
     # get shift names
     shift_names = set()
@@ -380,7 +393,18 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
                 if k > 0:
                     ax[i,j].axvline(last_time, linestyle='--', color='gray')
                 ax[i, j].plot(data.time / 1000 + last_time, data[f'avg-{s}'], color='C0', alpha=0.5, label='instantaneous' if k == 0 else None)
-                ax[i, j].plot(data.time / 1000 + last_time, data[f'all-avg-{s}'], color='C0', alpha=1.0, label='pluemd average' if k == 0 else None)
+                # compute weighted running average
+                widx = 0#data.time.count() // 2
+                time = data.time[widx + 1:] / 1000
+                wmean = []
+                shifts = data[f'avg-{s}'].to_numpy() 
+                wmax = np.max(weights[k])
+                w = np.exp(weights[k] - wmax)
+                for wi in tqdm(range(widx + 1, data.time.count())):
+                    wmean.append(np.sum(shifts[widx:wi] * w[widx:wi]) / np.sum(w[widx:wi]))
+                if use_weights:
+                    ax[i, j].plot(data.time[1:] / 1000 + last_time, [np.mean(shifts[:i]) for i in range(1,data.time.count())], color='C2', alpha=1.0, label='unweighted running average' if k == 0 else None)
+                ax[i, j].plot(time + last_time, wmean, color='C0', alpha=1.0, label='running average' if k == 0 else None)
                 ax[i, j].plot(data.time / 1000 + last_time, data[targets[s]], color='C1', alpha=1.0, label='target' if k == 0 else None)
                 last_time = data.time.max() / 1000
             ax[i, j].legend()
