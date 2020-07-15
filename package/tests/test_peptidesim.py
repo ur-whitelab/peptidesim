@@ -621,7 +621,7 @@ class TestRestartPlumed(TestCase):
                     'nsteps': 250}, run_kwargs={
                     'plumed': plumed_test_name})
         except KeyboardInterrupt:
-pp            pass
+            pass
 
         reloaded_plumed = open(
             './' + new_p.sims[-1].location + '/' + plumed_test_name, 'r')

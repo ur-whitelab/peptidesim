@@ -712,7 +712,6 @@ class PeptideSim(Configurable):
             self.remove_file(plumed_input_name)
             return {'plumed': plumed_output_script, 'efficiency': replex_eff, 'temperatures': replica_temps, 'replex': exchange_period}
 
-
     def get_simulation(self, sim_tag):
         '''
         give most recent simulation with the same tag
@@ -853,8 +852,7 @@ class PeptideSim(Configurable):
         # file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, mdpfile + str(mdp_kwargs_copy))
         # the hash is huge. Take the first few chars
 
-
-        simname = tag # + '-' + str(file_hash)[:8]
+        simname = tag  # + '-' + str(file_hash)[:8]
 
         # sick of the stupid hashing. It just breaks stuff
         with self._simulation_context(simname, tag, dump_signal, repeat=repeat) as ec:

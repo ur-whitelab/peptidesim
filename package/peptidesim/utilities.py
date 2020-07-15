@@ -390,10 +390,10 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
             last_time = 0
             for k, data in enumerate(sim_data):
                 if k > 0:
-                    ax[i,j].axvline(last_time, linestyle='--', color='gray')
+                    ax[i, j].axvline(last_time, linestyle='--', color='gray')
                 ax[i, j].plot(data.time / 1000 + last_time, data[f'avg-{s}'], color='C0', alpha=0.5, label='instantaneous' if k == 0 else None)
                 # compute weighted running average
-                widx = 0#data.time.count() // 2
+                widx = 0  #data.time.count() // 2
                 time = data.time[widx + 1:] / 1000
                 wmean = []
                 shifts = data[f'avg-{s}'].to_numpy()
@@ -402,8 +402,8 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
                 for wi in tqdm(range(widx + 1, data.time.count())):
                     wmean.append(np.sum(shifts[widx:wi] * w[widx:wi]) / np.sum(w[widx:wi]))
                 if use_weights:
-                    ax[i, j].plot(data.time[1:] / 1000 + last_time, 
-                                  [np.mean(shifts[:i]) for i in range(1, data.time.count())], 
+                    ax[i, j].plot(data.time[1:] / 1000 + last_time,
+                                  [np.mean(shifts[:i]) for i in range(1, data.time.count())],
                                   color='C2', alpha=1.0, label='unweighted running average' if k == 0 else None)
                 ax[i, j].plot(time + last_time, wmean, color='C0', alpha=1.0, label='running average' if k == 0 else None)
                 ax[i, j].plot(data.time / 1000 + last_time, data[targets[s]], color='C1', alpha=1.0, label='target' if k == 0 else None)
