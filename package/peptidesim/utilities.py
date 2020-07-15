@@ -393,7 +393,7 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
                     ax[i, j].axvline(last_time, linestyle='--', color='gray')
                 ax[i, j].plot(data.time / 1000 + last_time, data[f'avg-{s}'], color='C0', alpha=0.5, label='instantaneous' if k == 0 else None)
                 # compute weighted running average
-                widx = 0  #data.time.count() // 2
+                widx = 0  # data.time.count() // 2
                 time = data.time[widx + 1:] / 1000
                 wmean = []
                 shifts = data[f'avg-{s}'].to_numpy()
