@@ -144,6 +144,7 @@ def plot_couplings(eds_filename, output_plot='couplings.png', weights_file=None)
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
 
+
 def plot_wte_overlap(ps, production_sim_name, output_plot='wte_overlap.png'):
     '''
     This will show how much overlap there is between the PTE bias and the production simulation
@@ -151,8 +152,8 @@ def plot_wte_overlap(ps, production_sim_name, output_plot='wte_overlap.png'):
     import numpy as np
     import matplotlib.pyplot as plt
     # sum bias from pte step
-    hills_file_loc = os.path.join(ps.dir_name, 'pte_hills', 'HILLS_PTE.0')    
-    bias_file_loc = os.path.join(ps.dir_name, 'pte_hills', 'BIAS.0')    
+    hills_file_loc = os.path.join(ps.dir_name, 'pte_hills', 'HILLS_PTE.0')
+    bias_file_loc = os.path.join(ps.dir_name, 'pte_hills', 'BIAS.0')
     if not os.path.exists(hills_file_loc):
         raise FileNotFoundError('Could not find PT-WTE hills file')
     result = subprocess.call(f'plumed sum_hills --bin 1000 '
@@ -160,10 +161,10 @@ def plot_wte_overlap(ps, production_sim_name, output_plot='wte_overlap.png'):
                              shell=True)
     if result != 0:
         raise ValueError('Failed to run sum_hills')
-    
+
     # load bias
     bias = np.loadtxt(bias_file_loc)
-    
+
     # now load details from simulation
     s = ps.get_simulation(production_sim_name)
     weights_file = os.path.join(s.location, s.metadata['multi-dirs'][0], 'weights.0.dat')
@@ -171,22 +172,22 @@ def plot_wte_overlap(ps, production_sim_name, output_plot='wte_overlap.png'):
         raise FileNotFoundError('Could not find weights file')
 
     data = np.loadtxt(weights_file)
-                      
+
     # now plot
     fig, ax = plt.subplots(2, 1, sharex=True)
     ax[0].set_title('Bias')
-    ax[0].plot(bias[:,0], bias[:,1])
+    ax[0].plot(bias[:, 0], bias[:, 1])
     ax[1].set_title('PE')
-    hist, bin_edges = np.histogram(data[:,2], bins=250)
+    hist, bin_edges = np.histogram(data[:, 2], bins=250)
     ax[1].plot((bin_edges[1:] + bin_edges[:-1]) / 2, hist)
     plt.tight_layout()
     plt.savefig(output_plot)
 
     plt.figure()
     plt.title('weights')
-    plt.plot(data[:,0], data[:,1])
+    plt.plot(data[:, 0], data[:, 1])
     plt.savefig('weights.png')
-    
+
 
 
 
@@ -327,15 +328,13 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
 
     return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}
 
+
 def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
     '''Will plot chemical shift and its average over time across multiple simulations. Can also reweight
     '''
     import matplotlib.pyplot as plt
     import numpy as np
-    try:
-        from tqdm import tqdm
-    except ImportError:
-        tqdm = lambda x: x
+    from tqdm import tqdm
 
     if type(sim_list) != list:
         sim_list = [sim_list]
@@ -356,7 +355,7 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
             header = f.readline().split()[2:]
         # get target values using kind of hack
         targets = dict()
-        for i,h in enumerate(header):
+        for i, h in enumerate(header):
             if 'exp' in h:
                 n = header[i - 1].split('all-avg-')[-1]
                 targets[n] = h
@@ -378,7 +377,7 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
         if 'all-avg' in n:
             sn = n.split('all-avg-')[-1]
             shift_names.add(sn)
-    
+
     fig, ax = plt.subplots(nrows=len(shift_names) // 2, ncols=2, figsize=(12, 8))
     index = 0
     shift_names = list(shift_names)
@@ -397,13 +396,15 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
                 widx = 0#data.time.count() // 2
                 time = data.time[widx + 1:] / 1000
                 wmean = []
-                shifts = data[f'avg-{s}'].to_numpy() 
+                shifts = data[f'avg-{s}'].to_numpy()
                 wmax = np.max(weights[k])
                 w = np.exp(weights[k] - wmax)
                 for wi in tqdm(range(widx + 1, data.time.count())):
                     wmean.append(np.sum(shifts[widx:wi] * w[widx:wi]) / np.sum(w[widx:wi]))
                 if use_weights:
-                    ax[i, j].plot(data.time[1:] / 1000 + last_time, [np.mean(shifts[:i]) for i in range(1,data.time.count())], color='C2', alpha=1.0, label='unweighted running average' if k == 0 else None)
+                    ax[i, j].plot(data.time[1:] / 1000 + last_time, 
+                                  [np.mean(shifts[:i]) for i in range(1, data.time.count())], 
+                                  color='C2', alpha=1.0, label='unweighted running average' if k == 0 else None)
                 ax[i, j].plot(time + last_time, wmean, color='C0', alpha=1.0, label='running average' if k == 0 else None)
                 ax[i, j].plot(data.time / 1000 + last_time, data[targets[s]], color='C1', alpha=1.0, label='target' if k == 0 else None)
                 last_time = data.time.max() / 1000
@@ -414,4 +415,3 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
             index += 1
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
-            

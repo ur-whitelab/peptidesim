@@ -421,7 +421,6 @@ class TestPeptideEmin(TestCase):
                    tag='short-test', mdp_kwargs={'nsteps': 10})
         self.assertTrue(start_gro != self.p.gro_file)
 
-
     def test_get_simulation(self):
         start_gro = self.p.gro_file
         self.p.run(mdpfile='peptidesim_emin.mdp',
@@ -622,7 +621,7 @@ class TestRestartPlumed(TestCase):
                     'nsteps': 250}, run_kwargs={
                     'plumed': plumed_test_name})
         except KeyboardInterrupt:
-            pass
+pp            pass
 
         reloaded_plumed = open(
             './' + new_p.sims[-1].location + '/' + plumed_test_name, 'r')

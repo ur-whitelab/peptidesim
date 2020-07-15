@@ -36,7 +36,7 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
 
     ps.mpi_np = None
 
-    pteinfo = ps.pte_replica(cold=temperature, eff_threshold=0.2 if not debug else 0.0, 
+    pteinfo = ps.pte_replica(cold=temperature, eff_threshold=0.2 if not debug else 0.0,
                              hill_height=1., hot=375, sigma=250, bias_factor=20,
                              max_tries=10 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.04)})
 

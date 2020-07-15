@@ -721,7 +721,7 @@ class PeptideSim(Configurable):
             if s.name.startswith(sim_tag):
                 return s
         raise KeyError()
-                
+
 
     def remove_simulation(self, sim_name, debug=None):
         ''' method that takes a name of the simulation to be removed and deletes the anything related to that simulation
@@ -847,12 +847,15 @@ class PeptideSim(Configurable):
                 run_kwargs[k] = v
 
         # make name contain info about mdp and tag
-        # remove nsteps, because extending simulations is not something 
+        # remove nsteps, because extending simulations is not something
         # that should lead to new one
-        #mdp_kwargs_copy = {k: v for k,v in mdp_kwargs.items() if k != 'nsteps'}
-        #file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, mdpfile + str(mdp_kwargs_copy))
+        # mdp_kwargs_copy = {k: v for k,v in mdp_kwargs.items() if k != 'nsteps'}
+        # file_hash = uuid.uuid5(uuid.NAMESPACE_DNS, mdpfile + str(mdp_kwargs_copy))
         # the hash is huge. Take the first few chars
-        simname = tag# + '-' + str(file_hash)[:8]
+
+
+        simname = tag # + '-' + str(file_hash)[:8]
+
         # sick of the stupid hashing. It just breaks stuff
         with self._simulation_context(simname, tag, dump_signal, repeat=repeat) as ec:
             self.log.info('Running simulation with name {}'.format(ec.name))
