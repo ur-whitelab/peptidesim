@@ -1,16 +1,14 @@
 Change Log
 ==========
 
-<<<<<<< HEAD
-v0.5 (2020-07-02)
+v0.5 (2020-07-15)
 =======
-v0.5
->>>>>>> docs-update
 -----------------------
 
 *New Features*
 
 - Automated creation of cs2backbone data directory
+- Reweighting analysis functions
 
 *Enhancements*
 
