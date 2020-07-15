@@ -8,14 +8,14 @@ from shutil import copyfile, move
 import fire
 
 
-def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=True, debug=True, temperature=4 + 273.15):
+def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=True, debug=False, temperature=4 + 273.15):
     ps = PeptideSim(name, seq, peptide_copies, job_name='{}'.format(name))
     ps.mdrun_driver = 'gmx'
     ps.run_kwargs = {'nt': 4}
-    ps.forcefield = 'amber99sb'
-    ps.water = 'tip4p'
+    ps.forcefield = 'charmm27'
+    ps.water = 'tip3p'
     ps.peptide_density = peptide_density  # mg/ml
-    ps.ion_concentration = 0.001  # 10mM
+    ps.ion_concentration = 0.008  # 10mM
     ps.initialize()
 
     def ns_ts(ns, scale=None):
@@ -28,13 +28,17 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
 
     ps.mdrun_driver = 'gmx_mpi'
     ps.run_kwargs = {}
-    ps.mpi_np = None
+    ps.mpi_np = 1
 
 
     ps.run(mdpfile='peptidesim_anneal.mdp', tag='annealing', mdp_kwargs={'nsteps': ns_ts(0.5)})
     ps.run(mdpfile='peptidesim_npt.mdp', tag='equil_npt', mdp_kwargs={'nsteps': ns_ts(2), 'ref_t': temperature})
-    pteinfo = ps.pte_replica(cold=temperature, hot=temperature + 100, eff_threshold=0.2 if not debug else 0.0, 
-                             max_tries=100 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.1)})
+
+    ps.mpi_np = None
+
+    pteinfo = ps.pte_replica(cold=temperature, eff_threshold=0.2 if not debug else 0.0,
+                             hill_height=1., hot=375, sigma=250, bias_factor=20,
+                             max_tries=10 if not debug else 5, mdp_kwargs={'nsteps': ns_ts(0.04)})
 
     kwargs = [{'ref_t': ti} for ti in pteinfo['temperatures']]
 
@@ -49,6 +53,9 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
         f.write(csinfo['plumed'])
     ps.add_file(plumed_file)
 
+    for kw in kwargs:
+        kw['nsteps'] = ns_ts(1)
+
     ps.run(mdpfile='peptidesim_nvt.mdp',
            tag='cs-unbiased',
            run_kwargs={'plumed': plumed_file, 'replex': pteinfo['replex']},
@@ -56,7 +63,7 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
 
     # run with camshift shifts w EDS
     for kw in kwargs:
-        kw['nsteps'] = ns_ts(100)
+        kw['nsteps'] = ns_ts(40)
     plumed_file = 'eds.dat'
     plumed_file_restart = 'eds-restart.dat'
     with open(plumed_file, 'w') as f, open(plumed_file_restart, 'w') as rf:
@@ -66,7 +73,7 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
         rf.write(csinfo['plumed'])
         eds_str = 'eds: EDS ARG=' + ','.join(csinfo['cs2_names'])
         eds_str += ' CENTER=' + ','.join([str(v) for v in csinfo['cs2_values']])
-        eds_str += ' RANGE=' + ','.join(['0.001' for _ in csinfo['cs2_values']])
+        eds_str += ' RANGE=' + ','.join(['0.1' for _ in csinfo['cs2_values']])
         eds_str += ' MULTI_PROP=0.2'
         if eds_reweight:
             eds_str += ' LOGWEIGHTS=pte-lw'
@@ -99,6 +106,9 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
            run_kwargs={'plumed': plumed_file_restart if restarted else plumed_file, 'replex': pteinfo['replex']},
            mdp_kwargs=kwargs)
 
+    final_dir = os.path.join(ps.sims[-1].location, ps.sims[-1].metadata['multi-dirs'][0])
+
+    plot_couplings(os.path.join(final_dir, 'checkpoint.0.eds'))
 
 if __name__ == '__main__':
     fire.Fire(run)

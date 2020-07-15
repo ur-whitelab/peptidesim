@@ -3,6 +3,7 @@ import functools
 import os
 import pandas as pd
 import pkg_resources
+import subprocess
 
 class TimeoutError(Exception):
     pass
@@ -119,7 +120,7 @@ def load_eds_restart(filename):
     return data
 
 
-def plot_couplings(eds_filename, output_plot='couplings.png'):
+def plot_couplings(eds_filename, output_plot='couplings.png', weights_file=None):
     import matplotlib.pyplot as plt
     data = load_eds_restart(eds_filename)
     # get cv names
@@ -134,12 +135,60 @@ def plot_couplings(eds_filename, output_plot='couplings.png'):
     cv_names.sort()
     for i in range(len(cv_names) // 2):
         for j in range(2):
+            if index == len(cv_names):
+                break
             cv = cv_names[index]
             ax[i, j].plot(data.time, data[f'{cv}_coupling'])
             ax[i, j].set_title(cv)
             index += 1
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
+
+
+def plot_wte_overlap(ps, production_sim_name, output_plot='wte_overlap.png'):
+    '''
+    This will show how much overlap there is between the PTE bias and the production simulation
+    '''
+    import numpy as np
+    import matplotlib.pyplot as plt
+    # sum bias from pte step
+    hills_file_loc = os.path.join(ps.dir_name, 'pte_hills', 'HILLS_PTE.0')
+    bias_file_loc = os.path.join(ps.dir_name, 'pte_hills', 'BIAS.0')
+    if not os.path.exists(hills_file_loc):
+        raise FileNotFoundError('Could not find PT-WTE hills file')
+    result = subprocess.call(f'plumed sum_hills --bin 1000 '
+                             f'--hills {hills_file_loc} --outfile {bias_file_loc}',
+                             shell=True)
+    if result != 0:
+        raise ValueError('Failed to run sum_hills')
+
+    # load bias
+    bias = np.loadtxt(bias_file_loc)
+
+    # now load details from simulation
+    s = ps.get_simulation(production_sim_name)
+    weights_file = os.path.join(s.location, s.metadata['multi-dirs'][0], 'weights.0.dat')
+    if not os.path.exists(weights_file):
+        raise FileNotFoundError('Could not find weights file')
+
+    data = np.loadtxt(weights_file)
+
+    # now plot
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    ax[0].set_title('Bias')
+    ax[0].plot(bias[:, 0], bias[:, 1])
+    ax[1].set_title('PE')
+    hist, bin_edges = np.histogram(data[:, 2], bins=250)
+    ax[1].plot((bin_edges[1:] + bin_edges[:-1]) / 2, hist)
+    plt.tight_layout()
+    plt.savefig(output_plot)
+
+    plt.figure()
+    plt.title('weights')
+    plt.plot(data[:, 0], data[:, 1])
+    plt.savefig('weights.png')
+
+
 
 
 def pdb_for_plumed(input_file, output_file):
@@ -278,3 +327,91 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     plumed_script += f'PRINT FILE=cs_shifts.dat ARG={",".join(print_arg_list)} STRIDE=500\n'
 
     return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}
+
+
+def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
+    '''Will plot chemical shift and its average over time across multiple simulations. Can also reweight
+    '''
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from tqdm import tqdm
+
+    if type(sim_list) != list:
+        sim_list = [sim_list]
+    sim_data = []
+    weights = []
+    for sim in sim_list:
+        if 'multi-dirs' in sim.metadata:
+            cs_filename = os.path.join(sim.location, sim.metadata['multi-dirs'][0], 'cs_shifts.0.dat')
+            weights_filename = os.path.join(sim.location, sim.metadata['multi-dirs'][0], 'weights.0.dat')
+        else:
+            cs_filename = os.path.join(sim.location, 'cs_shifts.dat')
+            weights_filename = os.path.join(sim.location, 'weights.dat')
+        if not os.path.exists(cs_filename):
+            raise FileNotFoundError('Could not find cs_shifts dat file in {}'.format(cs_filename))
+        if use_weights and not os.path.exists(weights_filename):
+            raise FileNotFoundError('Could not find weights dat file in {}'.format(weights_filename))
+        with open(cs_filename, 'r') as f:
+            header = f.readline().split()[2:]
+        # get target values using kind of hack
+        targets = dict()
+        for i, h in enumerate(header):
+            if 'exp' in h:
+                n = header[i - 1].split('all-avg-')[-1]
+                targets[n] = h
+        data = pd.read_table(cs_filename, sep=r'\s+', comment='#', names=header)
+        # drop zeroth row
+        data = data.drop(data.index[0])
+        sim_data.append(data)
+        # load weights
+        if use_weights:
+            wdata = np.loadtxt(weights_filename)
+            # drop zeroth row
+            weights.append(wdata[1:, 1])
+        else:
+            weights.append(np.ones(data.count()))
+
+    # get shift names
+    shift_names = set()
+    for n in sim_data[-1].columns:
+        if 'all-avg' in n:
+            sn = n.split('all-avg-')[-1]
+            shift_names.add(sn)
+
+    fig, ax = plt.subplots(nrows=len(shift_names) // 2, ncols=2, figsize=(12, 8))
+    index = 0
+    shift_names = list(shift_names)
+    shift_names.sort()
+    for i in range(len(shift_names) // 2):
+        for j in range(2):
+            if index == len(shift_names):
+                break
+            s = shift_names[index]
+            last_time = 0
+            for k, data in enumerate(sim_data):
+                if k > 0:
+                    ax[i, j].axvline(last_time, linestyle='--', color='gray')
+                ax[i, j].plot(data.time / 1000 + last_time, data[f'avg-{s}'], color='C0', alpha=0.5, label='instantaneous' if k == 0 else None)
+                # compute weighted running average
+                widx = 0  # data.time.count() // 2
+                time = data.time[widx + 1:] / 1000
+                wmean = []
+                shifts = data[f'avg-{s}'].to_numpy()
+                wmax = np.max(weights[k])
+                w = np.exp(weights[k] - wmax)
+                for wi in tqdm(range(widx + 1, data.time.count())):
+                    wmean.append(np.sum(shifts[widx:wi] * w[widx:wi]) / np.sum(w[widx:wi]))
+                if use_weights:
+                    ax[i, j].plot(data.time[1:] / 1000 + last_time,
+                                  [np.mean(shifts[:i]) for i in range(1, data.time.count())],
+                                  color='C2', alpha=1.0, label='unweighted running average' if k == 0 else None)
+                ax[i, j].plot(time + last_time, wmean, color='C0', alpha=1.0, label='running average' if k == 0 else None)
+                ax[i, j].plot(data.time / 1000 + last_time, data[targets[s]], color='C1', alpha=1.0, label='target' if k == 0 else None)
+                last_time = data.time.max() / 1000
+            ax[i, j].legend()
+            ax[i, j].set_title(s)
+            ax[i, j].set_xlabel('Time [ns]')
+            ax[i, j].set_ylabel('Shift [ppm]')
+            index += 1
+    plt.tight_layout()
+    plt.savefig(output_plot, dpi=300)
