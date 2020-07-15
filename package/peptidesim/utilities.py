@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import pkg_resources
 import subprocess
+from string import ascii_uppercase
+
 
 class TimeoutError(Exception):
     pass
@@ -206,7 +208,6 @@ def pdb_for_plumed(input_file, output_file):
         -------
         number of atom records written
     '''
-    from string import ascii_uppercase
     last_cid = ''
     cindex = 0
     atom_number = 0
@@ -225,6 +226,16 @@ def pdb_for_plumed(input_file, output_file):
             else:
                 o.write(line)
     return atom_number
+
+def pretty_cslabel(cs_name):
+    chain, resid, name, atom = cs_name.split('-')
+    atom_labels = {'CB': r'C$\beta$', 'C': r'C', 
+                   'CA': r'C$\alpha$', 'H': r'H',
+                   'HA': r'H$\alpha$'}
+    if atom in atom_labels:
+        atom = atom_labels[atom]
+    
+    return 'Chain ' +  ascii_uppercase[int(chain)] + ' ' + name + resid + ' ' + atom
 
 
 def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
@@ -409,7 +420,7 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
                 ax[i, j].plot(data.time / 1000 + last_time, data[targets[s]], color='C1', alpha=1.0, label='target' if k == 0 else None)
                 last_time = data.time.max() / 1000
             ax[i, j].legend()
-            ax[i, j].set_title(s)
+            ax[i, j].set_title(pretty_cslabel(s))
             ax[i, j].set_xlabel('Time [ns]')
             ax[i, j].set_ylabel('Shift [ppm]')
             index += 1
