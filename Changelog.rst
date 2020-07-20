@@ -1,14 +1,14 @@
 Change Log
 ==========
 
-v0.5 (2020-07-15)
-=======
+v0.5 (2020-07-20)
 -----------------------
 
 *New Features*
 
 - Automated creation of cs2backbone data directory
 - Reweighting analysis functions
+- Added Ramachandran post-processing plotting utility
 
 *Enhancements*
 
@@ -19,7 +19,10 @@ v0.5 (2020-07-15)
 - More job interrupt resiliency
 - Allowed kwargs to be updated when restarting
 - New input examples
+- Removed unused config code
 
+*Bug Fixed*
+- Fixed density computation
 
 v0.4 (2020-03-06)
 -----------------------
