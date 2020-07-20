@@ -382,7 +382,7 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
             sn = n.split('all-avg-')[-1]
             shift_names.add(sn)
 
-    fig, ax = plt.subplots(nrows=len(shift_names) // 2, ncols=2, figsize=(6, 4), sharex=True)
+    fig, ax = plt.subplots(nrows=len(shift_names) // 2, ncols=2, figsize=(9, 6), sharex=True)
     index = 0
     shift_names = list(shift_names)
     shift_names.sort()
@@ -421,11 +421,11 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
 
-def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000, units='kcal/mol', output_name='ramachandran_data'):
+def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000, units='kcal/mol', output_name='ramachandran_data', grid_size=(500, 500)):
     
     import matplotlib as mpl
 
-    mpl.rc('text', usetex=True)
+    #mpl.rc('text', usetex=True)
     
 
     # line-up weights with trajectory steps
@@ -446,9 +446,11 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
 
     # get PTE info
     weights_filename = sim.get_file('weights.dat')
-    # I'm pretty sure I did this correctly, but I cannot get plumed to believe me
+    # HOW IT SHOULD WORK! TODO: Awaiting plumed fix
     plumed_script += f'pte-lw: READ FILE={weights_filename} VALUES=pte-lw STRIDE={traj_every} EVERY={pte_every} IGNORE_TIME\n'
     
+
+
     # make plumed script
     names =[]
     for i, s in enumerate(ps.sequences):
@@ -466,10 +468,11 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
                                   f'ARG=phi-{n},psi-{n}\n'\
                                   f'GRID_MIN=-3.14,-3.14\n'\
                                   f'GRID_MAX=3.14,3.14\n'\
-                                  f'GRID_BIN=200,200\n'\
+                                  f'GRID_BIN={grid_size[0]},{grid_size[1]}\n'\
                                   f'BANDWIDTH=0.05,0.05\n'\
                                   f'LABEL=hrr-{n}\n'\
                                   f'STRIDE={traj_every}\n'\
+                                  f'LOGWEIGHTS=pte-lw\n'\
                                   f'... HISTOGRAM\n'\
                                   f'fes-{n}: '\
                                   f'CONVERT_TO_FES GRID=hrr-{n} TEMP={temperature}\n'\
@@ -486,7 +489,7 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
     else:
         path = os.path.join(sim.location, sim.metadata['traj'])
 
-    if True:
+    if False:
        result = subprocess.call(f'plumed driver --mf_trr {trj} '
                                 f'--plumed {plumed_file}',
                                 shell=True)
@@ -496,21 +499,22 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
     # now we plot
     for n in names:
         data  = np.loadtxt(os.path.join(data_dir, f'fes-{n}.dat'))
-        imdata = data[:,2].reshape(200,200)
+        imdata = data[:,2].reshape(grid_size)
         plt.figure(figsize=(4,3))
         #plt.title(n)
         # pick reasonable scaling
-        result = np.quantile(imdata[imdata != np.inf], [0.01, 0.99])
+        result = np.quantile(imdata[imdata != np.inf], [0.1, 0.99])
+        scaled_pmf = imdata - result[0]
         # set background color
-        plt.gca().set_facecolor(mpl.cm.get_cmap('viridis')(0))
+        #plt.gca().set_facecolor(mpl.cm.get_cmap('viridis')(0))
         # plot
-        plt.imshow(imdata - result[1], cmap='viridis_r', origin='lower', vmin=result[0] - result[1], vmax=0)
-        plt.xticks((50, 100, 150), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
-        plt.yticks((50, 100, 150), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
+        plt.imshow(scaled_pmf, cmap='viridis_r', origin='lower')
+        plt.xticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0] * 3 // 4), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
+        plt.yticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0] * 3 // 4), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
         plt.xlabel('$\phi$ [Rad]')
         plt.ylabel('$\psi$ [Rad]')
         cbar = plt.colorbar()
-        cbar.ax.set_ylim(0, result[0] - result[1])
+        #cbar.ax.set_ylim(np.max(scaled_pmf), np.min(scaled_pmf))
         cbar.ax.set_ylabel(f'$\Delta$ A[{units}]')
         plt.tight_layout()
         plt.savefig(n + '.png', dpi=300)
