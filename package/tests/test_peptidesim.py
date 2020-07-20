@@ -221,7 +221,7 @@ class TestPeptideRestart(TestCase):
 
         self.assertTrue(p3.sims[-1].short_name.startswith('nvt'))
 
-    def test_wont_skip_mdp(self):
+    def test_will_restart_mdp(self):
         p = PeptideSim('can-skip-test', ['AA'], [2])
         p.run_kwargs = SIM_KWARGS
         p.initialize()
@@ -232,7 +232,7 @@ class TestPeptideRestart(TestCase):
         g.initialize()
         g.run(mdpfile='peptidesim_emin.mdp',
               tag='restart-test', mdp_kwargs={'nsteps': 5})
-        self.assertEqual(len(p.sims) + 1, len(g.sims))
+        self.assertEqual(len(p.sims), len(g.sims))
 
     def tearDown(self):
         shutil.rmtree('can-skip-test', ignore_errors=True)
@@ -245,7 +245,7 @@ class TestPeptideStability(TestCase):
         for a in ['GG', 'VV', 'EE', 'SS', 'YY', 'SS', 'PP']:
             p = PeptideSim('dipeptide', [a], [1], job_name='dipeptide')
             p.run_kwargs = SIM_KWARGS
-            p.peptide_density = 0.005
+            p.peptide_density = 20
             p.initialize()
             p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
             p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 25})
@@ -254,7 +254,7 @@ class TestPeptideStability(TestCase):
     def test_gmx_error(self):
         p = PeptideSim('dipeptide', ['FF'], [1], job_name='dipeptide')
         p.run_kwargs = SIM_KWARGS
-        p.peptide_density = 0.005
+        p.peptide_density = 20
         p.initialize()
         p.run_kwargs = {'foo': 1}
         n = len(p.sims)
@@ -274,7 +274,7 @@ class TestPTE(TestCase):
         p.mpi_np = 1
         print(p.run_kwargs)
         p.mdrun_driver = 'gmx_mpi'
-        p.peptide_density = 0.005
+        p.peptide_density = 20
         print(p.run_kwargs)
         p.initialize()
         print(p.run_kwargs)
@@ -313,7 +313,7 @@ class TestPTE(TestCase):
         p = PeptideSim('pte_test_restart', ['AA'], [1], job_name='test-pte-restart')
         p.mpi_np = 1
         p.mdrun_driver = 'gmx_mpi'
-        p.peptide_density = 0.005
+        p.peptide_density = 20
         p.initialize()
         p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 100})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 100})
@@ -352,7 +352,7 @@ class TestRemoveSimulation(TestCase):
         # run a pte to get plumed output
         p = PeptideSim('test_remove', ['AA'], [1], job_name='remove')
         p.run_kwargs = SIM_KWARGS
-        p.peptide_density = 0.005
+        p.peptide_density = 20
         p.initialize()
         p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 100})
         p.run(tag='nvt_check', mdpfile='peptidesim_nvt.mdp',
@@ -382,7 +382,7 @@ class TestRemoveSimulation(TestCase):
         # run a pte to get plumed output
         p = PeptideSim('test_remove_restart', ['AA'], [1], job_name='test-remove')
         p.run_kwargs = SIM_KWARGS
-        p.peptide_density = 0.005
+        p.peptide_density = 20
         p.initialize()
         p.run(tag='eminiiii', mdpfile='peptidesim_emin.mdp',
               mdp_kwargs={'nsteps': 100})
@@ -409,7 +409,7 @@ class TestPeptideEmin(TestCase):
     def setUp(self):
         self.p = PeptideSim('pemin_test', ['VV'], [1], job_name='testing-emin')
         self.p.run_kwargs = SIM_KWARGS
-        self.p.peptide_density = 0.005
+        self.p.peptide_density = 20
         self.p.initialize()
         # do short emin
         self.p.run(mdpfile='peptidesim_emin.mdp',
@@ -545,33 +545,12 @@ class TestPeptideEmin(TestCase):
     def tearDown(self):
         shutil.rmtree('pemin_test')
 
-
-class TestConfig(TestCase):
-    def test_config_setname(self):
-        name = "test_config_setname.py"
-        try:
-            with open(name, "w") as f:
-                f.write(textwrap.dedent('''
-                    c = get_config()
-                    c.PeptideSim.sim_name = 'NVT'
-                '''))
-            p = PeptideSim('testconfig', ['ALA'], [1], name)
-            self.assertTrue(p.sim_name == 'NVT')
-        finally:
-            os.remove(name)
-            try:
-                pass
-                shutil.rmtree('testconfig')
-            except OSError as e:
-                pass
-
-
 class TestRestartPlumed(TestCase):
     def test_plumed_restart(self):
         # run a pte to get plumed output
         p = PeptideSim('plumed_test', ['AA'], [1], job_name='test-plumed')
         p.run_kwargs = SIM_KWARGS
-        p.peptide_density = 0.005
+        p.peptide_density = 20
         p.initialize()
         p.run(mdpfile='peptidesim_emin.mdp', mdp_kwargs={'nsteps': 50})
         p.run(mdpfile='peptidesim_nvt.mdp', mdp_kwargs={'nsteps': 50})
