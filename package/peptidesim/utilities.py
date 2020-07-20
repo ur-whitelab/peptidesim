@@ -427,8 +427,6 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
 
     import matplotlib as mpl
 
-    #mpl.rc('text', usetex=True)
-
     # line-up weights with trajectory steps
     lcm = np.lcm(pte_stride, traj_stride)
     pte_every = lcm // pte_stride
@@ -501,12 +499,12 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
         data = np.loadtxt(os.path.join(data_dir, f'fes-{n}.dat'))
         imdata = data[:, 2].reshape(grid_size)
         plt.figure(figsize=(4, 3))
-        #plt.title(n)
+        # plt.title(n)
         # pick reasonable scaling
         result = np.quantile(imdata[imdata != np.inf], [0.1, 0.99])
         scaled_pmf = imdata - result[0]
         # set background color
-        #plt.gca().set_facecolor(mpl.cm.get_cmap('viridis')(0))
+        # plt.gca().set_facecolor(mpl.cm.get_cmap('viridis')(0))
         # plot
         plt.imshow(scaled_pmf, cmap='viridis_r', origin='lower')
         plt.xticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0]
@@ -516,7 +514,7 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
         plt.xlabel('$\phi$ [Rad]')
         plt.ylabel('$\psi$ [Rad]')
         cbar = plt.colorbar()
-        #cbar.ax.set_ylim(np.max(scaled_pmf), np.min(scaled_pmf))
+        # cbar.ax.set_ylim(np.max(scaled_pmf), np.min(scaled_pmf))
         cbar.ax.set_ylabel(f'$\Delta$ A[{units}]')
         plt.tight_layout()
         plt.savefig(n + '.png', dpi=300)
