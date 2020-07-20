@@ -85,15 +85,17 @@ class SimulationInfo(object):
 
         self.complete = True
         return result
+
     def get_file(self, filename, replica_index=0):
         if 'multi-dirs' in self.metadata:
-            path = os.path.join(self.location, 
-                                self.metadata['multi-dirs'][replica_index], 
-                                '{0:}.{2:}.{1:}'.format(*filename.split('.'),replica_index))
+            path = os.path.join(self.location,
+                                self.metadata['multi-dirs'][replica_index],
+                                '{0:}.{2:}.{1:}'.format(*filename.split('.'), replica_index))
         else:
             path = os.path.join(self.location, filename)
         if not os.path.exists(path):
-            raise FileNotFoundError(f'Could not find file {path} in simulation {self.name}')
+            raise FileNotFoundError(
+                f'Could not find file {path} in simulation {self.name}')
         return path
 
 

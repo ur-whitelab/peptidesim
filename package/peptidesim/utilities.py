@@ -227,15 +227,16 @@ def pdb_for_plumed(input_file, output_file):
                 o.write(line)
     return atom_number
 
+
 def pretty_cslabel(cs_name):
     chain, resid, name, atom = cs_name.split('-')
-    atom_labels = {'CB': r'C$\beta$', 'C': r'C', 
+    atom_labels = {'CB': r'C$\beta$', 'C': r'C',
                    'CA': r'C$\alpha$', 'H': r'H',
                    'HA': r'H$\alpha$'}
     if atom in atom_labels:
         atom = atom_labels[atom]
-    
-    return 'Chain ' +  ascii_uppercase[int(chain)] + ' ' + name + resid + ' ' + atom
+
+    return 'Chain ' + ascii_uppercase[int(chain)] + ' ' + name + resid + ' ' + atom
 
 
 def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
@@ -416,17 +417,17 @@ def plot_cs(sim_list, use_weights=True, output_plot='cs.png'):
             ax[i, j].set_xlabel('Time [ns]')
             ax[i, j].set_ylabel('Shift [ppm]')
             if i == 0 and j == 1:
-                ax[i,j].legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+                ax[i, j].legend(loc='upper left', bbox_to_anchor=(1.05, 1))
             index += 1
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
 
+
 def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000, units='kcal/mol', output_name='ramachandran_data', grid_size=(500, 500)):
-    
+
     import matplotlib as mpl
 
     #mpl.rc('text', usetex=True)
-    
 
     # line-up weights with trajectory steps
     lcm = np.lcm(pte_stride, traj_stride)
@@ -441,18 +442,17 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
     data_dir = os.path.join(ps.dir_name, output_name)
     os.makedirs(data_dir, exist_ok=True)
     template_pdb = os.path.join(data_dir, 'template.pdb')
-    atom_number = pdb_for_plumed(input_file=ps.pdb_file, output_file=template_pdb)
+    atom_number = pdb_for_plumed(
+        input_file=ps.pdb_file, output_file=template_pdb)
     plumed_script += f'MOLINFO STRUCTURE={template_pdb}\n'
 
     # get PTE info
     weights_filename = sim.get_file('weights.dat')
     # HOW IT SHOULD WORK! TODO: Awaiting plumed fix
     plumed_script += f'pte-lw: READ FILE={weights_filename} VALUES=pte-lw STRIDE={traj_every} EVERY={pte_every} IGNORE_TIME\n'
-    
-
 
     # make plumed script
-    names =[]
+    names = []
     for i, s in enumerate(ps.sequences):
         index = 0
         for j in range(ps.counts[i]):
@@ -463,29 +463,29 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
                 names.append(n)
                 output_grid = os.path.join(data_dir, f'fes-{n}.dat')
                 plumed_script += f'phi-{n}: TORSION ATOMS=@phi-{ascii_uppercase[index]}{k+1}\n'\
-                                  f'psi-{n}: TORSION ATOMS=@psi-{ascii_uppercase[index]}{k+1}\n'\
-                                  f'HISTOGRAM ...\n'\
-                                  f'ARG=phi-{n},psi-{n}\n'\
-                                  f'GRID_MIN=-3.14,-3.14\n'\
-                                  f'GRID_MAX=3.14,3.14\n'\
-                                  f'GRID_BIN={grid_size[0]},{grid_size[1]}\n'\
-                                  f'BANDWIDTH=0.05,0.05\n'\
-                                  f'LABEL=hrr-{n}\n'\
-                                  f'STRIDE={traj_every}\n'\
-                                  f'LOGWEIGHTS=pte-lw\n'\
-                                  f'... HISTOGRAM\n'\
-                                  f'fes-{n}: '\
-                                  f'CONVERT_TO_FES GRID=hrr-{n} TEMP={temperature}\n'\
-                                  f'DUMPGRID GRID=fes-{n} FILE={output_grid}\n'
+                    f'psi-{n}: TORSION ATOMS=@psi-{ascii_uppercase[index]}{k+1}\n'\
+                    f'HISTOGRAM ...\n'\
+                    f'ARG=phi-{n},psi-{n}\n'\
+                    f'GRID_MIN=-3.14,-3.14\n'\
+                    f'GRID_MAX=3.14,3.14\n'\
+                    f'GRID_BIN={grid_size[0]},{grid_size[1]}\n'\
+                    f'BANDWIDTH=0.05,0.05\n'\
+                    f'LABEL=hrr-{n}\n'\
+                    f'STRIDE={traj_every}\n'\
+                    f'LOGWEIGHTS=pte-lw\n'\
+                    f'... HISTOGRAM\n'\
+                    f'fes-{n}: '\
+                    f'CONVERT_TO_FES GRID=hrr-{n} TEMP={temperature}\n'\
+                    f'DUMPGRID GRID=fes-{n} FILE={output_grid}\n'
             index += 1
 
     plumed_file = os.path.join(data_dir, 'compute_ramachandran.dat')
     with open(plumed_file, 'w') as f:
         f.write(plumed_script)
     if 'multi-dirs' in sim.metadata:
-        trj = os.path.join(sim.location, 
-                            sim.metadata['multi-dirs'][0], 
-                            sim.metadata['traj'])
+        trj = os.path.join(sim.location,
+                           sim.metadata['multi-dirs'][0],
+                           sim.metadata['traj'])
     else:
         path = os.path.join(sim.location, sim.metadata['traj'])
 
@@ -498,9 +498,9 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
 
     # now we plot
     for n in names:
-        data  = np.loadtxt(os.path.join(data_dir, f'fes-{n}.dat'))
-        imdata = data[:,2].reshape(grid_size)
-        plt.figure(figsize=(4,3))
+        data = np.loadtxt(os.path.join(data_dir, f'fes-{n}.dat'))
+        imdata = data[:, 2].reshape(grid_size)
+        plt.figure(figsize=(4, 3))
         #plt.title(n)
         # pick reasonable scaling
         result = np.quantile(imdata[imdata != np.inf], [0.1, 0.99])
@@ -509,8 +509,10 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
         #plt.gca().set_facecolor(mpl.cm.get_cmap('viridis')(0))
         # plot
         plt.imshow(scaled_pmf, cmap='viridis_r', origin='lower')
-        plt.xticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0] * 3 // 4), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
-        plt.yticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0] * 3 // 4), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
+        plt.xticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0]
+                    * 3 // 4), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
+        plt.yticks((grid_size[0] // 4, grid_size[0] // 2, grid_size[0]
+                    * 3 // 4), (r'$-\frac{\pi}{2}$', '0', r'$\frac{\pi}{2}$'))
         plt.xlabel('$\phi$ [Rad]')
         plt.ylabel('$\psi$ [Rad]')
         cbar = plt.colorbar()
@@ -518,4 +520,3 @@ def plot_pte_ramachandran(ps, sim, temperature, pte_stride=250, traj_stride=1000
         cbar.ax.set_ylabel(f'$\Delta$ A[{units}]')
         plt.tight_layout()
         plt.savefig(n + '.png', dpi=300)
-            
