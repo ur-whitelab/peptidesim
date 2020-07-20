@@ -107,63 +107,63 @@ class PeptideSim(Configurable):
 
     sim_name = Unicode('peptidesim',
                        help='The name for the type of simulation job (e.g., NVE-equil-NVT-prod)',
-                       ).tag(config=True)
+                       )
 
     config_file = Unicode('peptidesim_config.py',
                           help='The config file to load',
-                          ).tag(config=True)
+                          )
 
     req_files = List(
         help='List of files required for simulation. For example, restraints or plumed input'
-    ).tag(config=True)
+    )
 
     pressure = Float(0,
                      help='Barostat pressure. Ignored if not doing NPT'
-                     ).tag(config=True)
+                     )
 
-    peptide_density = Float(0.02,
+    peptide_density = Float(20,
                             help='The density of the peptides in milligrams / milliliter',
-                            ).tag(config=True)
+                            )
 
     ion_concentration = Float(0.002,
                               help='The concentration of sodium chloride to add in moles / liter'
-                              ).tag(config=True)
+                              )
 
     log_file = Unicode('simulation.log',
                        help='The location of the log file. If relative path, it will be in simulation directory.',
-                       ).tag(config=True)
+                       )
     packmol_exe = Unicode('packmol',
                           help='The command to run the packmol program.'
-                          ).tag(config=True)
+                          )
     demux_exe = Unicode('demux',
                         help='The command to demux the replica temperatures.'
-                        ).tag(config=True)
+                        )
 
     forcefield = Unicode('charmm27',
                          help='The gromacs syntax forcefield',
-                         ).tag(config=True)
+                         )
     water = Unicode('tip3p',
                     help='The water model to use',
-                    ).tag(config=True)
+                    )
 
     pdb2gmx_args = Dict(dict(ignh=True),
                         help='Any additional special arguments to give to pdb2gmx, aside from force-field and water which are separately specified.',
-                        ).tag(config=True)
+                        )
 
     mdp_directory = Unicode('.',
                             help='The directory to find gromacs MDP files'
-                            ).tag(config=True)
+                            )
     mdp_base = Unicode('peptidesim_base.mdp',
                        help='The MDP file containing basic forcefield parameters'
-                       ).tag(config=True)
+                       )
 
     mdp_emin = Unicode('peptidesim_emin.mdp',
                        help='The energy miniziation MDP file. Built from mdp_base. Used specifically for adding ions'
-                       ).tag(config=True)
+                       )
 
     mpiexec = Unicode('mpiexec',
                       help='The MPI executable'
-                      ).tag(config=True)
+                      )
 
     run_kwargs = Dict(dict(),
                       help='mdrun kwargs'
@@ -172,12 +172,12 @@ class PeptideSim(Configurable):
     mpi_np = Int(1,
                  allow_none=True,
                  help='Number of mpi processes. If not set, it is not specified'
-                 ).tag(config=True)
+                 )
 
     mdrun_driver = Unicode(None,
                            allow_none=True,
                            help='An override command for mdrun. Replaces gromacswrapper.cfg prefix (e.g., gmx)'
-                           ).tag(config=True)
+                           )
 
     @property
     def peptidesim_version(self):
@@ -460,10 +460,7 @@ class PeptideSim(Configurable):
     def __str__(self):
         data = {}
         for k, v in self.traits().items():
-            if type(v.default_value) not in [str, int, float]:
-                data[k] = ast.literal_eval(v.default_value_repr())
-            else:
-                data[k] = v.default_value
+            data[k] = v.get(self)
         for k, v in self.__dict__.items():
             if k not in data and type(v) in [str, int, float, list, dict, tuple, str] and k[0] != '_':
                 data[k] = v
@@ -1116,6 +1113,8 @@ class PeptideSim(Configurable):
         # compute volume based on density
         mass = sum([c * m for c, m in zip(self.counts, self.peptide_mass)])
         vol = mass / self.peptide_density
+        # vol is in L / mol, need to convert to angstrom per molecule
+        vol *= 1661
 
         # sum volumes and get longest dimension
         long_dim = 0
@@ -1135,6 +1134,8 @@ class PeptideSim(Configurable):
 
         self.log.info('Final box size to achieve density {} mg/mL: {} Angstrom'.format(
                         self.peptide_density, self.box_size_angstrom))
+
+
 
         # build input text
         input_string = textwrap.dedent(
