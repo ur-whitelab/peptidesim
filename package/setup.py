@@ -26,5 +26,5 @@ setup(name = 'peptidesim',
           'tqdm'],
       test_suite='tests',
       zip_safe=True,
-      package_data={'peptidesim': ['templates/*.mdp', 'templates:/*db']}
+      package_data={'peptidesim': ['templates/*.mdp', 'templates:/*db', 'templates:/*itp']}
 )
