@@ -121,6 +121,11 @@ class PeptideSim(Configurable):
                      help='Barostat pressure. Ignored if not doing NPT'
                      )
 
+
+    crowders = List(
+                     help='List of dictionaries indicating crowding agents. Should have two keys: radius and density (in mg/ml)'
+                     )
+
     peptide_density = Float(20,
                             help='The density of the peptides in milligrams / milliliter',
                             )
@@ -494,7 +499,7 @@ class PeptideSim(Configurable):
 
         This method accomplishes the following steps:
           1. Use Bio Python to convert sequences into PDB files
-          2. Combine the PDB files using packmol
+          2. Combine the PDB files using packmol optionally with crowders
           3. Convert them into gmx files using the pdb2gmx command and configuration parameters
           4. Add water using the editconf/genbox
           5. Add ions
@@ -519,6 +524,9 @@ class PeptideSim(Configurable):
 
         # now get gromcas files
         self._pdb2gmx()
+
+        if self.crowders:
+            self._parameterize_crowders()
 
         # center the peptides
         self._center()
@@ -1104,8 +1112,11 @@ class PeptideSim(Configurable):
 
             return (pdbfile, [smin, smax], p.molecular_weight())
 
-    def _packmol(self, output_file='dry_packed.pdb'):
+    def _packmol(self, output_file='dry_packed.pdb', working_dir='peptide_structures'):
         '''This function takes multiple pdbfiles and combines them into one pdbfile
+
+        params:
+            crowders: a list of dicts with 'radius' (in angstrom, pdb units) and 'density' in g/ml
         '''
 
         import subprocess
@@ -1134,9 +1145,6 @@ class PeptideSim(Configurable):
 
         self.log.info('Final box size to achieve density {} mg/mL: {} Angstrom'.format(
                         self.peptide_density, self.box_size_angstrom))
-
-
-
         # build input text
         input_string = textwrap.dedent(
             '''
@@ -1159,7 +1167,40 @@ class PeptideSim(Configurable):
 
                     '''.format(f, c, *self.box_size_angstrom))
 
-        with self._put_in_dir('peptide_structures'):
+        with self._put_in_dir(working_dir):
+        # now consider crowders
+            if self.crowders:
+                for i,c in enumerate(self.crowders):
+                    # compute number based on radius/desired density
+                    crowder_density = 1.35 # avg protein g/ml
+                    cvol = c['radius'] **3 * 4/3 * pi # vol in A^3
+                    # convert to g / mol (with cm^3 to A^3)
+                    mass = crowder_density * cvol * 10**-24 * 6.022*10**23
+                    c['mass'] = mass
+                    # now get density per bead
+                    density_per_bead = mass / (6.022 * 10**23) / (vol * 10**-24) # in g / mL
+                    # get count
+                    c['count'] = max(1, round(c['density'] / (density_per_bead * 1000)))
+                    combined_density = c['count'] * mass / (6.022 * 10**23) / (vol * 10**-24) # in g / mL
+                    combined_density *= 1000
+                    c['name'] = f'V{i}'
+                    self.log.info(f'Crowder {i} will have MW {c["mass"]} and will have {c["count"]} giving density {combined_density} '
+                     f'to reach target density of {c["density"]}')
+                    with open(f'crowder_{i}.pdb', 'w') as f:
+                        f.write(f'HETATM    1  V{ascii_uppercase[i]}  CR{ascii_uppercase[i]} A   1      -0.000   1.000   0.000  1.00  0.00\n')
+                        f.write('TER\nEND\n')
+                    input_string += textwrap.dedent(
+                        '''
+                        structure {}
+                            number {}
+                            #make chains be different between molecules
+                            changechains
+                            add_amber_ter
+                            inside box 0 0 0 {} {} {}
+                            radius {}
+                        end structure
+                        '''.format(f'crowder_{i}.pdb', c['count'], *self.box_size_angstrom, c['radius'])
+                    )
 
             self.pdb_file = output_file
             input_file = 'packmol.inp'
@@ -1181,6 +1222,17 @@ class PeptideSim(Configurable):
             assert os.path.exists(output_file), 'Packmol succeeded with retcode {} but has no output. Input: {input}'.format(
                 *result, input=input_string)
 
+            # now split pdb file into crowders and peptide
+            if self.crowders:
+                self.crowder_pdb = 'crowders.pdb'
+                with open(self.crowder_pdb, 'w') as fout, open(self.pdb_file, 'r') as fin:
+                    ccount = sum([c['count'] for c in self.crowders])
+                    lines = fin.readlines()
+                    no_crowders = lines[:-(ccount * 2 + 1)] + ['END\n']
+                    fout.writelines(lines)
+                with open(self.pdb_file,'w') as f:
+                    f.writelines(no_crowders)
+
     def _pdb2gmx(self):
 
         with self._put_in_dir('prep'):
@@ -1199,6 +1251,26 @@ class PeptideSim(Configurable):
             gromacs.pdb2gmx(f=self.pdb_file, o=pdb, p=topology,
                             water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.pdb_file = pdb
+
+    def _parameterize_crowders(self):
+        with self._put_in_dir('peptide_structures'):
+            output = 'dry_crowded.gro'
+            gromacs.editconf(f=self.crowder_pdb, o=output)
+            self.gro_file = output
+            # now add to top
+        with self._put_in_dir('prep'):
+            # get itp
+            itp_file = 'crowders.itp'
+            with open(itp_file, 'wb') as f:
+                f.write(pkg_resources.resource_string(__name__, 'templates/' + 'crowders.itp'))
+            self.add_file(itp_file)
+            # add include
+            with open(self.top_file, 'r') as f:
+                lines = f.readlines()
+            with open(self.top_file, 'w') as f:
+                f.write(f'#include {self.itp_file}\n')
+                lines = f.writelines(lines)
+
 
     def calc_rmsd(self):
         with self._put_in_dir('analysis'):

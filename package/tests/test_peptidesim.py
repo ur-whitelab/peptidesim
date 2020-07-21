@@ -115,15 +115,22 @@ class TestPeptideSimInitialize(TestCase):
         new_p.initialize()
         self.assertEqual(len(new_p.sims), n)
 
-    def can_force(self):
+    def test_can_force(self):
         n = len(self.p.sims)
         self.p.initialize()
         self.assertEqual(n, len(self.p.sims))
         self.p.initialize(force=True)
         self.assertEqual(n, len(self.p.sims) - 1)
 
+    def test_crowders(self):
+        self.p.crowders = [
+            {'radius': 5, 'density': 10},
+            {'radius': 10, 'density': 5}]
+        self.p.initialize(force=True)
+
     def tearDown(self):
-        shutil.rmtree('pinit_test')
+        pass
+        #shutil.rmtree('pinit_test')
 
 
 class TestFileTransfer(TestCase):
