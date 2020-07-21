@@ -18,12 +18,4 @@ to generate a config file in the current directory based on the config templates
 from .version import __version__
 
 from peptidesim.utilities import cs_validity, load_eds_restart, plot_couplings
-
-
-def main():
-    generate_config()
-
-if __name__ == '__main__':
-    main()
-else:
-    from peptidesim.peptidesim import SimulationInfo, PeptideSim
+from peptidesim.peptidesim import SimulationInfo, PeptideSim

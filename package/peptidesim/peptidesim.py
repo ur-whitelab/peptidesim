@@ -992,12 +992,6 @@ class PeptideSim(Configurable):
                     shutil.copytree(f, os.path.join(d, os.path.basename(f)))
                 else:
                     shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-            try:
-                # TODO: Why this separate logic?
-                if(f.startswith('plumed') and os.path.exists(f)):
-                    shutil.copy2(f, os.path.join(d, os.path.basename(f)))
-            except shutil.SameFileError:
-                pass
         curdir = os.getcwd()
         # keep path to original directory
         self._rel_dir_name = os.path.relpath(curdir, d)
@@ -1263,13 +1257,13 @@ class PeptideSim(Configurable):
             itp_file = 'crowders.itp'
             with open(itp_file, 'wb') as f:
                 f.write(pkg_resources.resource_string(__name__, 'templates/' + 'crowders.itp'))
-            self.add_file(itp_file)
             # add include
             with open(self.top_file, 'r') as f:
                 lines = f.readlines()
             with open(self.top_file, 'w') as f:
-                f.write(f'#include {self.itp_file}\n')
+                f.write(f'#include "{os.path.abspath(itp_file)}"\n')
                 lines = f.writelines(lines)
+
 
 
     def calc_rmsd(self):
