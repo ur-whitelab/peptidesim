@@ -1162,26 +1162,34 @@ class PeptideSim(Configurable):
                     '''.format(f, c, *self.box_size_angstrom))
 
         with self._put_in_dir(working_dir):
-        # now consider crowders
+            # now consider crowders
             if self.crowders:
-                for i,c in enumerate(self.crowders):
+                if len(self.crowders) > 5:
+                    raise ValueError('Cannot handle more than 5 crowder types. '
+                                     'Edit crowders.itp and update this error')
+                for i, c in enumerate(self.crowders):
                     # compute number based on radius/desired density
-                    crowder_density = 1.35 # avg protein g/ml
-                    cvol = c['radius'] **3 * 4/3 * pi # vol in A^3
+                    crowder_density = 1.35  # avg protein g/ml
+                    cvol = c['radius'] ** 3 * 4/3 * pi  # vol in A^3
                     # convert to g / mol (with cm^3 to A^3)
                     mass = crowder_density * cvol * 10**-24 * 6.022*10**23
                     c['mass'] = mass
                     # now get density per bead
-                    density_per_bead = mass / (6.022 * 10**23) / (vol * 10**-24) # in g / mL
+                    density_per_bead = mass / \
+                        (6.022 * 10**23) / (vol * 10**-24)  # in g / mL
                     # get count
-                    c['count'] = max(1, round(c['density'] / (density_per_bead * 1000)))
-                    combined_density = c['count'] * mass / (6.022 * 10**23) / (vol * 10**-24) # in g / mL
+                    c['count'] = max(
+                        1, round(c['density'] / (density_per_bead * 1000)))
+                    combined_density = c['count'] * mass / \
+                        (6.022 * 10**23) / (vol * 10**-24)  # in g / mL
                     combined_density *= 1000
-                    c['name'] = f'V{i}'
+                    c['name'] = f'V{ascii_uppercase[i]}'
+                    c['resname'] = f'CR{ascii_uppercase[i]}'
                     self.log.info(f'Crowder {i} will have MW {c["mass"]} and will have {c["count"]} giving density {combined_density} '
-                     f'to reach target density of {c["density"]}')
+                                  f'to reach target density of {c["density"]}')
                     with open(f'crowder_{i}.pdb', 'w') as f:
-                        f.write(f'HETATM    1  V{ascii_uppercase[i]}  CR{ascii_uppercase[i]} A   1      -0.000   1.000   0.000  1.00  0.00\n')
+                        f.write(
+                            f'HETATM    1  {c["name"]}  {c["resname"]} A   1      -0.000   1.000   0.000  1.00  0.00\n')
                         f.write('TER\nEND\n')
                     input_string += textwrap.dedent(
                         '''
@@ -1224,7 +1232,7 @@ class PeptideSim(Configurable):
                     lines = fin.readlines()
                     no_crowders = lines[:-(ccount * 2 + 1)] + ['END\n']
                     fout.writelines(lines)
-                with open(self.pdb_file,'w') as f:
+                with open(self.pdb_file, 'w') as f:
                     f.writelines(no_crowders)
 
     def _pdb2gmx(self):
@@ -1261,8 +1269,14 @@ class PeptideSim(Configurable):
             with open(self.top_file, 'r') as f:
                 lines = f.readlines()
             with open(self.top_file, 'w') as f:
-                f.write(f'#include "{os.path.abspath(itp_file)}"\n')
-                lines = f.writelines(lines)
+                # want to write it after force field is included
+                for line in lines:
+                    f.write(line)
+                    if 'forcefield.itp' in line:
+                        f.write(f'#include "{os.path.abspath(itp_file)}"\n')
+                for i,c in enumerate(self.crowders):
+                    f.write(f'{c["resname"]}    {c["count"]}\n')
+                f.write('\n')
 
 
 
