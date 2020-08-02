@@ -489,7 +489,7 @@ class PeptideSim(Configurable):
         result.append('=====================================')
         return '\n'.join(result)
 
-    def initialize(self, force=False):
+    def initialize(self, force=False, acetylate=False, amidate=False):
         '''Build PDB files, pack them, convert to gmx, add water and ions
 
         This method accomplishes the following steps:
@@ -509,7 +509,7 @@ class PeptideSim(Configurable):
         self.peptide_pdb_files = []
         for i, s in enumerate(self.sequences):
             structure, minmax, mass = self._pdb_file_generator(
-                s, 'seq_' + str(i))
+                s, 'seq_' + str(i), amidate=amidate, acetylate=acetylate)
             self.peptide_pdb_files.append(structure)
             self._structure_extents.append(minmax)
             self.peptide_mass.append(mass)
@@ -518,7 +518,7 @@ class PeptideSim(Configurable):
         self._packmol()
 
         # now get gromcas files
-        self._pdb2gmx()
+        self._pdb2gmx(amidate=amidate, acetylate=acetylate)
 
         # center the peptides
         self._center()
@@ -556,7 +556,7 @@ class PeptideSim(Configurable):
         return '{}/replica_temp.xvg'.format(current_dir)
 
     def pte_replica(self, tag='pte_tune', mpi_np=None, replicas=8, max_tries=30, min_iters=4,
-                    mdp_kwargs=None, run_kwargs=None,
+                    mdp_kwargs=None, run_kwargs=None, force=False,
                     cold=300.0, hot=400.0, eff_threshold=0.3,
                     hill_height=1.2, sigma=140.0, bias_factor=10,
                     exchange_period=25, dump_signal=None):
@@ -579,6 +579,8 @@ class PeptideSim(Configurable):
             additional gromacs mdp arguments
         hot : float
             hottest replica temperatrue
+        force : boolean
+            Accept final replica exchange efficiency, no matter the value
         cold : float
             coldest replica temperatrue
         eff_threshold : float
@@ -684,7 +686,7 @@ class PeptideSim(Configurable):
                      dump_signal=dump_signal)
 
             replex_eff = min(get_replex_e(self, replicas))
-            if replex_eff >= eff_threshold and i >= (min_iters-1):
+            if (replex_eff >= eff_threshold and i >= (min_iters-1)) or (i == (max_tries - 1) and force):
                 self.log.info('Completed the simulation. Reached replica exchange efficiency of {}.'
                               ' The replica temperatures were {}. The name of the plumed input scripts is'
                               '\'plumed_wte.dat\'. Continuing to production'.format(replex_eff, replica_temps))
@@ -1062,7 +1064,7 @@ class PeptideSim(Configurable):
 
         return mdpfile
 
-    def _pdb_file_generator(self, sequence, name):
+    def _pdb_file_generator(self, sequence, name, amidate=False, acetylate=False):
         '''Generates PDB file from  sequence using BioPython + PeptideBuilder
 
            Parameters
@@ -1079,6 +1081,12 @@ class PeptideSim(Configurable):
 
         from Bio.PDB import PDBIO
         from Bio.SeqUtils.ProtParam import ProteinAnalysis
+
+
+        # add glycine if we're acetylating
+        if acetylate:
+            sequence = 'G' + sequence
+
         # sets the pdbfilename after the sequence
         pdbfile = name+'.pdb'
         structure = PeptideBuilder.initialize_res(sequence[0])
@@ -1095,9 +1103,33 @@ class PeptideSim(Configurable):
 
         with self._put_in_dir('peptide_structures'):
             out = PDBIO()
+
             out.set_structure(structure)
             # adds aminoacids one at a time and generates a pdbfile
-            out.save(pdbfile)
+            # process amidation/acetyltion
+            class Modifier(Bio.PDB.Select):
+                def accept_atom(self, atom):
+                    rid = atom.get_parent().get_id()[1]
+                    if amidate:
+                        # remove terminal oxygen
+                        if rid == len(sequence) and atom.get_name() == 'O':
+                            return True
+                    if acetylate:
+                        if rid == 1 and atom.get_name() == 'N':
+                            return False
+                    return True
+            out.save(pdbfile, select=Modifier())
+
+            # seems to be the easiest way.....lol?
+            if acetylate:
+                with open(pdbfile) as f:
+                    lines = f.readlines()
+                with open(pdbfile, 'w') as f:
+                    lines[0] = lines[0].replace('CA ', 'CH3', 1)
+                    for i in range(3):
+                        lines[i] = lines[i].replace('GLY', 'ACE')
+                    f.writelines(lines)
+
 
             # get molecular weight
             p = ProteinAnalysis(sequence)
@@ -1181,14 +1213,22 @@ class PeptideSim(Configurable):
             assert os.path.exists(output_file), 'Packmol succeeded with retcode {} but has no output. Input: {input}'.format(
                 *result, input=input_string)
 
-    def _pdb2gmx(self):
+    def _pdb2gmx(self, amidate=False, acetylate=False):
 
         with self._put_in_dir('prep'):
 
+            # only support one kind
+            if amidate or acetylate:
+                if amidate and acetylate and self.forcefield == 'charmm27':
+                    self.pdb2gmx_args['input'] = tuple(sum(self.counts) * ['3', '2'])
+                    self.pdb2gmx_args['ter'] = True
+                else:
+                    raise NotImplementedError('Have not made implemented this combination of FF and ters')
+
             output = 'dry_mixed.gro'
             topology = 'dry_topology.top'
-            self.log.info('Attempting to convert {} to {} with pdb2gmx'.format(
-                self.pdb_file, output))
+            self.log.info('Attempting to convert {} to {} with pdb2gmx. Args {}'.format(
+                self.pdb_file, output, self.pdb2gmx_args))
             gromacs.pdb2gmx(f=self.pdb_file, o=output, p=topology,
                             water=self.water, ff=self.forcefield, **self.pdb2gmx_args)
             self.gro_file = output
