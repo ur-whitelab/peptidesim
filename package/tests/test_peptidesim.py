@@ -347,6 +347,7 @@ class TestPTE(TestCase):
             if fnmatch.fnmatch(filename, 'plumed*'):
                 os.remove(filename)
 
+
 class TestRemoveSimulation(TestCase):
     def test_remove(self):
         # run a pte to get plumed output

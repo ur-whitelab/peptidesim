@@ -1082,7 +1082,6 @@ class PeptideSim(Configurable):
         from Bio.PDB import PDBIO
         from Bio.SeqUtils.ProtParam import ProteinAnalysis
 
-
         # add glycine if we're acetylating
         if acetylate:
             sequence = 'G' + sequence
@@ -1108,6 +1107,7 @@ class PeptideSim(Configurable):
             # adds aminoacids one at a time and generates a pdbfile
             # process amidation/acetyltion
             class Modifier(Bio.PDB.Select):
+
                 def accept_atom(self, atom):
                     rid = atom.get_parent().get_id()[1]
                     if amidate:
@@ -1118,6 +1118,7 @@ class PeptideSim(Configurable):
                         if rid == 1 and atom.get_name() == 'N':
                             return False
                     return True
+
             out.save(pdbfile, select=Modifier())
 
             # seems to be the easiest way.....lol?
