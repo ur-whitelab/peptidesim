@@ -347,6 +347,7 @@ class TestPTE(TestCase):
             if fnmatch.fnmatch(filename, 'plumed*'):
                 os.remove(filename)
 
+
 class TestRemoveSimulation(TestCase):
     def test_remove(self):
         # run a pte to get plumed output
@@ -404,6 +405,37 @@ class TestRemoveSimulation(TestCase):
             p.remove_simulation(None)
         self.assertFalse(os.path.exists(emin_dir[0]))
         shutil.rmtree('test_remove_restart')
+
+class TestAmidateAcetylate(TestCase):
+    # 2 Are disabled for now, because not implemented yet
+    def _test_amidate(self):
+        self.p = PeptideSim('pemin_test', ['VV'], [1], job_name='testing-acetamid')
+        self.p.run_kwargs = SIM_KWARGS
+        self.p.peptide_density = 20
+        self.p.initialize(amidate=True)
+        # do short emin
+        self.p.run(mdpfile='peptidesim_emin.mdp',
+                   tag='set-up-emin-constraints', mdp_kwargs={'nsteps': 25})
+
+    def _test_acetylate(self):
+        self.p = PeptideSim('pemin_test', ['VV'], [1], job_name='testing-acetamid')
+        self.p.run_kwargs = SIM_KWARGS
+        self.p.peptide_density = 20
+        self.p.initialize(acetylate=True)
+        # do short emin
+        self.p.run(mdpfile='peptidesim_emin.mdp',
+                   tag='set-up-emin-constraints', mdp_kwargs={'nsteps': 25})
+
+    def test_both(self):
+        self.p = PeptideSim('pemin_test', ['VV'], [1], job_name='testing-acetamid')
+        self.p.run_kwargs = SIM_KWARGS
+        self.p.peptide_density = 20
+        self.p.initialize(amidate=True, acetylate=True)
+        # do short emin
+        self.p.run(mdpfile='peptidesim_emin.mdp',
+                   tag='set-up-emin-constraints', mdp_kwargs={'nsteps': 25})
+
+
 
 class TestPeptideEmin(TestCase):
     def setUp(self):
