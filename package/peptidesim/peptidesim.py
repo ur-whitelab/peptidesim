@@ -1276,9 +1276,9 @@ class PeptideSim(Configurable):
                 # swtich to spc
                 water = 'spc216.gro'
 
-            if self.water == 'select' and self.forcefield == 'amber99SBdisp':
+            if self.water == 'select' and self.forcefield == 'a99SBdisp':
                 # switch to a99SBdisp_water
-                water = 'amber99SBdisp.ff/a99SBdisp_water.gro'
+                water = 'a99SBdisp.ff/a99SBdisp_water.gro'
 
             gromacs.solvate(cp=self.gro_file, cs=water, o=output,
                             p=self.top_file, box=self.box_size_nm)
