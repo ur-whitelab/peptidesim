@@ -12,8 +12,15 @@ def run(name, seq, peptide_copies, peptide_density, shift_dict, eds_reweight=Tru
     ps = PeptideSim(name, seq, peptide_copies, job_name='{}'.format(name))
     ps.mdrun_driver = 'gmx'
     ps.run_kwargs = {'nt': 4}
+    # To use an arbitrary/new/your force field,
+    # add the forcefield files to peptidesim list of files,
+    # and add it to the peptide_structures folder.
+    # This will ensure that the ff files are copied over to every simulation directory.
+    # ps.add_file('path/to/forcefield.ff')
+    # ps._put_in_dir('peptide_structures')
     ps.forcefield = 'charmm27'
     ps.water = 'tip3p'
+    # For your own water model, use water='select' and the input argument for pdb2gmx_args
     ps.peptide_density = peptide_density  # mg/ml
     ps.ion_concentration = 0.008  # 10mM
     ps.initialize()

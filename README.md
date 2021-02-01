@@ -172,6 +172,26 @@ ps.mpi_np = 4 # Number of MPI processes to use
 ps.initialize()
 ```
 
+### 5.1.2.1 Using Arbitrary Forcefields
+In case you want to use a forcefield X that is not available in GROMACS,
+add the forcefield files to the peptidesim object and put it in the `peptide_structures` 
+directory. Then use the `pdb2gmx_args` input options to select the forcefield.
+
+```python
+ps.add_file('path/to/forcefieldX.ff')
+ps._put_in_dir('peptide_structures')
+ps.forcefield = 'select'
+ps.water = 'select'
+# Specify input options, here ('1', '1') are the strings you would enter for the
+# forcefield and water, respectively, when using gmx pdb2gmx command interactively.
+ps.pdb2gmx_args['input'] = ('1', '1')
+```
+
+Note that if you want to use a water model that's not available in GROMACS,
+you need to provide the `water_model.gro` file to solvate the system. 
+You will have to change the source code function `_solvate()` 
+in `/package/peptidesim/peptidesim.py` to specify this new water file.
+
 ### 5.1.3. Simulation Steps
 Here we do energy minimization, annealing and NVT equilibration. Note that
 we can pass specific gromacs `mdp` arguments as python objects. The `tag` is
