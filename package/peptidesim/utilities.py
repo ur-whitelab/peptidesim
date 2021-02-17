@@ -238,6 +238,42 @@ def pretty_cslabel(cs_name):
 
     return 'Chain ' + ascii_uppercase[int(chain)] + ' ' + name + resid + ' ' + atom
 
+def create_shift_dict(seq, copies, data_dir):
+    ''' Creates a dictionary of chemical shifts in the format needed for prepare_cs_data().
+    
+    Parameters
+    ----------
+    seq: peptide sequence
+    copies: Number of chains of the peptide 
+    data_dir: Data directory conyaining the shift.dat files
+
+    Returns
+    -------
+    shift_dict: dictionary of chemical shifts in the format
+        {'[chain#, from 0]-[resid#, from 1]-[Resid]-[atom name]': shift_value}
+
+    TODO: Make this work for multiple sequences
+    '''
+    shift_dict = {}
+    keys = {'CAshifts':'CA', 'CBshifts':'CB', 'Cshifts':'C',
+            'HAshifts':'HA', 'Hshifts':'H', 'Nshifts':'N'}
+    shift_files = os.listdir(data_dir)
+    for key in keys.keys():
+        dat_file = os.path.join(data_dir, key+'.dat')
+        # Read dat file if it exists
+        if os.path.exists(dat_file):
+            df = pd.read_csv(dat_file, sep='\t', header=None)
+            # Construct shift_dict
+            for i in range(copies):
+                for j, k in enumerate(res_list):
+                    if df[1][j] == 1.0:
+                        continue
+                    if j == 0 or j == len(res_list) - 1:
+                        continue
+                    # shift_dict format for prepare_cs_data is very specific
+                    # {'[chain#, from 0]-[resid#, from 1]-[Resid]-[atom name]': shift_value}
+                    shift_dict['{}-{}-{}-{}'.format(i, j+1, k, keys[key])] = round(df[1][j], 2)
+    return shift_dict
 
 def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     '''Prepare a directory for adding chemical shifts.
