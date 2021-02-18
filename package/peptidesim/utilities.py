@@ -255,6 +255,7 @@ def create_shift_dict(seq, copies, data_dir):
 
     TODO: Make this work for multiple sequences
     '''
+    res_list = list(seq.strip())
     shift_dict = {}
     keys = {'CAshifts': 'CA', 'CBshifts': 'CB', 'Cshifts': 'C',
             'HAshifts': 'HA', 'Hshifts': 'H', 'Nshifts': 'N'}
