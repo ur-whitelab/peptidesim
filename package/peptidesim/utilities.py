@@ -255,6 +255,7 @@ def create_shift_dict(seq, copies, data_dir):
 
     TODO: Make this work for multiple sequences
     '''
+    res_list = list(seq.strip())
     shift_dict = {}
     keys = {'CAshifts': 'CA', 'CBshifts': 'CB', 'Cshifts': 'C',
             'HAshifts': 'HA', 'Hshifts': 'H', 'Nshifts': 'N'}
@@ -316,11 +317,12 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
         cindex = 0
         with open(os.path.join(data_dir, f'{rn}shifts.dat'), 'w') as f:
             for i, s in enumerate(ps.sequences):
+                peptide_id = 0
                 for j in range(ps.counts[i]):
                     for k in range(len(s)):
                         shift = 0.0
                         # check for match
-                        key = f'{i}-{k+1}-{s[k]}-{rn}'
+                        key = f'{peptide_id}-{k+1}-{s[k]}-{rn}'
                         if key in shift_dict:
                             shift = shift_dict[key]
                             seen_shifts.add(key)
@@ -337,6 +339,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
                             f.write(f'{rindex} {shift}\n')
                         rindex += 1
                     cindex += 1
+                    peptide_id += 1
     # check for missed shifts
     given_shifts = set(shift_dict.keys())
     if given_shifts != seen_shifts:
