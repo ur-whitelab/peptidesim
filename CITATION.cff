@@ -1,0 +1,44 @@
+cff-version: "1.1.0"
+message: "If you use this software, please cite it using these metadata."
+
+authors: 
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: Amirkulova
+    given-names: Dilnoza
+    orcid: "https://orcid.org/0000-0001-6961-3081"
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: Gandhi
+    given-names: Heta
+    orcid: "https://orcid.org/0000-0002-9465-3840"
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: Chakraborty
+    given-names: Maghesree
+    orcid: "https://orcid.org/0000-0001-5706-3027"
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: Ansari
+    given-names: Mehrad
+    orcid: "https://orcid.org/0000-0001-5696-9193"
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: Barrett
+    given-names: Rainier
+    orcid: "https://orcid.org/0000-0001-5706-3027"
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: Xu
+    given-names: Jinyu
+  -
+    affiliation: "Department of Chemical Engineering, University of Rochester"
+    family-names: White
+    given-names: Andrew
+    orcid: "https://orcid.org/0000-0002-6647-3965"
+
+
+repository-code: "https://github.com/ur-whitelab/peptidesim"
+title: "Peptidesim: Automated peptide simulation tool with gromacs, gromacswrapper, plumed"
+version: "0.51"
+...
