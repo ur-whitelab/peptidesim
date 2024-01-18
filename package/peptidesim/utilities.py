@@ -239,6 +239,44 @@ def pretty_cslabel(cs_name):
     return 'Chain ' + ascii_uppercase[int(chain)] + ' ' + name + resid + ' ' + atom
 
 
+def create_shift_dict(seq, copies, data_dir):
+    ''' Creates a dictionary of chemical shifts in the format needed for prepare_cs_data().
+
+    Parameters
+    ----------
+    seq: peptide sequence
+    copies: Number of chains of the peptide
+    data_dir: Data directory conyaining the shift.dat files
+
+    Returns
+    -------
+    shift_dict: dictionary of chemical shifts in the format
+        {'[chain#, from 0]-[resid#, from 1]-[Resid]-[atom name]': shift_value}
+
+    TODO: Make this work for multiple sequences
+    '''
+    res_list = list(seq.strip())
+    shift_dict = {}
+    keys = {'CAshifts': 'CA', 'CBshifts': 'CB', 'Cshifts': 'C',
+            'HAshifts': 'HA', 'Hshifts': 'H', 'Nshifts': 'N'}
+    shift_files = os.listdir(data_dir)
+    for key in keys.keys():
+        dat_file = os.path.join(data_dir, key+'.dat')
+        # Read dat file if it exists
+        if os.path.exists(dat_file):
+            df = pd.read_csv(dat_file, sep='\t', header=None)
+            # Construct shift_dict
+            for i in range(copies):
+                for j, k in enumerate(res_list):
+                    if df[1][j] == 1.0:
+                        continue
+                    if j == 0 or j == len(res_list) - 1:
+                        continue
+                    # shift_dict format for prepare_cs_data is very specific
+                    # {'[chain#, from 0]-[resid#, from 1]-[Resid]-[atom name]': shift_value}
+                    shift_dict['{}-{}-{}-{}'.format(i, j+1, k, keys[key])] = round(df[1][j], 2)
+    return shift_dict
+
 def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
     '''Prepare a directory for adding chemical shifts.
 
@@ -279,11 +317,12 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
         cindex = 0
         with open(os.path.join(data_dir, f'{rn}shifts.dat'), 'w') as f:
             for i, s in enumerate(ps.sequences):
+                peptide_id = 0
                 for j in range(ps.counts[i]):
                     for k in range(len(s)):
                         shift = 0.0
                         # check for match
-                        key = f'{i}-{k+1}-{s[k]}-{rn}'
+                        key = f'{peptide_id}-{k+1}-{s[k]}-{rn}'
                         if key in shift_dict:
                             shift = shift_dict[key]
                             seen_shifts.add(key)
@@ -300,6 +339,7 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
                             f.write(f'{rindex} {shift}\n')
                         rindex += 1
                     cindex += 1
+                    peptide_id += 1
     # check for missed shifts
     given_shifts = set(shift_dict.keys())
     if given_shifts != seen_shifts:
@@ -335,8 +375,9 @@ def prepare_cs_data(ps, shift_dict=None, pte_reweight=False):
         cs2_avg_names.append(f'avg-{k}')
         exp_name = cs2_names[k][0].replace('cs.', 'cs.exp')
         print_arg_list.append(f'avg-{k},all-avg-{k},{exp_name}')
-
-    plumed_script += f'PRINT FILE=cs_shifts.dat ARG={",".join(print_arg_list)} STRIDE=500\n'
+    
+    print_arg = ','.join(print_arg_list)
+    plumed_script += f'PRINT FILE=cs_shifts.dat ARG={print_arg} STRIDE=500\n'
 
     return {'data_dir': data_dir, 'shift_dict': shift_dict, 'plumed': plumed_script, 'cs2_names': cs2_avg_names, 'cs2_values': cs2_values}
 
